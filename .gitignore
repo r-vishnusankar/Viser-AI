@@ -1,0 +1,240 @@
+# Wise-AI Project .gitignore
+
+# ================================
+# Python
+# ================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ================================
+# Virtual Environments
+# ================================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.conda/
+conda-meta/
+
+# ================================
+# AI/ML & Data Science
+# ================================
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.model
+*.weights
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.pb
+*.ckpt
+*.safetensors
+datasets/
+data/
+models/
+checkpoints/
+logs/
+runs/
+wandb/
+mlruns/
+.neptune/
+
+# ================================
+# API Keys & Secrets
+# ================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+config.ini
+secrets.json
+api_keys.txt
+*.key
+*.pem
+*.crt
+
+# ================================
+# Web Development
+# ================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ================================
+# Project Specific
+# ================================
+uploads/
+templates/
+outputs/
+temp/
+tmp/
+*.log
+*.tmp
+*.temp
+test_*.py
+debug_*.py
+*_test.py
+*_debug.py
+
+# ================================
+# Jupyter Notebooks
+# ================================
+.ipynb_checkpoints/
+*.ipynb
+
+# ================================
+# Documentation
+# ================================
+docs/_build/
+*.pdf
+*.docx
+*.doc
+*.xlsx
+*.xls
+
+# ================================
+# IDE & Editor Files
+# ================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.atom/
+.brackets.json
+.editorconfig
+
+# ================================
+# OS Generated Files
+# ================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ================================
+# Backup Files
+# ================================
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*~
+.#*
+
+# ================================
+# Cache & Temporary Files
+# ================================
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+
+# ================================
+# Database
+# ================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# ================================
+# Large Files & Media
+# ================================
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+*.mkv
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.wma
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.bz2
+*.xz
+
+# ================================
+# Testing
+# ================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+test-results/
+test-reports/
+
+# ================================
+# Deployment & CI/CD
+# ================================
+.dockerignore
+docker-compose.override.yml
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+.k8s/
+*.kubeconfig

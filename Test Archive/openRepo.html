@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Case Management System</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #7b2ff7, #f107a3);
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 1200px;
+      margin: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+    h1 {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    h2 {
+      text-align: center;
+      color: #eee;
+      margin-top: 0;
+      font-weight: normal;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    select, input[type="text"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      min-width: 180px;
+    }
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      color: white;
+      font-weight: bold;
+    }
+    .btn-refresh { background: #6c63ff; }
+    .btn-csv { background: #4caf50; }
+    .btn-excel { background: #f06292; }
+    .btn-clear { background: #5c6bc0; }
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .stat-box {
+      background: #f9f9f9;
+      padding: 20px;
+      border-radius: 10px;
+      flex: 1;
+      margin: 0 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .stat-box h3 {
+      margin: 0;
+      font-size: 28px;
+      color: #333;
+    }
+    .stat-box p {
+      margin: 5px 0 0;
+      color: #666;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+    }
+    th, td {
+      padding: 12px 15px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #7b2ff7;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test Case Management System</h1>
+  <h2>Manage and execute your test cases efficiently</h2>
+
+  <div class="container">
+    <input type="file" id="upload" multiple accept=".xlsx" style="margin-bottom: 20px; display: block; margin-left: auto; margin-right: auto;" />
+
+    <div class="filters">
+      <select id="fileSelector">
+        <option selected disabled>Select Module</option>
+      </select>
+
+      <select id="moduleFilter">
+        <option>All Modules</option>
+      </select>
+
+      <select id="priorityFilter">
+        <option>All Priorities</option>
+      </select>
+
+      <select id="typeFilter">
+        <option>All Types</option>
+      </select>
+
+      <input type="text" placeholder="Search by TC_ID, scenario, or result" id="searchBox" />
+
+      <button class="btn-refresh">🔄 REFRESH</button>
+      <button class="btn-csv">📁 EXPORT TO CSV</button>
+      <button class="btn-excel">📊 EXPORT TO EXCEL</button>
+      <button class="btn-clear">🧹 CLEAR FILTERS</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat-box"><h3>0</h3><p>TOTAL TESTS</p></div>
+      <div class="stat-box"><h3>0</h3><p>FILTERED TESTS</p></div>
+      <div class="stat-box"><h3>0</h3><p>HIGH PRIORITY</p></div>
+      <div class="stat-box"><h3>0</h3><p>CRITICAL</p></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>TC ID</th>
+          <th>TEST SCENARIO</th>
+          <th>PRE-CONDITIONS</th>
+          <th>STEPS</th>
+          <th>EXPECTED RESULT</th>
+          <th>PRIORITY</th>
+          <th>TEST TYPE</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data rows will go here -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    let allFilesData = {};
+    let currentFileName = null;
+
+    const fileSelector = document.getElementById('fileSelector');
+    const moduleFilter = document.getElementById('moduleFilter');
+    const priorityFilter = document.getElementById('priorityFilter');
+    const typeFilter = document.getElementById('typeFilter');
+    const searchBox = document.getElementById('searchBox');
+    const tableBody = document.querySelector('tbody');
+
+    document.getElementById('upload').addEventListener('change', handleFiles);
+
+    function handleFiles(e) {
+      const files = Array.from(e.target.files);
+      allFilesData = {};
+      fileSelector.innerHTML = `<option selected disabled>Select Module</option>`;
+
+      files.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          let fileData = [];
+
+          workbook.SheetNames.forEach(sheetName => {
+            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+            rows.forEach(row => row.Module = sheetName);
+            fileData.push(...rows);
+          });
+
+          allFilesData[file.name] = fileData;
+
+          const opt = document.createElement('option');
+          opt.value = file.name;
+          opt.text = file.name.replace('.xlsx', '');
+          fileSelector.appendChild(opt);
+
+          if (index === 0) {
+            fileSelector.value = file.name;
+            currentFileName = file.name;
+            populateFilters(fileData);
+            renderTable(fileData);
+            updateStats(fileData);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    fileSelector.addEventListener('change', () => {
+      currentFileName = fileSelector.value;
+      const data = allFilesData[currentFileName];
+      populateFilters(data);
+      renderTable(data);
+      updateStats(data);
+    });
+
+    function renderTable(data) {
+      if (!data.length) {
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">No test cases found or column mismatch.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = data.map(tc => `
+        <tr>
+          <td>${tc.TC_ID || ''}</td>
+          <td>${tc["Test Scenario"] || ''}</td>
+          <td>${tc["Pre-conditions"] || ''}</td>
+          <td>${tc["Test steps"] || ''}</td>
+          <td>${tc["Expected Result"] || ''}</td>
+          <td>${tc.Priority || ''}</td>
+          <td>${tc["Test Type"] || ''}</td>
+        </tr>
+      `).join('');
+    }
+
+    function updateStats(data) {
+      const allCount = allFilesData[currentFileName]?.length || 0;
+      const filteredCount = data.length;
+      const highCount = data.filter(tc => (tc.Priority || '').toLowerCase() === 'high').length;
+      const criticalCount = data.filter(tc => (tc.Priority || '').toLowerCase() === 'critical').length;
+
+      document.querySelectorAll('.stat-box h3')[0].innerText = allCount;
+      document.querySelectorAll('.stat-box h3')[1].innerText = filteredCount;
+      document.querySelectorAll('.stat-box h3')[2].innerText = highCount;
+      document.querySelectorAll('.stat-box h3')[3].innerText = criticalCount;
+    }
+
+    function populateFilters(data) {
+      const modules = [...new Set(data.map(tc => tc.Module))];
+      const types = [...new Set(data.map(tc => tc["Test Type"]))];
+      const priorities = ['Critical', 'High', 'Medium', 'Low'];
+
+      moduleFilter.innerHTML = `<option>All Modules</option>` + modules.map(m => `<option>${m}</option>`).join('');
+      typeFilter.innerHTML = `<option>All Types</option>` + types.map(t => `<option>${t}</option>`).join('');
+      priorityFilter.innerHTML = `<option>All Priorities</option>` + priorities.map(p => `<option>${p}</option>`).join('');
+    }
+
+    function applyFilters() {
+      if (!currentFileName) return;
+
+      let filtered = allFilesData[currentFileName];
+      const mod = moduleFilter.value;
+      const prio = priorityFilter.value;
+      const type = typeFilter.value;
+      const search = searchBox.value.toLowerCase();
+
+      if (mod !== 'All Modules') {
+        filtered = filtered.filter(tc => tc.Module === mod);
+      }
+      if (prio !== 'All Priorities') {
+        filtered = filtered.filter(tc => (tc.Priority || '').toLowerCase() === prio.toLowerCase());
+      }
+      if (type !== 'All Types') {
+        filtered = filtered.filter(tc => (tc["Test Type"] || '').toLowerCase() === type.toLowerCase());
+      }
+      if (search.trim()) {
+        filtered = filtered.filter(tc =>
+          (tc.TC_ID || '').toLowerCase().includes(search) ||
+          (tc["Test Scenario"] || '').toLowerCase().includes(search) ||
+          (tc["Expected Result"] || '').toLowerCase().includes(search)
+        );
+      }
+
+      renderTable(filtered);
+      updateStats(filtered);
+    }
+
+    moduleFilter.addEventListener('change', applyFilters);
+    priorityFilter.addEventListener('change', applyFilters);
+    typeFilter.addEventListener('change', applyFilters);
+    searchBox.addEventListener('input', applyFilters);
+
+    document.querySelector('.btn-clear').addEventListener('click', () => {
+      moduleFilter.value = 'All Modules';
+      priorityFilter.value = 'All Priorities';
+      typeFilter.value = 'All Types';
+      searchBox.value = '';
+      if (currentFileName) {
+        renderTable(allFilesData[currentFileName]);
+        updateStats(allFilesData[currentFileName]);
+      }
+    });
+
+    document.querySelector('.btn-refresh').addEventListener('click', () => {
+      if (currentFileName) {
+        renderTable(allFilesData[currentFileName]);
+        updateStats(allFilesData[currentFileName]);
+      }
+    });
+
+    document.querySelector('.btn-csv').addEventListener('click', () => {
+      if (!currentFileName) return;
+      const csvData = Papa.unparse(allFilesData[currentFileName]);
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentFileName.replace('.xlsx', '')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.querySelector('.btn-excel').addEventListener('click', () => {
+      if (!currentFileName) return;
+      const ws = XLSX.utils.json_to_sheet(allFilesData[currentFileName]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Test Cases");
+      XLSX.writeFile(wb, `${currentFileName.replace('.xlsx', '')}.xlsx`);
+    });
+  </script>
+</body>
+</html>

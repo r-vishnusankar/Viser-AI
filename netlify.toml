@@ -1,0 +1,30 @@
+[build]
+  command = "echo 'Build complete - environment variables should be set in Netlify dashboard'"
+  publish = "."
+
+[build.environment]
+  PYTHON_VERSION = "3.11"
+
+# Note: Netlify Functions don't support WebSockets (SocketIO)
+# For full Flask app with SocketIO, consider using:
+# - Netlify's Python runtime with serverless-http
+# - Or deploy to platforms like Railway, Render, or Heroku
+
+# If deploying Flask API endpoints only (without SocketIO):
+# 1. Create serverless functions in netlify/functions/
+# 2. Set environment variables in Netlify dashboard:
+#    Site settings > Environment variables
+#    Add all variables from .env.example
+
+# Example redirects for API routes (if using serverless functions)
+# [[redirects]]
+#   from = "/api/*"
+#   to = "/.netlify/functions/flask-api"
+#   status = 200
+#   force = false
+
+# Redirect root to index if you have a static frontend
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200
