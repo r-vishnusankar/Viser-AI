@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Settings configuration for Core Engine 2.0
+Settings configuration for spec2.0 AI DOM Engine
 """
 
 import os
@@ -11,7 +11,18 @@ class Settings:
     """Application settings with API key management"""
     
     def __init__(self):
-        self.config_dir = Path.home() / ".viser_ai"
+        # Try Viser AI config dir first, then fall back to spec2 dir
+        viser_config_dir = Path.home() / ".viser_ai"
+        spec2_config_dir = Path.home() / ".spec2"
+        
+        if (viser_config_dir / "config.json").exists():
+            self.config_dir = viser_config_dir
+        elif (spec2_config_dir / "config.json").exists():
+            self.config_dir = spec2_config_dir
+        else:
+            # Default to viser_ai for new installs
+            self.config_dir = viser_config_dir
+        
         self.config_file = self.config_dir / "config.json"
         self._config = {}
         self._load_config()
@@ -121,7 +132,7 @@ class Settings:
     
     def print_status(self):
         """Print current configuration status"""
-        print("🤖 Core Engine 2.0 Configuration")
+        print("🤖 Viser AI - Core Engine Configuration")
         print("=" * 50)
         print(f"GROQ_API_KEY: {'✅ Set' if self.has_groq_key() else '❌ Missing'}")
         print(f"GEMINI_API_KEY: {'✅ Set' if self.has_gemini_key() else '❌ Missing'}")

@@ -113,6 +113,11 @@ debug_*.py
 *_test.py
 *_debug.py
 
+# Core Engine 2.0 - Browser automation
+Core Engine 2.0/browser_use_profile/
+Core Engine 2.0/browser_result.png
+Core Engine 2.0/plans/
+
 # ================================
 # Jupyter Notebooks
 # ================================

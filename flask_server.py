@@ -17,9 +17,37 @@ from flask_cors import CORS
 import os
 import json
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables from .env file
+# Load environment variables from .env file (if present)
 load_dotenv()
+
+def _load_viser_config():
+    """
+    Fall back to ~/.viser_ai/config.json (written by setup_api_keys.py / settings.py)
+    for any API keys that were not already set by .env or the OS environment.
+    This keeps a single source-of-truth for keys across the whole project.
+    """
+    for config_dir in (Path.home() / ".viser_ai", Path.home() / ".spec2"):
+        cfg_file = config_dir / "config.json"
+        if not cfg_file.exists():
+            continue
+        try:
+            with open(cfg_file, "r") as f:
+                cfg = json.load(f)
+            mapping = {
+                "groq_api_key":   "GROQ_API_KEY",
+                "gemini_api_key": "GEMINI_API_KEY",
+                "openai_api_key": "OPENAI_API_KEY",
+            }
+            for cfg_key, env_key in mapping.items():
+                if cfg.get(cfg_key) and not os.environ.get(env_key):
+                    os.environ[env_key] = cfg[cfg_key]
+            break  # use the first config file found
+        except Exception as e:
+            print(f"Warning: could not read {cfg_file}: {e}")
+
+_load_viser_config()
 import uuid
 import time
 import requests
@@ -72,15 +100,24 @@ except ImportError:
 # Core Engine 2.0 integration
 CORE_ENGINE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Core Engine 2.0")
 sys.path.insert(0, os.path.join(CORE_ENGINE_DIR, "src"))
+sys.path.insert(0, CORE_ENGINE_DIR)  # Allow importing settings.py from Core Engine root
 
 try:
-    from viser_core.ai_planner import AIPlanner
-    from viser_core.intent_router import infer_intent
-    from viser_core.executor import run_with_browser_use
+    from spec2.ai_planner import AIPlanner
+    from spec2.intent_router import infer_intent
+    from spec2.executor import run_with_browser_use
     CORE_ENGINE_AVAILABLE = True
 except ImportError:
     CORE_ENGINE_AVAILABLE = False
-    print("Warning: viser_core modules not found. AI Automation will be disabled.")
+    print("Warning: spec2 Core Engine modules not found. AI Automation will be disabled.")
+
+# TOON (toonify): compact format to reduce LLM token usage
+try:
+    from toon import encode as toon_encode
+    TOON_AVAILABLE = True
+except ImportError:
+    TOON_AVAILABLE = False
+    toon_encode = None
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'viser-ai-secret-key'
@@ -115,10 +152,11 @@ class ContextManager:
     
     @staticmethod
     def get_session(session_id):
-        """Get or create user session"""
+        """Get or create user session, restoring from DB if not in memory."""
         if session_id not in user_sessions:
+            history = db_load_session(session_id, limit=60)
             user_sessions[session_id] = {
-                "conversation_history": [],
+                "conversation_history": history,
                 "uploaded_files": [],
                 "last_activity": time.time()
             }
@@ -126,7 +164,7 @@ class ContextManager:
     
     @staticmethod
     def add_message(session_id, role, content):
-        """Add message to conversation history"""
+        """Add message to conversation history and persist to SQLite."""
         session = ContextManager.get_session(session_id)
         session["conversation_history"].append({
             "role": role,
@@ -134,10 +172,21 @@ class ContextManager:
             "timestamp": time.time()
         })
         session["last_activity"] = time.time()
-        
-        # Keep only last 20 messages to avoid token limits
-        if len(session["conversation_history"]) > 20:
-            session["conversation_history"] = session["conversation_history"][-20:]
+        # Persist to DB
+        db_save_message(session_id, role, content)
+
+        # Smart context: when history is long, summarise old messages
+        if len(session["conversation_history"]) > _SUMMARIZE_THRESHOLD:
+            old  = session["conversation_history"][:-_SUMMARIZE_KEEP]
+            keep = session["conversation_history"][-_SUMMARIZE_KEEP:]
+            summary = _summarize_old_messages(old)
+            if summary:
+                session["conversation_history"] = [
+                    {"role": "system", "content": f"[Earlier conversation summary]\n{summary}",
+                     "timestamp": time.time()}
+                ] + keep
+            else:
+                session["conversation_history"] = keep
 
     @staticmethod
     def add_file_context(session_id, file_info):
@@ -163,30 +212,31 @@ class ContextManager:
         # Build system message with context
         system_message = """You are Viser AI.
 
-TABLE RULES (STRICT):
-If the user asks for a table, you MUST output ONLY a valid GitHub-Flavored Markdown table.
-STRICT FORMAT:
+TABLE RULES (use tables ONLY when explicitly requested):
+- Use a Markdown table ONLY when the user explicitly asks for it (e.g. "in table format", "as a table", "I need it in table", "show as table").
+- For all other responses (confirmations, summaries, parsed data, email info, etc.), use normal prose—never tables.
+- When the user DOES ask for a table, use this format:
 | Column 1 | Column 2 |
 | --- | --- |
 | Row 1 Data | Row 1 Data |
-| Row 2 Data | Row 2 Data |
-
-RULES:
-- A NEWLINE MUST exist between the header and separator.
-- A NEWLINE MUST exist between the separator and data.
-- EVERY row MUST start and end with a pipe (|).
-- NO text before or after the table.
-- NO backticks around the table.
 """
         
         if include_files and session["uploaded_files"]:
-            file_list = []
-            for file_info in session["uploaded_files"][-5:]:  # Last 5 files
-                status = "analyzed" if file_info["analyzed"] else "uploaded"
-                file_list.append(f"- {file_info['filename']} ({status})")
-            
-            system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list)
-            system_message += "\nYou can reference these files in your responses and offer to analyze them if not already done."
+            files_for_context = [
+                {"filename": f["filename"], "status": "analyzed" if f["analyzed"] else "uploaded"}
+                for f in session["uploaded_files"][-5:]
+            ]
+            if TOON_AVAILABLE and toon_encode:
+                try:
+                    context_toon = toon_encode({"uploaded_files": files_for_context})
+                    system_message += f"\n\nContext (TOON):\n{context_toon}\nReference these files and offer to analyze if not already done."
+                except Exception:
+                    file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
+                    system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list) + "\nYou can reference these files in your responses and offer to analyze them if not already done."
+            else:
+                file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
+                system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list)
+                system_message += "\nYou can reference these files in your responses and offer to analyze them if not already done."
         
         # Build message history
         messages = [{"role": "system", "content": system_message}]
@@ -269,9 +319,9 @@ def run_core_engine_task(url, prompt, provider):
         asyncio.set_event_loop(loop)
         
         try:
-            from viser_core.ai_planner import AIPlanner
-            from viser_core.intent_router import infer_intent
-            from viser_core.executor import run_with_browser_use, run_async
+            from spec2.ai_planner import AIPlanner
+            from spec2.intent_router import infer_intent
+            from spec2.executor import run_with_browser_use, run_async
             
             # Detect intent
             ui_logger.log('INFO', '🔍 Analyzing intent...')
@@ -282,11 +332,8 @@ def run_core_engine_task(url, prompt, provider):
             ui_logger.log('INFO', '🗂️ Planning objectives...')
             planner = AIPlanner(provider)
             
-            # Use browser-use planning for intelligent autonomous automation
-            if provider in ['groq', 'gemini']:
-                plan = planner.plan_for_browser_use(prompt)
-            else:
-                plan = planner.plan(prompt)
+            # Use browser-use planning for all supported providers
+            plan = planner.plan_for_browser_use(prompt, target_url=url)
                 
             if plan.get('error'):
                 ui_logger.log('ERROR', f'❌ Planning failed: {plan["error"]}')
@@ -327,6 +374,147 @@ def run_core_engine_task(url, prompt, provider):
         is_automation_running = False
         socketio.emit('task_completed')
 
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    ui_logger.log('INFO', '👋 Client disconnected')
+
+
+@socketio.on('test_connection')
+def handle_test_connection():
+    emit('log_message', {
+        'timestamp': datetime.now().strftime("%H:%M:%S"),
+        'level': 'INFO',
+        'message': '🔗 Connection OK — Viser AI Core Engine ready',
+    })
+
+
+@socketio.on('plan_task')
+def handle_plan_task(data):
+    """Generate a plan (dry-run) without executing it."""
+    prompt   = (data or {}).get('prompt',   '').strip()
+    url      = (data or {}).get('url',      '').strip()
+    provider = (data or {}).get('provider', 'groq')
+
+    if not prompt:
+        emit('error', {'message': 'Please provide a task prompt'})
+        return
+
+    if not CORE_ENGINE_AVAILABLE:
+        emit('error', {'message': 'Core Engine 2.0 not available on this server'})
+        return
+
+    socketio.start_background_task(_plan_task_bg, prompt, url, provider)
+
+
+def _plan_task_bg(prompt: str, url: str, provider: str) -> None:
+    """Background task: run AI planning without browser execution."""
+    try:
+        from spec2.ai_planner import AIPlanner, compare
+        from spec2.intent_router import infer_intent
+
+        ui_logger.log('INFO', f'🎯 Planning: {prompt}')
+        if url:
+            ui_logger.log('INFO', f'🌐 Target URL: {url}')
+        ui_logger.log('INFO', f'🤖 Provider: {provider}')
+
+        intent = infer_intent(prompt)
+        ui_logger.log('INFO', f'📋 Intent: {intent}')
+
+        if provider == 'compare':
+            _plan_compare_bg(prompt, url, intent)
+            return
+
+        planner = AIPlanner(provider)
+        plan = planner.plan(prompt, url)
+
+        if plan.get('error'):
+            ui_logger.log('ERROR', f'❌ Planning failed: {plan["error"]}')
+            socketio.emit('error', {'message': f'Planning failed: {plan["error"]}'})
+            return
+
+        steps_count = len(plan.get('steps', []))
+        ui_logger.log('SUCCESS', f'✅ Plan ready: {steps_count} steps')
+
+        if plan.get('saved_to'):
+            ui_logger.log('INFO', f'📁 Saved: {plan["saved_to"]}')
+
+        socketio.emit('plan_ready', {'type': 'single', 'plan': plan, 'intent': intent})
+
+    except Exception as exc:
+        ui_logger.log('ERROR', f'💥 Planning error: {exc}')
+        socketio.emit('error', {'message': f'Planning failed: {exc}'})
+
+
+def _plan_compare_bg(prompt: str, url: str, intent: str) -> None:
+    """Compare plans from all available providers side-by-side."""
+    try:
+        from spec2.ai_planner import compare
+        ui_logger.log('INFO', '🔄 Comparing all available providers...')
+        results = compare(prompt, url)
+
+        for prov, result in results.items():
+            if result.get('error'):
+                ui_logger.log('ERROR', f'❌ {prov.upper()}: {result["error"]}')
+            else:
+                n = len(result.get('steps', []))
+                ui_logger.log('INFO', f'✅ {prov.upper()}: {n} steps')
+
+        socketio.emit('plan_ready', {'type': 'compare', 'results': results, 'intent': intent})
+
+    except Exception as exc:
+        ui_logger.log('ERROR', f'💥 Compare failed: {exc}')
+        socketio.emit('error', {'message': f'Compare failed: {exc}'})
+
+
+@socketio.on('enhance_plan')
+def handle_enhance_plan(data):
+    """Enhance an uploaded plan file via AI."""
+    raw      = (data or {}).get('raw',      '').strip()
+    filename = (data or {}).get('filename', 'uploaded_plan.txt')
+    provider = (data or {}).get('provider', 'groq')
+    url      = (data or {}).get('url',      '').strip()
+
+    if not raw:
+        emit('error', {'message': 'No plan content received'})
+        return
+
+    if not CORE_ENGINE_AVAILABLE:
+        emit('error', {'message': 'Core Engine 2.0 not available on this server'})
+        return
+
+    socketio.start_background_task(_enhance_plan_bg, raw, filename, provider, url)
+
+
+def _enhance_plan_bg(raw: str, filename: str, provider: str, url: str) -> None:
+    """Background task: use AI to improve an uploaded plan."""
+    try:
+        from spec2.ai_planner import AIPlanner
+        ui_logger.log('INFO', f'📂 Enhancing plan: {filename}')
+        planner = AIPlanner(provider)
+        prompt = (
+            "Please read and improve this execution plan. Convert it into specific, "
+            "actionable browser automation steps. Fix structure, rephrase steps, and "
+            f"return detailed JSON with a steps list.\n\nFile: {filename}\n\nContent:\n\n{raw}"
+        )
+        plan = planner.plan(prompt, url)
+
+        if plan.get('error'):
+            ui_logger.log('ERROR', f'❌ Enhancement failed: {plan["error"]}')
+            socketio.emit('error', {'message': f'Enhancement failed: {plan["error"]}'})
+            return
+
+        if plan.get('saved_to'):
+            ui_logger.log('INFO', f'📁 Enhanced plan saved: {plan["saved_to"]}')
+
+        socketio.emit('plan_ready', {'type': 'single', 'plan': plan, 'intent': 'uploaded'})
+        ui_logger.log('SUCCESS', f'✅ Plan enhanced: {filename}')
+
+    except Exception as exc:
+        ui_logger.log('ERROR', f'💥 Enhancement error: {exc}')
+        socketio.emit('error', {'message': f'Failed to enhance plan: {exc}'})
+
+
 @app.route('/api/repo/files', methods=['GET'])
 def list_repo_files():
     """List all available repository files in the Test Archive folder"""
@@ -352,28 +540,31 @@ def load_repo_file(filename):
         return send_from_directory(repo_dir, filename)
     except Exception as e:
         return jsonify({"error": str(e)}), 404
-    
-    @staticmethod
-    def mark_file_analyzed(session_id, filename):
-        """Mark a file as analyzed"""
-        session = ContextManager.get_session(session_id)
-        for file_info in session["uploaded_files"]:
-            if file_info["filename"] == filename:
-                file_info["analyzed"] = True
-                break
-    
-    @staticmethod
-    def cleanup_old_sessions():
-        """Clean up sessions older than 24 hours"""
-        current_time = time.time()
-        expired_sessions = []
-        
-        for session_id, session in user_sessions.items():
-            if current_time - session["last_activity"] > 86400:  # 24 hours
-                expired_sessions.append(session_id)
-        
-        for session_id in expired_sessions:
-            del user_sessions[session_id]
+
+
+@app.route('/api/unsplash/random', methods=['GET'])
+def unsplash_random():
+    """Fetch a random Unsplash image URL for Nexora background. Requires UNSPLASH_ACCESS_KEY in .env"""
+    key = os.environ.get('UNSPLASH_ACCESS_KEY')
+    if not key:
+        return jsonify({"enabled": False})
+    try:
+        query = request.args.get('query', 'gradient abstract purple')
+        r = requests.get(
+            'https://api.unsplash.com/photos/random',
+            params={'query': query, 'orientation': 'landscape', 'client_id': key},
+            timeout=5
+        )
+        r.raise_for_status()
+        data = r.json()
+        return jsonify({
+            "enabled": True,
+            "url": data.get("urls", {}).get("regular"),
+            "thumb": data.get("urls", {}).get("thumb"),
+        })
+    except Exception as e:
+        return jsonify({"enabled": True, "error": str(e)}), 500
+
 
 def extract_docx_content(file_path):
     """Extract text content from .docx files"""
@@ -449,7 +640,7 @@ def analyze_image_with_gemini(file_path, prompt="Analyze this image and describe
             return "❌ Failed to extract image content"
         
         # Prepare Gemini Vision API request
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.5-flash')}:generateContent"
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
         
         headers = {
             'Content-Type': 'application/json',
@@ -595,177 +786,93 @@ def detect_email_command(message):
     return {'is_email_command': False}
 
 def create_simple_email_body(message_content, session_id=None):
-    """Create HTML email body for quick messages"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }}
-            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }}
-            .content {{ padding: 30px; background: #f8f9fa; }}
-            .message {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 16px; }}
-            .footer {{ background: #343a40; color: white; padding: 15px; text-align: center; font-size: 12px; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>📧 Message from Vise-AI</h1>
-        </div>
-        <div class="content">
-            <div class="message">
-                <p>{message_content}</p>
-            </div>
-        </div>
-        <div class="footer">
-            <p>Sent via Vise-AI on {timestamp}</p>
-            {f'<p>Session: {session_id}</p>' if session_id else ''}
-        </div>
-    </body>
-    </html>
-    """
-    return html_body
+    """Create plain email body for quick messages (no template)"""
+    return f"<p>{message_content}</p>"
 
 def send_email(to_email, subject, body, attachment_path=None, attachment_name=None):
     """Send email with optional attachment"""
     if not CONFIG.get('EMAIL_ENABLED', False):
         print("📧 Email sending disabled in configuration")
-        return False, "Email sending is disabled"
-    
+        return False, "Email sending is disabled. Set EMAIL_ENABLED=True in .env"
+
+    # Validate required config
+    sender = CONFIG.get('SENDER_EMAIL', '').strip()
+    app_pwd = CONFIG.get('APP_PASSWORD', '').strip()
+    smtp_server = CONFIG.get('SMTP_SERVER', '').strip()
+    smtp_port = CONFIG.get('SMTP_PORT', 587)
+
+    if not sender:
+        return False, "SENDER_EMAIL is not configured. Add your email to .env"
+    if not app_pwd:
+        return False, "APP_PASSWORD is not configured. For Gmail, use an App Password (not your regular password). Generate at: https://myaccount.google.com/apppasswords"
+    if not smtp_server:
+        return False, "SMTP_SERVER is not configured in .env"
+    if not to_email or not str(to_email).strip():
+        return False, "Recipient email address is required"
+
+    to_email = str(to_email).strip()
+
     try:
         # Create message
         msg = MIMEMultipart()
-        msg['From'] = CONFIG['SENDER_EMAIL']
+        msg['From'] = sender
         msg['To'] = to_email
         msg['Subject'] = subject
-        
+
         # Add body
         msg.attach(MIMEText(body, 'html'))
-        
+
         # Add attachment if provided
         if attachment_path and os.path.exists(attachment_path):
             with open(attachment_path, "rb") as attachment:
                 part = MIMEBase('application', 'octet-stream')
                 part.set_payload(attachment.read())
-                
+
             encoders.encode_base64(part)
             part.add_header(
                 'Content-Disposition',
                 f'attachment; filename= {attachment_name or os.path.basename(attachment_path)}',
             )
             msg.attach(part)
-        
-        # Send email
-        server = smtplib.SMTP(CONFIG['SMTP_SERVER'], CONFIG['SMTP_PORT'])
+
+        # Send email (use sendmail for reliability across providers)
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.ehlo()
         server.starttls()
-        server.login(CONFIG['SENDER_EMAIL'], CONFIG['APP_PASSWORD'])
-        server.send_message(msg)
+        server.ehlo()
+        server.login(sender, app_pwd)
+        server.sendmail(sender, to_email, msg.as_string())
         server.quit()
-        
+
         print(f"✅ Email sent successfully to {to_email}")
         return True, "Email sent successfully"
-        
+
+    except smtplib.SMTPAuthenticationError as e:
+        err = "SMTP authentication failed. For Gmail: use an App Password (not your regular password). Enable 2FA and generate at: https://myaccount.google.com/apppasswords"
+        print(f"❌ {err}: {e}")
+        return False, err
+    except smtplib.SMTPException as e:
+        err = f"SMTP error: {str(e)}"
+        print(f"❌ {err}")
+        return False, err
     except Exception as e:
         error_msg = f"Failed to send email: {str(e)}"
         print(f"❌ {error_msg}")
         return False, error_msg
 
 def create_analysis_email_body(filename, analysis, session_info=None):
-    """Create HTML email body for analysis report"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }}
-            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }}
-            .content {{ padding: 20px; background: #f8f9fa; }}
-            .analysis {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-            .footer {{ background: #343a40; color: white; padding: 15px; text-align: center; font-size: 12px; }}
-            .file-info {{ background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; }}
-            pre {{ background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>🤖 Vise-AI Analysis Report</h1>
-            <p>Intelligent Document Analysis & Insights</p>
-        </div>
-        
-        <div class="content">
-            <div class="file-info">
-                <h3>📄 Document Information</h3>
-                <p><strong>Filename:</strong> {filename}</p>
-                <p><strong>Analysis Date:</strong> {timestamp}</p>
-                <p><strong>Analyzed by:</strong> Vise-AI (Powered by Google Gemini)</p>
-            </div>
-            
-            <div class="analysis">
-                <h3>📊 Analysis Results</h3>
-                <pre>{analysis}</pre>
-            </div>
-            
-            {f'<div class="file-info"><h3>🔑 Session Info</h3><p>{session_info}</p></div>' if session_info else ''}
-        </div>
-        
-        <div class="footer">
-            <p>This analysis was generated by Vise-AI - Your Intelligent Document Analysis Assistant</p>
-            <p>Generated on {timestamp} | Powered by Google Gemini AI</p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return html_body
+    """Create plain email body for analysis report (no template)"""
+    parts = [f"<p><strong>File:</strong> {filename}</p>", f"<pre>{analysis}</pre>"]
+    if session_info:
+        parts.append(f"<p>{session_info}</p>")
+    return "\n".join(parts)
 
 def create_notification_email_body(title, message, details=None):
-    """Create HTML email body for notifications"""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }}
-            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }}
-            .content {{ padding: 20px; background: #f8f9fa; }}
-            .message {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-            .footer {{ background: #343a40; color: white; padding: 15px; text-align: center; font-size: 12px; }}
-            .details {{ background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>🔔 Viser AI Notification</h1>
-            <p>{title}</p>
-        </div>
-        
-        <div class="content">
-            <div class="message">
-                <h3>📋 Message</h3>
-                <p>{message}</p>
-            </div>
-            
-            {f'<div class="details"><h3>📊 Details</h3><p>{details}</p></div>' if details else ''}
-        </div>
-        
-        <div class="footer">
-            <p>This notification was sent by Viser AI</p>
-            <p>Sent on {timestamp}</p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return html_body
+    """Create plain email body for notifications (no template)"""
+    parts = [f"<p><strong>{title}</strong></p>", f"<p>{message}</p>"]
+    if details:
+        parts.append(f"<p>{details}</p>")
+    return "\n".join(parts)
 
 def parse_markdown_table(content):
     """Parse markdown table content into structured data"""
@@ -1032,12 +1139,12 @@ def generate_txt_document(content, filename="document.txt"):
 CONFIG = {
     "owner_name": os.getenv("OWNER_NAME", "Vishnu"),
     # Which LLM answers chat and analysis: "groq" | "openai" | "gemini" | "fallback"
-    "AI_PROVIDER": os.getenv("AI_PROVIDER", "gemini"),
+    "AI_PROVIDER": os.getenv("AI_PROVIDER", "groq"),
     "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
     "GROQ_API_KEY": os.getenv("GROQ_API_KEY", ""),
-    "GROQ_MODEL": os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+    "GROQ_MODEL": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
     "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
-    "GEMINI_MODEL": os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+    "GEMINI_MODEL": os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
     # Seconds to wait for LLM API response (increase if you get read timeout)
     "API_TIMEOUT": int(os.getenv("API_TIMEOUT", "120")),
 
@@ -1052,8 +1159,135 @@ CONFIG = {
 }
 
 def get_ai_provider():
-    """Return current LLM provider: groq, openai, gemini, or fallback."""
-    return CONFIG.get("AI_PROVIDER", "groq").strip().lower()
+    """
+    Return current LLM provider: groq, openai, gemini, or fallback.
+    Reads from os.environ directly so live switching (via /api/settings/provider) works.
+    """
+    return os.environ.get("AI_PROVIDER", CONFIG.get("AI_PROVIDER", "groq")).strip().lower()
+
+
+# ─── SQLite Chat Persistence ───────────────────────────────────────────────────
+import sqlite3
+
+_DB_PATH = os.path.join(os.path.dirname(__file__), "data", "chat_history.db")
+
+def _get_db():
+    os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(_DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role      TEXT NOT NULL,
+            content   TEXT NOT NULL,
+            ts        REAL NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_session ON chat_messages(session_id, ts)")
+    conn.commit()
+    return conn
+
+def db_save_message(session_id: str, role: str, content: str):
+    try:
+        conn = _get_db()
+        conn.execute("INSERT INTO chat_messages(session_id,role,content,ts) VALUES(?,?,?,?)",
+                     (session_id, role, content, time.time()))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ DB save error: {e}")
+
+def db_load_session(session_id: str, limit: int = 60):
+    """Load the most recent `limit` messages for a session from DB."""
+    try:
+        conn = _get_db()
+        rows = conn.execute(
+            "SELECT role,content,ts FROM chat_messages WHERE session_id=? ORDER BY ts DESC LIMIT ?",
+            (session_id, limit)
+        ).fetchall()
+        conn.close()
+        return [{"role": r["role"], "content": r["content"], "timestamp": r["ts"]}
+                for r in reversed(rows)]
+    except Exception as e:
+        print(f"⚠️ DB load error: {e}")
+        return []
+
+def db_clear_session(session_id: str):
+    try:
+        conn = _get_db()
+        conn.execute("DELETE FROM chat_messages WHERE session_id=?", (session_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ DB clear error: {e}")
+
+def db_all_sessions():
+    """Return list of {session_id, count, last_ts} for the history view."""
+    try:
+        conn = _get_db()
+        rows = conn.execute("""
+            SELECT session_id, COUNT(*) as cnt, MAX(ts) as last_ts
+            FROM chat_messages GROUP BY session_id ORDER BY last_ts DESC LIMIT 50
+        """).fetchall()
+        conn.close()
+        return [{"session_id": r["session_id"], "count": r["cnt"], "last_ts": r["last_ts"]} for r in rows]
+    except Exception as e:
+        print(f"⚠️ DB sessions error: {e}")
+        return []
+
+# Bootstrap DB on import
+try:
+    _get_db().close()
+except Exception:
+    pass
+
+# ─── Smart Context Summarisation ──────────────────────────────────────────────
+_SUMMARIZE_THRESHOLD = 30   # summarize when history exceeds this many messages
+_SUMMARIZE_KEEP      = 10   # keep the N most recent messages verbatim
+
+def _summarize_old_messages(old_messages: list) -> str:
+    """Call the active AI to produce a short summary of older conversation turns."""
+    if not old_messages:
+        return ""
+    try:
+        combined = "\n".join(
+            f"{m['role'].upper()}: {m['content'][:300]}" for m in old_messages
+        )
+        prompt = (
+            "Summarize this conversation so far in 3-5 bullet points. "
+            "Be concise; preserve important facts, decisions, and files mentioned.\n\n"
+            + combined
+        )
+        provider = get_ai_provider()
+        if provider == "openai":
+            import openai as _oai
+            _client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
+            r = _client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role":"user","content":prompt}],
+                max_tokens=300, temperature=0.3
+            )
+            return r.choices[0].message.content.strip()
+        elif provider == "gemini":
+            import google.generativeai as _genai
+            _genai.configure(api_key=CONFIG["GEMINI_API_KEY"])
+            m = _genai.GenerativeModel(CONFIG.get("GEMINI_MODEL","gemini-2.0-flash"))
+            return m.generate_content(prompt).text.strip()
+        else:  # groq (default)
+            r = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {CONFIG['GROQ_API_KEY']}", "Content-Type":"application/json"},
+                json={"model": CONFIG.get("GROQ_MODEL","llama-3.3-70b-versatile"),
+                      "messages":[{"role":"user","content":prompt}],
+                      "max_tokens":300,"temperature":0.3},
+                timeout=30
+            )
+            return r.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"⚠️ Smart context summarise error: {e}")
+        return ""
 
 # Calendar Events Data Storage
 CALENDAR_EVENTS_FILE = "data/calendar_events.json"
@@ -1256,6 +1490,19 @@ def run_scheduler():
     thread.start()
     return thread
 
+# Core Engine 2.0 Automation Dashboard
+@app.route('/automation')
+@app.route('/automation/')
+def serve_automation():
+    """Serve the Core Engine 2.0 automation dashboard (web_ui_v2 template)."""
+    template_path = os.path.join(CORE_ENGINE_DIR, 'templates_webui_v2', 'index.html')
+    if os.path.exists(template_path):
+        response = send_file(template_path)
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        return response
+    return "Core Engine dashboard template not found. Ensure 'Core Engine 2.0/templates_webui_v2/index.html' exists.", 404
+
+
 # Enhanced static file serving
 @app.route('/')
 @app.route('/index.html')
@@ -1269,6 +1516,16 @@ def serve_index():
         return response
     except FileNotFoundError:
         return "HTML file not found", 404
+
+@app.route('/assets/<path:subpath>')
+def serve_assets(subpath):
+    """Serve assets (images, etc.) from assets/ folder"""
+    try:
+        assets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets')
+        return send_from_directory(assets_dir, subpath)
+    except Exception as e:
+        print(f"❌ Asset serve error: {e}")
+        return "Not found", 404
 
 @app.route('/<path:filename>')
 def serve_static(filename):
@@ -1420,7 +1677,7 @@ def chat():
                 raise Exception(f"OpenAI API Error {response.status_code}: {response.text}")
                 
         elif get_ai_provider() == 'gemini':
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.5-flash')}:generateContent"
+            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
             headers = {
                 "Content-Type": "application/json"
             }
@@ -1455,7 +1712,7 @@ def chat():
                 "Content-Type": "application/json"
             }
             api_url = "https://api.groq.com/openai/v1/chat/completions"
-            model = CONFIG.get("GROQ_MODEL", "llama-3.1-8b-instant")
+            model = CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile")
             
             payload = {
                 "model": model,
@@ -1476,8 +1733,12 @@ def chat():
 
         print(f"✅ AI Response generated: {len(ai_response)} characters")
         
-        # --- Better table enforcement (ChatGPT-like) ---
-        if "table" in user_message.lower():
+        # --- Table enforcement only when user explicitly asks for a table ---
+        asks_for_table = any(p in user_message.lower() for p in (
+            "in table", "as a table", "as table", "in tabular", "tabular format",
+            "table format", "show as table", "need it in table", "format as table"
+        ))
+        if asks_for_table:
             headers_table, rows_table = parse_markdown_table(ai_response)
             if headers_table is None or not rows_table:
                 # Auto-retry instead of scolding the user
@@ -1489,22 +1750,43 @@ def chat():
                 messages = ContextManager.get_conversation_context(session_id)
                 messages.append({"role": "user", "content": retry_prompt})
 
-                gemini_messages = convert_messages_for_gemini(messages)
-                
-                # Gemini-specific retry logic
-                retry_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.5-flash')}:generateContent"
-                retry_headers = {"Content-Type": "application/json"}
+                # Retry with the same active provider (not hard-coded Gemini)
+                active_provider = get_ai_provider()
+                retry_response = None
 
-                response = requests.post(
-                    f"{retry_api_url}?key={CONFIG['GEMINI_API_KEY']}",
-                    headers=retry_headers,
-                    json={"contents": gemini_messages},
-                    timeout=CONFIG.get('API_TIMEOUT', 120)
-                )
+                if active_provider == 'gemini':
+                    gemini_messages = convert_messages_for_gemini(messages)
+                    retry_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
+                    retry_response = requests.post(
+                        f"{retry_api_url}?key={CONFIG['GEMINI_API_KEY']}",
+                        headers={"Content-Type": "application/json"},
+                        json={"contents": gemini_messages},
+                        timeout=CONFIG.get('API_TIMEOUT', 120)
+                    )
+                    if retry_response.status_code == 200:
+                        ai_response = retry_response.json()["candidates"][0]["content"]["parts"][0]["text"]
 
-                if response.status_code == 200:
-                    result = response.json()
-                    ai_response = result["candidates"][0]["content"]["parts"][0]["text"]
+                elif active_provider == 'openai':
+                    retry_response = requests.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {CONFIG['OPENAI_API_KEY']}", "Content-Type": "application/json"},
+                        json={"model": "gpt-3.5-turbo", "messages": messages, "temperature": 0.3, "max_tokens": 4096},
+                        timeout=CONFIG.get('API_TIMEOUT', 120)
+                    )
+                    if retry_response.status_code == 200:
+                        ai_response = retry_response.json()["choices"][0]["message"]["content"]
+
+                else:  # groq (default)
+                    retry_response = requests.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {CONFIG['GROQ_API_KEY']}", "Content-Type": "application/json"},
+                        json={"model": CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile"), "messages": messages, "temperature": 0.3, "max_tokens": 4096},
+                        timeout=CONFIG.get('API_TIMEOUT', 120)
+                    )
+                    if retry_response.status_code == 200:
+                        ai_response = retry_response.json()["choices"][0]["message"]["content"]
+
+                if retry_response and retry_response.status_code == 200:
                     
                     # --- ADVANCED STRUCTURAL REPAIR ---
                     def fix_table_hallucination(text):
@@ -1815,6 +2097,7 @@ Your task is to provide a COMPREHENSIVE, DETAILED, and THOROUGH analysis of the 
 - Be THOROUGH and DETAILED - don't skip important information
 - Provide SPECIFIC examples and quotes from the document where relevant
 - Use clear formatting with bullet points, numbered lists, and sections
+- Use COMPACT formatting: NO extra blank lines between sections or bullet points. Use at most ONE blank line between major sections. Keep all spacing minimal.
 - Include ALL relevant technical details, not just summaries
 - Explain complex concepts in detail
 - Extract and preserve important data points, numbers, and specifications
@@ -1827,7 +2110,7 @@ Begin your detailed analysis now:
 
         # --- API call for analysis (OpenAI, Groq, or Gemini based on config) ---
         analysis_messages = [
-            {"role": "system", "content": "You are Vise-AI, an expert document analyst. Provide detailed, comprehensive, and thorough analysis. Be specific, include examples, extract all important information, and provide in-depth explanations. Don't be brief - provide extensive detail."},
+            {"role": "system", "content": "You are Vise-AI, an expert document analyst. Provide detailed, comprehensive analysis. Use COMPACT formatting: minimal blank lines, tight spacing between sections and bullet points. No extra vertical space."},
             {"role": "user", "content": prompt}
         ]
         
@@ -1857,7 +2140,7 @@ Begin your detailed analysis now:
                 raise Exception(f"OpenAI Analysis API Error {response.status_code}: {response.text}")
                 
         elif get_ai_provider() == 'gemini':
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.5-flash')}:generateContent"
+            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
             headers = {
                 "Content-Type": "application/json"
             }
@@ -1892,7 +2175,7 @@ Begin your detailed analysis now:
                 "Content-Type": "application/json"
             }
             api_url = "https://api.groq.com/openai/v1/chat/completions"
-            model = CONFIG.get("GROQ_MODEL", "llama-3.1-8b-instant")
+            model = CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile")
             
             payload = {
                 "model": model,
@@ -1958,9 +2241,11 @@ def get_context():
         session_id = request.args.get('session_id', 'default_session')
         session = ContextManager.get_session(session_id)
         
+        # Expose last 20 non-system messages for frontend restore
+        visible = [m for m in session["conversation_history"] if m.get("role") != "system"][-20:]
         return jsonify({
             "session_id": session_id,
-            "conversation_history": session["conversation_history"][-10:],  # Last 10 messages
+            "conversation_history": visible,
             "uploaded_files": session["uploaded_files"],
             "total_messages": len(session["conversation_history"]),
             "total_files": len(session["uploaded_files"])
@@ -1969,6 +2254,525 @@ def get_context():
     except Exception as e:
         print(f"❌ Context retrieval error: {str(e)}")
         return jsonify({"error": f"Context retrieval failed: {str(e)}"}), 500
+
+@app.route('/api/settings/provider', methods=['POST', 'GET'])
+def settings_provider():
+    """GET: return active provider. POST {provider}: switch it live."""
+    if request.method == 'GET':
+        return jsonify({"provider": get_ai_provider()})
+    data = request.get_json() or {}
+    new_provider = data.get("provider", "").strip().lower()
+    valid = {"groq", "gemini", "openai", "fallback"}
+    if new_provider not in valid:
+        return jsonify({"error": f"Invalid provider. Choose from: {', '.join(sorted(valid))}"}), 400
+    os.environ["AI_PROVIDER"] = new_provider
+    print(f"🔄 AI provider switched to: {new_provider}")
+    return jsonify({"success": True, "provider": new_provider})
+
+
+# Story type options for "write a user story" flow
+STORY_TYPE_OPTIONS = ["User Story", "Use Case", "Requirement Story", "Epic Story", "Feature Story"]
+STORY_TYPE_DESCRIPTIONS = {
+    "User Story": "A natural-language description of a software feature from the end-user's perspective, typically following the format \"As a [user], I want to [perform some task] so that [I can achieve some goal]\"",
+    "Use Case": "A written description of how a user will interact with a software system to achieve a specific goal, typically including actors, preconditions, and postconditions",
+    "Requirement Story": "A detailed description of a software requirement, including functional and non-functional requirements, acceptance criteria, and constraints or assumptions",
+    "Epic Story": "A high-level description of a software feature too large for a single iteration, often broken down into smaller user stories or tasks",
+    "Feature Story": "A description of a specific software feature, including functional and non-functional requirements, acceptance criteria, and constraints or assumptions",
+}
+STORY_CHOICE_MARKER = "[STORY_CHOICE_OFFERED]"
+
+# Email flow options
+EMAIL_GENERATE_OPTIONS = ["Generate it for me", "I will write"]
+EMAIL_REPHRASE_OPTIONS = ["Yes, rephrase or help", "No"]
+EMAIL_SEND_CONFIRM_OPTIONS = ["Yes, send it", "No"]
+EMAIL_GENERATE_CHOICE_MARKER = "[EMAIL_GENERATE_CHOICE]"
+EMAIL_REPHRASE_CHOICE_MARKER = "[EMAIL_REPHRASE_CHOICE]"
+EMAIL_SEND_CONFIRM_MARKER = "[EMAIL_SEND_CONFIRM]"
+EMAIL_RECIPIENT_NEEDED_MARKER = "[EMAIL_RECIPIENT_NEEDED]"
+
+
+def _is_story_write_request(msg):
+    """Detect if user is asking to write/create a story (user story, use case, etc.)"""
+    if not msg or len(msg) < 10:
+        return False
+    m = msg.lower().strip()
+    triggers = ["write a user story", "write user story", "create a user story", "create user story",
+                "write a use case", "write use case", "create use case",
+                "write a requirement story", "write requirement story",
+                "write an epic story", "write epic story",
+                "write a feature story", "write feature story",
+                "write a story", "write story", "create a story",
+                "help me write a user story", "i want to write a user story", "i need to write a user story"]
+    return any(t in m for t in triggers)
+
+
+def _is_story_type_selection(msg):
+    """Check if message is exactly one of the story type options"""
+    return msg.strip() in STORY_TYPE_OPTIONS
+
+
+def _is_email_request(msg):
+    """Detect if user wants to write an email"""
+    if not msg or len(msg) < 5:
+        return False
+    m = msg.lower().strip()
+    triggers = ["/email", "write an email", "write email", "compose email", "help me write an email", "i need to write an email"]
+    return any(t in m for t in triggers)
+
+
+def _is_email_option_selection(msg, options):
+    """Check if message is exactly one of the given options"""
+    return msg.strip() in options
+
+
+def _get_email_flow(session_id):
+    """Get or init email flow state for session"""
+    session = ContextManager.get_session(session_id)
+    if "email_flow" not in session:
+        session["email_flow"] = {"active": False, "step": None, "choice": None, "need_help": None, "email_content": None}
+    return session["email_flow"]
+
+
+def _get_last_assistant_content(session_id):
+    """Get content of last assistant message in session"""
+    session = ContextManager.get_session(session_id)
+    for m in reversed(session["conversation_history"]):
+        if m.get("role") == "assistant":
+            return m.get("content", "")
+    return ""
+
+
+def _extract_email_draft_from_history(session_id):
+    """Extract the actual email draft from conversation (the one before Send email? / recipient prompt)."""
+    session = ContextManager.get_session(session_id)
+    for m in reversed(session["conversation_history"]):
+        if m.get("role") != "assistant":
+            continue
+        raw = m.get("content", "")
+        if EMAIL_SEND_CONFIRM_MARKER not in raw:
+            continue
+        part = raw.split(EMAIL_SEND_CONFIRM_MARKER)[0].strip()
+        part = part.split("\n\nSend email?")[0].strip()
+        if part and len(part) > 5 and EMAIL_RECIPIENT_NEEDED_MARKER not in part:
+            return part
+    return None
+
+
+@app.route('/api/chat/stream', methods=['POST'])
+def chat_stream():
+    """Streaming version of /api/chat — emits text chunks via SSE."""
+    from flask import Response, stream_with_context
+
+    data      = request.get_json() or {}
+    user_msg  = data.get("message", "").strip()
+    session_id= data.get("session_id", "default_session")
+
+    if not user_msg:
+        return jsonify({"error": "No message provided"}), 400
+
+    # Handle email send commands before hitting AI
+    email_command = detect_email_command(user_msg)
+    if email_command['is_email_command']:
+        if email_command.get('send_previous_response'):
+            session = ContextManager.get_session(session_id)
+            last_ai_response = None
+            for msg in reversed(session["conversation_history"]):
+                if msg["role"] == "assistant":
+                    last_ai_response = msg["content"]
+                    break
+            message_content = last_ai_response or "No previous AI response found to send."
+            subject = "AI Response from Vise-AI"
+        else:
+            message_content = email_command['message_content']
+            subject = "Message from Vise-AI User"
+        body = create_simple_email_body(message_content, session_id)
+        success, msg = send_email(email_command['recipient_email'], subject, body)
+        if success:
+            ai_response = f"Email sent successfully to {email_command['recipient_email']}!"
+        else:
+            ai_response = f"Failed to send email: {msg}"
+        ContextManager.add_message(session_id, "assistant", ai_response)
+
+        def _email_done_stream():
+            yield f"data: {json.dumps({'chunk': ai_response})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+        return Response(
+            stream_with_context(_email_done_stream()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+        )
+
+    last_assistant = _get_last_assistant_content(session_id)
+    is_story_selection = _is_story_type_selection(user_msg) and STORY_CHOICE_MARKER in last_assistant
+    email_flow = _get_email_flow(session_id)
+
+    # ─── Email flow handling ─────────────────────────────────────────────────
+    if _is_email_request(user_msg) and not email_flow.get("active"):
+        ContextManager.add_message(session_id, "user", user_msg)
+        email_flow["active"] = True
+        email_flow["step"] = "generate_choice"
+        choice_msg = "Should I generate the email for you?"
+        stored_msg = f"{choice_msg}\n\n{EMAIL_GENERATE_CHOICE_MARKER}\n\nSelect one of the options above."
+        ContextManager.add_message(session_id, "assistant", stored_msg)
+
+        def _email_choice_stream():
+            yield f"data: {json.dumps({'email_generate_choice': True, 'message': choice_msg, 'options': EMAIL_GENERATE_OPTIONS})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+        return Response(
+            stream_with_context(_email_choice_stream()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+        )
+
+    if _is_email_option_selection(user_msg, EMAIL_GENERATE_OPTIONS) and EMAIL_GENERATE_CHOICE_MARKER in last_assistant:
+        ContextManager.add_message(session_id, "user", user_msg)
+        email_flow["choice"] = user_msg.strip()
+        if user_msg.strip() == "Generate it for me":
+            email_flow["step"] = "waiting_generate_content"
+            prompt_msg = "Please share the content of the email (what you want to say, who it's for, purpose, etc.). I won't write a blind email."
+            stored_msg = prompt_msg
+            ContextManager.add_message(session_id, "assistant", stored_msg)
+
+            def _email_content_prompt_stream():
+                yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            return Response(
+                stream_with_context(_email_content_prompt_stream()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+        else:
+            email_flow["step"] = "rephrase_choice"
+            choice_msg = "Should I rephrase or help you with your email?"
+            stored_msg = f"{choice_msg}\n\n{EMAIL_REPHRASE_CHOICE_MARKER}\n\nSelect one of the options above."
+            ContextManager.add_message(session_id, "assistant", stored_msg)
+
+            def _email_rephrase_stream():
+                yield f"data: {json.dumps({'email_rephrase_choice': True, 'message': choice_msg, 'options': EMAIL_REPHRASE_OPTIONS})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            return Response(
+                stream_with_context(_email_rephrase_stream()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+
+    if _is_email_option_selection(user_msg, EMAIL_REPHRASE_OPTIONS) and EMAIL_REPHRASE_CHOICE_MARKER in last_assistant:
+        ContextManager.add_message(session_id, "user", user_msg)
+        email_flow["need_help"] = user_msg.strip().startswith("Yes")
+        email_flow["step"] = "waiting_content"
+        hint = "Type your email content below. I'll help rephrase it." if email_flow["need_help"] else "Type your email content below."
+        stored_msg = f"{hint}\n\nWhen you're done, you'll get an option to send."
+        ContextManager.add_message(session_id, "assistant", stored_msg)
+
+        def _email_wait_stream():
+            yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+        return Response(
+            stream_with_context(_email_wait_stream()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+        )
+
+    # Email send confirm: user clicked "Yes, send it" -> need recipient
+    if _is_email_option_selection(user_msg, EMAIL_SEND_CONFIRM_OPTIONS) and EMAIL_SEND_CONFIRM_MARKER in last_assistant:
+        ContextManager.add_message(session_id, "user", user_msg)
+        if user_msg.strip() == "Yes, send it":
+            email_flow["step"] = "recipient_needed"
+            draft = _extract_email_draft_from_history(session_id) or email_flow.get("email_content")
+            email_flow["email_content"] = draft
+            prompt_msg = "What email address should this be sent to?"
+            stored_msg = f"{prompt_msg}\n\n{EMAIL_RECIPIENT_NEEDED_MARKER}"
+            ContextManager.add_message(session_id, "assistant", stored_msg)
+
+            def _email_recipient_stream():
+                yield f"data: {json.dumps({'email_recipient_needed': True, 'message': prompt_msg})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            return Response(
+                stream_with_context(_email_recipient_stream()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+        else:
+            email_flow["active"] = False
+            email_flow["step"] = None
+            stored_msg = "Email not sent. You can start a new email anytime with /email"
+            ContextManager.add_message(session_id, "assistant", stored_msg)
+            def _email_cancel_stream():
+                yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            return Response(
+                stream_with_context(_email_cancel_stream()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+
+    # Email: user shared content for "Generate it for me" -> now generate
+    if email_flow.get("step") == "waiting_generate_content":
+        ContextManager.add_message(session_id, "user", user_msg)
+        email_flow["step"] = "generating"
+        email_flow["generate_request"] = user_msg
+        # Fall through to AI with inject
+
+    # Email: user wrote content without help - show send confirm directly
+    if email_flow.get("step") == "waiting_content" and not email_flow.get("need_help"):
+        ContextManager.add_message(session_id, "user", user_msg)
+        email_flow["email_content"] = user_msg
+        email_flow["step"] = "send_confirm"
+        confirm_msg = "Send email?"
+        stored_msg = f"{confirm_msg}\n\n{EMAIL_SEND_CONFIRM_MARKER}\n\nSelect one of the options above."
+        ContextManager.add_message(session_id, "assistant", stored_msg)
+
+        def _email_confirm_stream():
+            yield f"data: {json.dumps({'email_send_confirm': True, 'message': confirm_msg, 'options': EMAIL_SEND_CONFIRM_OPTIONS})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+        return Response(
+            stream_with_context(_email_confirm_stream()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+        )
+
+    # Email recipient provided (user typed email address after recipient_needed)
+    if email_flow.get("step") == "recipient_needed" and "@" in user_msg and "." in user_msg:
+        import re
+        if re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', user_msg):
+            recipient = user_msg.strip()
+            content = _extract_email_draft_from_history(session_id) or email_flow.get("email_content") or "No content"
+            body = create_simple_email_body(content, session_id)
+            success, msg = send_email(recipient, "Message from Vise-AI", body)
+            email_flow["active"] = False
+            email_flow["step"] = None
+            ContextManager.add_message(session_id, "user", user_msg)
+            result_msg = f"Email sent successfully to {recipient}!" if success else f"Failed to send: {msg}"
+            ContextManager.add_message(session_id, "assistant", result_msg)
+
+            def _email_sent_stream():
+                yield f"data: {json.dumps({'chunk': result_msg})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            return Response(
+                stream_with_context(_email_sent_stream()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+
+    if email_flow.get("step") != "generating":
+        ContextManager.add_message(session_id, "user", user_msg)
+
+    # Case 1: User asked to write a story (first time) -> show choice, no AI call
+    if _is_story_write_request(user_msg) and not is_story_selection:
+        choice_msg = "Which type of story would you like to write?"
+        stored_msg = f"{choice_msg}\n\n{STORY_CHOICE_MARKER}\n\nSelect one of the options above."
+        ContextManager.add_message(session_id, "assistant", stored_msg)
+
+        def _story_choice_stream():
+            yield f"data: {json.dumps({'story_type_choice': True, 'message': choice_msg, 'options': STORY_TYPE_OPTIONS})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+
+        return Response(
+            stream_with_context(_story_choice_stream()),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+        )
+
+    messages = ContextManager.get_conversation_context(session_id, include_files=True)
+    provider = get_ai_provider()
+
+    # Case 2: User selected a story type -> inject prompt for that type
+    if is_story_selection:
+        desc = STORY_TYPE_DESCRIPTIONS.get(user_msg.strip(), "")
+        inject = {
+            "role": "system",
+            "content": f"The user previously asked to write a story and selected: **{user_msg}**. "
+            f"Generate a comprehensive {user_msg} following this definition: {desc}. "
+            f"Include: 1) Format/structure explanation, 2) A complete example, 3) Best practices."
+        }
+        messages.insert(1, inject)
+
+    # Case 2b: Email flow - generate draft (user shared content, don't write blind)
+    if email_flow.get("step") == "generating":
+        content_req = email_flow.get("generate_request", user_msg) or user_msg
+        reply_hint = ""
+        if any(p in content_req.lower() for p in ("reply", "repl", "respond", "answer", "responding")):
+            reply_hint = (
+                "IMPORTANT: The user said they need to REPLY to an email. They ARE the one sending the reply. "
+                "Write the email AS the user's reply - from their perspective, as if they are responding to the other person. "
+            )
+        inject = {
+            "role": "system",
+            "content": f"The user wants you to generate an email draft based on their request. "
+            f"Their request: \"{content_req}\" "
+            f"{reply_hint}"
+            f"Create a professional, well-formatted email that addresses what they asked for. "
+            f"Output ONLY the email body content - exactly what will be sent. No meta-commentary, no placeholders like [Your Name] unless the user explicitly asked for them."
+        }
+        messages.insert(1, inject)
+
+    # Case 2c: Email flow - rephrase user's email
+    if email_flow.get("step") == "waiting_content" and email_flow.get("need_help"):
+        inject = {
+            "role": "system",
+            "content": f"The user shared their email draft and wants you to rephrase or improve it. "
+            f"Their draft: \"{user_msg}\" "
+            f"Provide a polished, professional version. Output ONLY the improved email body, no extra commentary."
+        }
+        messages.insert(1, inject)
+
+    def _generate():
+        full_response = []
+        try:
+            if provider == "openai":
+                import openai as _oai
+                _oai_client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
+                stream = _oai_client.chat.completions.create(
+                    model=CONFIG.get("OPENAI_MODEL", "gpt-4o-mini"),
+                    messages=messages, temperature=0.6, max_tokens=8192, stream=True
+                )
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content or ""
+                    if delta:
+                        full_response.append(delta)
+                        yield f"data: {json.dumps({'chunk': delta})}\n\n"
+
+            elif provider == "gemini":
+                import google.generativeai as _genai
+                _genai.configure(api_key=CONFIG["GEMINI_API_KEY"])
+                model_name = CONFIG.get("GEMINI_MODEL", "gemini-2.0-flash")
+                gmodel = _genai.GenerativeModel(model_name)
+                gemini_msgs = convert_messages_for_gemini(messages)
+                # Build a chat-history object for multi-turn Gemini streaming
+                history  = gemini_msgs[:-1] if len(gemini_msgs) > 1 else []
+                last_msg = gemini_msgs[-1]["parts"][0]["text"] if gemini_msgs else ""
+                chat = gmodel.start_chat(history=history)
+                stream = chat.send_message(last_msg, stream=True)
+                for chunk in stream:
+                    try:
+                        delta = chunk.text or ""
+                    except Exception:
+                        delta = ""
+                    if delta:
+                        full_response.append(delta)
+                        yield f"data: {json.dumps({'chunk': delta})}\n\n"
+
+            else:  # groq
+                from groq import Groq as _Groq
+                gclient = _Groq(api_key=CONFIG["GROQ_API_KEY"])
+                stream = gclient.chat.completions.create(
+                    model=CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                    messages=messages, temperature=0.6, max_tokens=8192, stream=True
+                )
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content or ""
+                    if delta:
+                        full_response.append(delta)
+                        yield f"data: {json.dumps({'chunk': delta})}\n\n"
+
+            ai_response = "".join(full_response)
+
+            # Email flow: after generating or rephrasing, show send confirm
+            show_send_confirm = (
+                email_flow.get("step") == "generating" or
+                (email_flow.get("step") == "waiting_content" and email_flow.get("need_help"))
+            )
+            if show_send_confirm:
+                email_flow["email_content"] = ai_response
+                email_flow["step"] = "send_confirm"
+                confirm_msg = "Send email?"
+                full_msg = f"{ai_response}\n\n{confirm_msg}\n\n{EMAIL_SEND_CONFIRM_MARKER}"
+                ContextManager.add_message(session_id, "assistant", full_msg)
+                yield f"data: {json.dumps({'email_send_confirm': True, 'message': confirm_msg, 'options': EMAIL_SEND_CONFIRM_OPTIONS})}\n\n"
+            else:
+                ContextManager.add_message(session_id, "assistant", ai_response)
+
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+
+        except Exception as e:
+            print(f"❌ Streaming error: {e}")
+            traceback.print_exc()
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(
+        stream_with_context(_generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
+        }
+    )
+
+
+@app.route('/api/chat/history', methods=['GET'])
+def chat_history_list():
+    """Return all persisted sessions with message counts for the History view."""
+    sessions = db_all_sessions()
+    return jsonify({"sessions": sessions, "total": len(sessions)})
+
+
+@app.route('/api/chat/history/<session_id>', methods=['GET'])
+def chat_history_session(session_id):
+    """Return full message history for one session from DB."""
+    limit = int(request.args.get("limit", 100))
+    messages = db_load_session(session_id, limit=limit)
+    return jsonify({"session_id": session_id, "messages": messages, "total": len(messages)})
+
+
+@app.route('/api/summarize-files', methods=['POST'])
+def summarize_files():
+    """Summarise all uploaded files in a session so the AI has multi-file context."""
+    data       = request.get_json() or {}
+    session_id = data.get("session_id", "default_session")
+    session    = ContextManager.get_session(session_id)
+    files      = session.get("uploaded_files", [])
+
+    if not files:
+        return jsonify({"error": "No uploaded files found in session"}), 400
+
+    summaries = []
+    for f in files:
+        fpath = f.get("path", "")
+        fname = f.get("filename", "unknown")
+        try:
+            if f.get("type") == "image":
+                summaries.append(f"📷 {fname} — image file (not summarised)")
+                continue
+            ext = os.path.splitext(fname)[1].lower()
+            if ext == ".pdf":
+                content = extract_pdf_content(fpath)
+            elif ext in (".docx", ".doc"):
+                content = extract_docx_content(fpath)
+            else:
+                with open(fpath, "r", encoding="utf-8", errors="replace") as fh:
+                    content = fh.read(10000)
+            summaries.append(f"📄 **{fname}**:\n{content[:500]}…")
+        except Exception as e:
+            summaries.append(f"📄 {fname} — could not read: {e}")
+
+    combined = "\n\n".join(summaries)
+    # Inject this as system context into the session
+    session["conversation_history"].append({
+        "role": "system",
+        "content": f"[Multi-file context loaded]\n{combined}",
+        "timestamp": time.time()
+    })
+    return jsonify({"success": True, "files_loaded": len(files), "preview": combined[:300]})
+
+
+@app.route('/api/key-status', methods=['GET'])
+def get_key_status():
+    """Return which API keys are configured (masked, never expose full keys)."""
+    def _masked(key: str) -> str:
+        return f"{key[:8]}…{key[-4:]}" if key and len(key) > 12 else ""
+
+    groq_key   = CONFIG.get("GROQ_API_KEY", "")
+    gemini_key = CONFIG.get("GEMINI_API_KEY", "")
+    openai_key = CONFIG.get("OPENAI_API_KEY", "")
+
+    return jsonify({
+        "groq":   {"set": bool(groq_key),   "preview": _masked(groq_key)},
+        "gemini": {"set": bool(gemini_key), "preview": _masked(gemini_key)},
+        "openai": {"set": bool(openai_key), "preview": _masked(openai_key)},
+        "active_provider": get_ai_provider(),
+    })
+
 
 @app.route('/api/clear-context', methods=['POST'])
 def clear_context():
@@ -1979,7 +2783,8 @@ def clear_context():
         
         if session_id in user_sessions:
             del user_sessions[session_id]
-            print(f"🗑️ Cleared context for session: {session_id}")
+        db_clear_session(session_id)
+        print(f"🗑️ Cleared context for session: {session_id}")
         
         return jsonify({
             "success": True,
@@ -1994,18 +2799,23 @@ def clear_context():
 def email_analysis():
     """Send analysis report via email"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         filename = data.get("filename")
         analysis = data.get("analysis")
-        recipient = data.get("recipient", CONFIG.get("DEFAULT_RECIPIENT"))
+        recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
         session_id = data.get("session_id", "default_session")
-        
+
         if not filename or not analysis:
             return jsonify({"error": "Filename and analysis are required"}), 400
-        
+
+        if not recipient:
+            return jsonify({
+                "error": "Recipient email is required. Set DEFAULT_RECIPIENT in .env or provide recipient when sending."
+            }), 400
+
         if not CONFIG.get('EMAIL_ENABLED', False):
             return jsonify({"error": "Email functionality is disabled"}), 400
-        
+
         # Create email content
         subject = f"📊 Vise-AI Analysis Report: {filename}"
         session_info = f"Session: {session_id} | Files analyzed: 1"
@@ -2087,12 +2897,17 @@ def get_email_config():
 def test_email():
     """Test email functionality"""
     try:
-        data = request.get_json()
-        recipient = data.get("recipient", CONFIG.get("DEFAULT_RECIPIENT"))
-        
+        data = request.get_json() or {}
+        recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
+
+        if not recipient:
+            return jsonify({
+                "error": "Recipient email is required. Set DEFAULT_RECIPIENT in .env or provide recipient in the request."
+            }), 400
+
         if not CONFIG.get('EMAIL_ENABLED', False):
             return jsonify({"error": "Email functionality is disabled"}), 400
-        
+
         # Send test email
         subject = "🧪 Vise-AI Email Test"
         message = "This is a test email from your Vise-AI system to verify email functionality is working correctly."
@@ -2662,7 +3477,7 @@ if __name__ == '__main__':
     names = {"groq": "Groq", "openai": "OpenAI", "gemini": "Google Gemini", "fallback": "Fallback"}
     print(f"AI Provider: {names.get(p, p)}")
     if p == 'gemini':
-        print(f"Using Gemini model: {CONFIG.get('GEMINI_MODEL', 'gemini-2.5-flash')}")
+        print(f"Using Gemini model: {CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}")
     
     # Start calendar scheduler
     run_scheduler()

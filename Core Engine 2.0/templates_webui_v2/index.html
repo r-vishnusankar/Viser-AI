@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viser AI — Automation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        :root {
+            --bg: #0c0f14;
+            --surface: #161b22;
+            --surface-hover: #21262d;
+            --accent: #3fb950;
+            --accent-dim: #238636;
+            --main-bg: #f0f2f5;
+            --card: #ffffff;
+            --text: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --radius: 10px;
+            --radius-sm: 6px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            background: var(--main-bg);
+            min-height: 100vh;
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* ── Layout ─────────────────────────────── */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            background: var(--card);
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ─────────────────────────────── */
+        .sidebar {
+            width: 220px;
+            background: var(--bg);
+            color: #e6edf3;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .logo i { font-size: 20px; color: var(--accent); }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 12px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color .15s, background .15s;
+            border-left: 3px solid transparent;
+            cursor: pointer;
+        }
+
+        .nav-item:hover { color: #e6edf3; background: var(--surface-hover); }
+        .nav-item.active { color: var(--accent); background: var(--surface); border-left-color: var(--accent); }
+        .nav-item i { width: 18px; text-align: center; }
+
+        .sidebar-footer {
+            padding: 14px 16px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            font-size: 11px;
+            color: #8b949e;
+        }
+
+        /* ── Main content ────────────────────────── */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            background: var(--main-bg);
+        }
+
+        .page-header {
+            background: var(--card);
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .page-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-pill::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ── Content area ────────────────────────── */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+        }
+
+        /* ── Cards ───────────────────────────────── */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: 14px;
+        }
+
+        .card-title i { margin-right: 6px; color: var(--accent); }
+
+        /* ── Form elements ───────────────────────── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .form-control {
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--card);
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+            width: 100%;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(63,185,80,.15);
+        }
+
+        textarea.form-control { resize: vertical; min-height: 64px; }
+        select.form-control { cursor: pointer; }
+
+        /* ── Buttons ─────────────────────────────── */
+        .btn {
+            padding: 9px 18px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: inherit;
+            transition: all .15s;
+        }
+
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-dim); }
+        .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: var(--main-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: #e5e7eb; }
+        .btn-secondary:disabled { opacity: .55; cursor: not-allowed; }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+        /* ── Plan steps ──────────────────────────── */
+        .step-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin: 6px 0;
+            transition: all .2s;
+        }
+
+        .step-card.running  { background: #eff6ff; border-color: #93c5fd; }
+        .step-card.completed { background: #f0fdf4; border-color: #86efac; }
+        .step-card.failed   { background: #fef2f2; border-color: #fca5a5; }
+
+        .step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .step-name   { font-weight: 600; color: var(--text); font-size: 13px; }
+
+        .step-badge {
+            font-size: 11px;
+            padding: 2px 9px;
+            border-radius: 20px;
+            background: #e5e7eb;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .step-card.running  .step-badge { background: #dbeafe; color: #2563eb; }
+        .step-card.completed .step-badge { background: #dcfce7; color: #16a34a; }
+        .step-card.failed   .step-badge { background: #fee2e2; color: #dc2626; }
+
+        .step-desc  { color: #374151; font-size: 12.5px; line-height: 1.5; }
+        .step-value { color: #9ca3af; font-size: 11px; margin-top: 3px; }
+
+        /* ── Log area ────────────────────────────── */
+        .log-area {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            min-height: 100px;
+            max-height: 260px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry  { margin-bottom: 5px; line-height: 1.5; }
+        .log-time   { color: #475569; margin-right: 8px; }
+        .log-info   { color: #38bdf8; font-weight: 600; }
+        .log-success{ color: #4ade80; font-weight: 700; }
+        .log-warn   { color: #fbbf24; }
+        .log-error  { color: #f87171; font-weight: 700; }
+
+        /* ── Loading overlay ─────────────────────── */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(240,242,245,.8);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px 32px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12);
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .loading-text { font-weight: 600; color: var(--text); font-size: 14px; }
+
+        /* ── Scrollbar ───────────────────────────── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+        /* ── Responsive ──────────────────────────── */
+        @media (max-width: 640px) {
+            .sidebar { display: none; }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <a href="/" class="logo">
+                <i class="fas fa-brain"></i>
+                Viser AI
+            </a>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <i class="fas fa-comments"></i> Chat
+            </a>
+            <a href="/automation" class="nav-item active">
+                <i class="fas fa-robot"></i> Automation
+            </a>
+            <a href="/" class="nav-item">
+                <i class="fas fa-file-alt"></i> Documents
+            </a>
+            <a href="/" class="nav-item">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </nav>
+        <div class="sidebar-footer">Viser AI Core Engine v2</div>
+    </div>
+
+    <!-- Main -->
+    <div class="main-content">
+        <div class="page-header">
+            <span class="page-title">🤖 AI Automation Workbench</span>
+            <div class="status-pill">
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+
+        <div class="content-area">
+
+            <!-- Task card -->
+            <div class="card">
+                <div class="card-title"><i class="fas fa-tasks"></i>Browser Automation Task</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Target URL</label>
+                        <input type="url" id="url" class="form-control" placeholder="https://example.com" value="https://www.amazon.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Task Description</label>
+                        <textarea id="prompt" class="form-control" placeholder="Describe what you want to do...">add a blue t shirt to cart</textarea>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label class="form-label">AI Provider</label>
+                    <select id="provider" class="form-control">
+                        <option value="groq">Groq — Llama (Fast)</option>
+                        <option value="gemini">Gemini Pro</option>
+                        <option value="compare">Compare Both</option>
+                    </select>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="planBtn">
+                        <i class="fas fa-map"></i> Plan Only
+                    </button>
+                    <button class="btn btn-primary" id="executeBtn">
+                        <i class="fas fa-play"></i> Execute Task
+                    </button>
+                    <button class="btn btn-secondary" id="testBtn" style="margin-left:auto;">
+                        <i class="fas fa-plug"></i> Test
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upload & Enhance -->
+            <div class="card">
+                <div class="card-title"><i class="fas fa-upload"></i>Upload &amp; Enhance Plan</div>
+                <div class="btn-group" style="margin-bottom:8px;">
+                    <input type="file" id="planUpload" accept=".json,.txt,.md,.yaml,.yml"
+                        style="flex:1;border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:12px;font-family:inherit;background:var(--card);cursor:pointer;color:var(--text);">
+                    <button class="btn btn-primary" id="enhanceBtn">
+                        <i class="fas fa-magic"></i> Upload &amp; Enhance
+                    </button>
+                </div>
+                <p style="font-size:12px;color:var(--text-muted);">Upload an existing plan (.json, .txt, .md) and AI will reformat it into actionable steps.</p>
+            </div>
+
+            <!-- Execution Plan -->
+            <div class="card" id="planSection" style="display:none;">
+                <div class="card-title"><i class="fas fa-list-ol"></i>Execution Plan</div>
+                <div id="planContent"></div>
+            </div>
+
+            <!-- Live Logs -->
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div class="card-title" style="margin-bottom:0;"><i class="fas fa-terminal"></i>Live Logs</div>
+                    <button onclick="document.getElementById('chatMessages').innerHTML=''" class="btn btn-secondary" style="padding:4px 10px;font-size:11px;">Clear</button>
+                </div>
+                <div class="log-area">
+                    <div class="log-entry"><span class="log-info">[SYSTEM]</span> Automation engine ready.</div>
+                    <div id="chatMessages"></div>
+                </div>
+            </div>
+
+        </div><!-- /content-area -->
+    </div><!-- /main-content -->
+</div><!-- /app-container -->
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-box">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Working...</div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+
+    // ── Element refs ──────────────────────────────────────────────────
+    const urlInput      = document.getElementById('url');
+    const promptInput   = document.getElementById('prompt');
+    const providerSel   = document.getElementById('provider');
+    const planBtn       = document.getElementById('planBtn');
+    const executeBtn    = document.getElementById('executeBtn');
+    const testBtn       = document.getElementById('testBtn');
+    const planUpload    = document.getElementById('planUpload');
+    const enhanceBtn    = document.getElementById('enhanceBtn');
+    const planSection   = document.getElementById('planSection');
+    const planContent   = document.getElementById('planContent');
+    const chatMessages  = document.getElementById('chatMessages');
+    const statusText    = document.getElementById('statusText');
+
+    // ── Socket events ─────────────────────────────────────────────────
+    socket.on('connect', () => addLog('INFO', '🔗 Connected to Viser AI'));
+    socket.on('disconnect', () => { addLog('WARN', '⚠️ Disconnected'); setLoading(false); });
+    socket.on('connect_error', () => { addLog('ERROR', '❌ Connection failed — is the server running?'); setLoading(false); });
+
+    socket.on('log_message', d => {
+        addLog(d.level || 'INFO', d.timestamp ? `[${d.timestamp}] ${d.message}` : d.message);
+    });
+
+    socket.on('plan_ready', d => {
+        setLoading(false);
+        addLog('SUCCESS', '✅ Plan generated');
+        displayPlan(d);
+        setButtons(true);
+    });
+
+    socket.on('task_started', d => {
+        addLog('INFO', `🚀 Task started: ${d.prompt || ''}`);
+        setLoading(true, 'Executing task...');
+        statusText.textContent = 'Running…';
+    });
+
+    socket.on('step_update', d => {
+        updateStepStatus(d.step_id, d.status);
+        const icon = d.status === 'completed' ? '✅' : d.status === 'failed' ? '❌' : '🔄';
+        addLog(d.status === 'failed' ? 'ERROR' : 'INFO',
+            `${icon} Step ${d.step_id} [${d.action}] → ${d.status}`);
+    });
+
+    socket.on('page_info', d => { if (d.url) addLog('INFO', `🌐 Page: ${d.url}`); });
+
+    socket.on('task_success', d => {
+        addLog('SUCCESS', d.message || '✅ Task completed!');
+        if (d.steps_completed) addLog('INFO', `📊 Steps: ${d.steps_completed}`);
+        setLoading(false); setButtons(true); statusText.textContent = 'Ready';
+    });
+
+    socket.on('task_warning', d => {
+        addLog('WARN', `⚠️ ${d.message}`);
+        setLoading(false); setButtons(true); statusText.textContent = 'Ready';
+    });
+
+    socket.on('task_error', d => {
+        addLog('ERROR', `💥 ${d.error}`);
+        setLoading(false); setButtons(true); statusText.textContent = 'Ready';
+    });
+
+    socket.on('task_completed', () => {
+        setLoading(false); setButtons(true); statusText.textContent = 'Ready';
+    });
+
+    socket.on('error', d => {
+        addLog('ERROR', `❌ ${d.message}`);
+        setLoading(false); setButtons(true);
+    });
+
+    socket.on('status', d => { if (d.connected) addLog('INFO', '🔗 Server confirmed connection'); });
+
+    // ── Button handlers ───────────────────────────────────────────────
+    planBtn.addEventListener('click', () => {
+        const url = urlInput.value.trim(), prompt = promptInput.value.trim(), provider = providerSel.value;
+        if (!url || !prompt) { addLog('WARN', 'Please fill in both URL and task'); return; }
+        if (!url.startsWith('http://') && !url.startsWith('https://')) { addLog('WARN', 'URL must start with http:// or https://'); return; }
+        planSection.style.display = 'block';
+        planContent.innerHTML = '<div style="padding:10px;color:var(--text-muted);font-size:13px;">Generating plan…</div>';
+        setLoading(true, 'Generating plan...');
+        setButtons(false);
+        addLog('INFO', `🗂️ Planning with ${provider.toUpperCase()}...`);
+        socket.emit('plan_task', { url, prompt, provider });
+    });
+
+    executeBtn.addEventListener('click', () => {
+        const url = urlInput.value.trim(), prompt = promptInput.value.trim(), provider = providerSel.value;
+        if (!url || !prompt) { addLog('WARN', 'Please fill in both URL and task'); return; }
+        if (!url.startsWith('http://') && !url.startsWith('https://')) { addLog('WARN', 'URL must start with http:// or https://'); return; }
+        setButtons(false);
+        addLog('INFO', `▶️ Executing with ${provider.toUpperCase()}...`);
+        socket.emit('execute_task', { url, prompt, provider });
+    });
+
+    enhanceBtn.addEventListener('click', async () => {
+        if (!planUpload.files || !planUpload.files.length) { addLog('WARN', 'Please select a plan file'); return; }
+        const file = planUpload.files[0];
+        const text = await file.text();
+        const url = urlInput.value.trim(), provider = providerSel.value;
+        addLog('INFO', `📂 Uploading: ${file.name}`);
+        setButtons(false);
+        socket.emit('enhance_plan', { raw: text, filename: file.name, url, provider });
+        setLoading(true, 'Enhancing plan...');
+    });
+
+    testBtn.addEventListener('click', () => {
+        addLog('INFO', '📡 Testing connection...');
+        socket.emit('test_connection');
+    });
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function addLog(level, message) {
+        const el = document.createElement('div');
+        const t  = new Date().toLocaleTimeString();
+        const l  = (level || 'INFO').toUpperCase();
+        const cls = l === 'ERROR' ? 'log-error' : l === 'SUCCESS' ? 'log-success' :
+                    (l === 'WARN' || l === 'WARNING') ? 'log-warn' : 'log-info';
+        el.className = 'log-entry';
+        el.innerHTML = `<span class="log-time">[${t}]</span><span class="${cls}"> [${l}]</span> ${message}`;
+        chatMessages.appendChild(el);
+        chatMessages.parentElement.scrollTop = chatMessages.parentElement.scrollHeight;
+    }
+
+    let _loadTimeout = null;
+    function setLoading(on, text = 'Working...') {
+        const ov = document.getElementById('loadingOverlay');
+        const tx = document.getElementById('loadingText');
+        if (_loadTimeout) { clearTimeout(_loadTimeout); _loadTimeout = null; }
+        if (on) {
+            if (tx) tx.textContent = text;
+            ov.style.display = 'flex';
+            _loadTimeout = setTimeout(() => { setLoading(false); addLog('WARN', '⏱️ Operation timed out'); }, 60000);
+        } else {
+            ov.style.display = 'none';
+        }
+    }
+
+    function setButtons(enabled) {
+        [planBtn, executeBtn, enhanceBtn].forEach(b => b.disabled = !enabled);
+    }
+
+    function displayPlan(data) {
+        planSection.style.display = 'block';
+        if (data.type === 'compare') {
+            let html = '<div style="font-weight:700;color:var(--text);margin-bottom:10px;">Provider Comparison</div>';
+            for (const [prov, result] of Object.entries(data.results || {})) {
+                if (result.error) {
+                    html += `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;margin-bottom:6px;">${prov.toUpperCase()}: ${result.error}</div>`;
+                } else {
+                    html += `<div style="font-weight:700;color:var(--text);font-size:13px;margin:10px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--border);">${prov.toUpperCase()} — ${(result.steps||[]).length} steps</div>`;
+                    html += renderSteps(result.steps || []);
+                }
+            }
+            planContent.innerHTML = html;
+        } else {
+            const plan = data.plan || {};
+            if (plan.steps && Array.isArray(plan.steps) && plan.steps.length) {
+                planContent.innerHTML = `<div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:10px;">${(data.intent||'Plan').toUpperCase()} — ${plan.steps.length} steps</div>${renderSteps(plan.steps)}`;
+            } else if (plan.task_description) {
+                planContent.innerHTML = `<div style="font-weight:700;color:var(--text);font-size:13px;margin-bottom:8px;">🤖 AI Agent Task</div><div style="padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;color:#166534;font-size:13px;">${plan.task_description}</div>`;
+            } else {
+                planContent.innerHTML = '<div style="padding:10px 14px;background:#fefce8;border:1px solid #fde047;border-radius:6px;color:#854d0e;font-size:13px;">No steps found in plan.</div>';
+            }
+        }
+    }
+
+    function renderSteps(steps) {
+        return steps.map(step => `
+            <div class="step-card ${step.status || 'pending'}" id="step-${step.id}">
+                <div class="step-header">
+                    <span class="step-name">Step ${step.id||'?'} — ${step.action||''}</span>
+                    <span class="step-badge">${step.status||'pending'}</span>
+                </div>
+                <div class="step-desc">${step.instruction||step.description||'No description'}</div>
+                ${step.value ? `<div class="step-value">Value: ${step.value}</div>` : ''}
+            </div>`).join('');
+    }
+
+    function updateStepStatus(stepId, status) {
+        const el = document.getElementById(`step-${stepId}`);
+        if (!el) return;
+        el.className = `step-card ${status}`;
+        const badge = el.querySelector('.step-badge');
+        if (badge) badge.textContent = status;
+    }
+</script>
+</body>
+</html>

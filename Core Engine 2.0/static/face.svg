@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="540" height="520" viewBox="0 0 540 520" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#00e5ff"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#bg)" opacity="0"/>
+  <g stroke="url(#g)" stroke-width="2" fill="none" filter="url(#glow)" opacity="0.9">
+    <path d="M120,260 C130,180 210,120 300,130 C390,140 450,200 440,280 C430,360 360,430 290,420 C210,410 170,340 170,300"/>
+    <path d="M150,250 C200,210 260,210 320,230" opacity=".7"/>
+    <path d="M200,320 C250,340 310,340 360,310" opacity=".6"/>
+    <path d="M220,220 C240,200 270,195 295,205" opacity=".6"/>
+  </g>
+  <g stroke="#ff1b99" stroke-width="1" fill="none" opacity=".45">
+    <path d="M180,360 C210,380 260,385 310,370"/>
+    <path d="M260,280 C270,300 300,300 320,280"/>
+  </g>
+</svg>
+
+
+
+
+
+

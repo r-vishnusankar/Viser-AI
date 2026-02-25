@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spec AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav .brand {
+            font-weight: 700;
+            font-size: 24px;
+            color: #ffffff;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: #4f46e5;
+        }
+
+        .nav-links a.active {
+            color: #4f46e5;
+            font-weight: 600;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 0 0 20px 20px;
+            padding: 40px 24px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #ffffff;
+            letter-spacing: -0.01em;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 24px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            padding: 14px 28px;
+            background: #4f46e5;
+            color: #ffffff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .cta:hover {
+            background: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
+        }
+
+        /* Stats Section */
+        .stats {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            margin: 20px 24px;
+            padding: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            text-align: center;
+        }
+
+        .stat {
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .stat:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .stat-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #4f46e5;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .stat-desc {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        /* Popup Modal */
+        .popup-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .popup-content {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .popup-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #ffffff;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .popup-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .popup-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .popup-icon {
+            font-size: 48px;
+            margin-right: 16px;
+        }
+
+        .popup-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .popup-body {
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+        }
+
+        .popup-body h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #4f46e5;
+            margin: 20px 0 12px 0;
+        }
+
+        .popup-body p {
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+
+        .popup-body ul {
+            margin: 16px 0;
+            padding-left: 20px;
+        }
+
+        .popup-body li {
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav {
+                padding: 12px 16px;
+            }
+            
+            .nav .brand {
+                font-size: 20px;
+            }
+            
+            .nav-links {
+                gap: 16px;
+            }
+
+            .hero {
+                padding: 32px 16px;
+            }
+
+            .hero h1 {
+                font-size: 36px;
+            }
+
+            .hero p {
+                font-size: 16px;
+            }
+
+            .stats {
+                margin: 16px;
+                padding: 16px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .stat-icon {
+                font-size: 28px;
+            }
+
+            .stat-title {
+                font-size: 14px;
+            }
+
+            .stat-desc {
+                font-size: 11px;
+            }
+
+            .popup-content {
+                margin: 16px;
+                padding: 24px;
+            }
+
+            .popup-icon {
+                font-size: 40px;
+            }
+
+            .popup-title {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="nav">
+            <div class="brand">Spec AI</div>
+            <div class="nav-links">
+                <a href="/" class="active">Home</a>
+                <a href="/main">Dashboard</a>
+            </div>
+        </nav>
+
+        <div class="main-content">
+            <section class="hero">
+                <div class="hero-content">
+                    <h1>Spec AI</h1>
+                    <p>Advanced AI assistant that plans, automates, and executes complex web tasks with enterprise-grade reliability and precision.</p>
+                    <a class="cta" href="/main">Get Started</a>
+                </div>
+            </section>
+
+            <div class="stats">
+                <div class="stats-grid">
+                    <div class="stat" onclick="openPopup('planning')">
+                        <span class="stat-icon">🧠</span>
+                        <span class="stat-title">Intelligent Planning</span>
+                        <span class="stat-desc">Transform natural language into executable plans</span>
+                    </div>
+                    <div class="stat" onclick="openPopup('automation')">
+                        <span class="stat-icon">🌐</span>
+                        <span class="stat-title">Web Automation</span>
+                        <span class="stat-desc">Execute complex browser tasks automatically</span>
+                    </div>
+                    <div class="stat" onclick="openPopup('monitoring')">
+                        <span class="stat-icon">⚡</span>
+                        <span class="stat-title">Real-time Monitoring</span>
+                        <span class="stat-desc">Track progress with live logging and feedback</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Modal -->
+    <div class="popup-overlay" id="popupOverlay">
+        <div class="popup-content">
+            <button class="popup-close" onclick="closePopup()">&times;</button>
+            <div class="popup-header">
+                <span class="popup-icon" id="popupIcon">🧠</span>
+                <h2 class="popup-title" id="popupTitle">Intelligent Planning</h2>
+            </div>
+            <div class="popup-body" id="popupBody">
+                <!-- Content will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const popupContent = {
+            planning: {
+                icon: '🧠',
+                title: 'Intelligent Planning',
+                body: `
+                    <h3>Advanced AI Reasoning</h3>
+                    <p>Our intelligent planning system uses cutting-edge AI models to analyze natural language requests and convert them into detailed, executable action plans. The system understands context, intent, and complexity to create optimal execution strategies.</p>
+                    
+                    <h3>Key Features</h3>
+                    <ul>
+                        <li>Natural language processing for complex task understanding</li>
+                        <li>Multi-step plan generation with dependency mapping</li>
+                        <li>Error prediction and mitigation strategies</li>
+                        <li>Resource optimization and efficiency planning</li>
+                        <li>Dynamic plan adaptation based on real-time conditions</li>
+                    </ul>
+                    
+                    <h3>How It Works</h3>
+                    <p>The planning engine processes your request through multiple AI layers, analyzing the target website structure, identifying required actions, and creating a step-by-step execution plan. Each plan is validated for feasibility and optimized for success rates.</p>
+                `
+            },
+            automation: {
+                icon: '🌐',
+                title: 'Web Automation',
+                body: `
+                    <h3>Intelligent Browser Control</h3>
+                    <p>Our web automation engine executes complex browser tasks with human-like precision. It adapts to different website layouts, handles dynamic content, and manages various user interactions seamlessly.</p>
+                    
+                    <h3>Advanced Capabilities</h3>
+                    <ul>
+                        <li>Dynamic element detection and interaction</li>
+                        <li>Form filling with intelligent data validation</li>
+                        <li>Multi-page navigation and session management</li>
+                        <li>Image and file upload handling</li>
+                        <li>JavaScript execution and dynamic content processing</li>
+                        <li>Cross-browser compatibility and optimization</li>
+                    </ul>
+                    
+                    <h3>Self-Healing Technology</h3>
+                    <p>The automation system continuously monitors execution progress and automatically adjusts strategies when encountering unexpected changes in website structure or behavior, ensuring maximum success rates.</p>
+                `
+            },
+            monitoring: {
+                icon: '⚡',
+                title: 'Real-time Monitoring',
+                body: `
+                    <h3>Live Execution Tracking</h3>
+                    <p>Monitor every aspect of your automation tasks in real-time with comprehensive logging, progress tracking, and instant feedback. Stay informed about execution status, performance metrics, and any issues that arise.</p>
+                    
+                    <h3>Comprehensive Analytics</h3>
+                    <ul>
+                        <li>Real-time step-by-step execution logging</li>
+                        <li>Performance metrics and timing analysis</li>
+                        <li>Success/failure rate tracking and reporting</li>
+                        <li>Error detection with detailed diagnostic information</li>
+                        <li>Resource usage monitoring and optimization</li>
+                        <li>Historical data analysis and trend reporting</li>
+                    </ul>
+                    
+                    <h3>Instant Notifications</h3>
+                    <p>Receive immediate alerts for task completion, errors, or performance issues. The monitoring system provides detailed insights into execution patterns, helping you optimize and improve your automation workflows.</p>
+                `
+            }
+        };
+
+        function openPopup(type) {
+            const overlay = document.getElementById('popupOverlay');
+            const icon = document.getElementById('popupIcon');
+            const title = document.getElementById('popupTitle');
+            const body = document.getElementById('popupBody');
+            
+            const content = popupContent[type];
+            
+            icon.textContent = content.icon;
+            title.textContent = content.title;
+            body.innerHTML = content.body;
+            
+            overlay.style.display = 'flex';
+        }
+
+        function closePopup() {
+            const overlay = document.getElementById('popupOverlay');
+            overlay.style.display = 'none';
+        }
+
+        // Close popup when clicking outside
+        document.getElementById('popupOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePopup();
+            }
+        });
+
+        // Close popup with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closePopup();
+            }
+        });
+
+        // Socket.IO connection for live server status
+        const socket = io();
+        socket.on('connect', function() {
+            console.log('Connected to Spec AI server');
+        });
+        socket.on('log', function(data) {
+            console.log(`[${data.level}] ${data.message}`);
+        });
+    </script>
+</body>
+</html>

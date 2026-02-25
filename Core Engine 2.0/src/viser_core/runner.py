@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Dict, Any
 from loguru import logger
 
-# Add parent directory to path for imports
+# Add src directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add Core Engine root for settings
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from viser_core.ai_planner import AIPlanner, compare
@@ -20,32 +22,21 @@ def main():
 
     logger.info(f"intent={infer_intent(args.request)} provider={args.provider}")
     if args.provider == "compare":
-        results = compare(args.request)
+        results = compare(args.request, args.url)
         print(json.dumps(results, indent=2))
         return
 
     planner = AIPlanner(args.provider)
     
-    # Use browser-use planning for Groq provider
-    if args.provider == 'groq':
-        plan = planner.plan_for_browser_use(args.request)
-        print(json.dumps(plan, indent=2))
-        
-        if args.dry or plan.get("error") or not args.url:
-            return
-        
-        # Execute with browser-use
-        task_description = plan.get('task_description', args.request)
-        run_with_browser_use_sync(args.url, task_description)
-    else:
-        plan = planner.plan(args.request)
-        print(json.dumps(plan, indent=2))
-        
-        if args.dry or plan.get("error") or not args.url:
-            return
-        
-        # Execute with traditional steps
-        run(args.url, plan.get("steps", []))
+    # Use detailed step-by-step planning for all providers with URL
+    plan = planner.plan(args.request, args.url)
+    print(json.dumps(plan, indent=2))
+    
+    if args.dry or plan.get("error") or not args.url:
+        return
+    
+    # Execute with traditional steps for all providers
+    run(args.url, plan.get("steps", []))
 
 if __name__ == "__main__":
     main()

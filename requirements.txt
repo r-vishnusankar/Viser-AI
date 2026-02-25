@@ -1,0 +1,4 @@
+# Viser AI - main app (flask_server.py)
+# Install Core Engine 2.0 deps separately: pip install -r "Core Engine 2.0/requirements.txt"
+# TOON format for conversation context (reduces LLM token usage)
+toonify>=1.0.0

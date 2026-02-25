@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Setup script to configure API keys for Core Engine 2.0
+Setup script to configure API keys for spec2.0
 """
 
 from settings import settings
@@ -64,7 +64,7 @@ def setup_openai_key():
 
 def main():
     """Main setup function"""
-    print("🚀 Core Engine 2.0 API Key Setup")
+    print("🚀 spec2.0 API Key Setup")
     print("=" * 40)
     
     while True:

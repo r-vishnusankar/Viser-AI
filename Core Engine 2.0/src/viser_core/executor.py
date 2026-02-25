@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import os
 from typing import List, Dict, Any
 from loguru import logger
@@ -57,8 +57,7 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
         
         # Initialize browser-use with proper LLM instance and a dedicated profile
         from browser_use.browser.profile import BrowserProfile  # type: ignore
-        # Use a known small model suitable for tool use
-        llm = ChatOpenAI(model="gpt-4.1-mini", api_key=openai_key)
+        llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_key)
         profile_dir = str(Path.cwd() / "browser_use_profile")
         os.makedirs(profile_dir, exist_ok=True)
         browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=False)
@@ -176,19 +175,41 @@ async def run_async(url: str, steps: List[Dict[str, Any]], socketio=None, ui_log
                     else:
                         await page.click(target)
                 elif action == 'WAIT':
-                    # Wait for element or time
-                    await page.wait_for_timeout(2000)  # Wait 2 seconds
+                    wait_ms = int(value) * 1000 if value and str(value).isdigit() else 2000
+                    await page.wait_for_timeout(wait_ms)
+                elif action == 'VERIFY':
+                    if target and target != 'page':
+                        try:
+                            await page.wait_for_selector(target, timeout=5000)
+                            if ui_logger:
+                                ui_logger.log('SUCCESS', f'✅ Verified: {target} found on page')
+                        except Exception:
+                            if value:
+                                found = await page.locator(f'text={value}').count()
+                                if not found:
+                                    if ui_logger:
+                                        ui_logger.log('WARNING', f'⚠️ Verify failed: "{value}" not found')
+                                    else:
+                                        print(f"⚠️ Verify failed: '{value}' not found")
+                    elif value:
+                        found = await page.locator(f'text={value}').count()
+                        if ui_logger:
+                            ui_logger.log('SUCCESS' if found else 'WARNING',
+                                f'{"✅ Verified" if found else "⚠️ Not found"}: "{value}"')
                 else:
-                    # Generic instruction - try to find and click common elements
-                    if 'login' in instruction.lower():
-                        await page.click('button:has-text("Login"), a:has-text("Login"), input[type="submit"]')
+                    if 'login' in instruction.lower() or 'sign in' in instruction.lower():
+                        await page.click('button:has-text("Login"), button:has-text("Sign in"), a:has-text("Login"), a:has-text("Sign in")')
                     elif 'search' in instruction.lower():
-                        search_selector = 'input[type="search"], input[name*="search"]'
-                        await page.fill(search_selector, value or 'search')
+                        search_selector = 'input[type="search"], input[name*="search"], input[placeholder*="earch"]'
+                        await page.fill(search_selector, value or target)
                         await page.press(search_selector, 'Enter')
+                    elif 'submit' in instruction.lower() or 'confirm' in instruction.lower():
+                        await page.click('button[type="submit"], input[type="submit"]')
                     else:
-                        # Try to find clickable elements
-                        await page.click('button, a, input[type="submit"]')
+                        if ui_logger:
+                            ui_logger.log('WARNING', f'⚠️ Step {step_id}: Unhandled action "{action}" - skipping')
+                        else:
+                            print(f"⚠️ Step {step_id}: Unhandled action '{action}' - skipping")
                 
                 if ui_logger:
                     ui_logger.log('SUCCESS', f'✅ Step {step_id} completed')
@@ -260,6 +281,10 @@ async def run_async(url: str, steps: List[Dict[str, Any]], socketio=None, ui_log
             else:
                 print("🧹 Closing browser...")
             await browser.close()
+        try:
+            await playwright.stop()
+        except Exception:
+            pass
 
 def run(url: str, steps: List[Dict[str, Any]], socketio=None, ui_logger=None) -> None:
     """Synchronous wrapper for browser automation"""

@@ -7,8 +7,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Viser AI - Professional AI Assistant</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    <title>Nexora - AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -19,18 +19,49 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         :root {
-            --bg: #0c0f14;
-            --surface: #161b22;
-            --surface-hover: #21262d;
-            --accent: #3fb950;
-            --accent-dim: #238636;
-            --main-bg: #f0f2f5;
+            /* Bella Kitchenware-inspired Theme - Oatmilk, Plum, Surf */
+            --theme-oatmilk: #DEDACD;
+            --theme-oatmilk-dim: #C9C4B8;
+            --theme-plum: #6B4C71;
+            --theme-plum-dim: #5A3D5F;
+            --theme-surf: #00A6A6;
+            --theme-surf-dim: #008B8B;
+            --theme-primary: #6B4C71;
+            --theme-primary-dim: #5A3D5F;
+            --theme-secondary: #8B6B8F;
+            --theme-accent: #00A6A6;
+            --sidebar-bg: #FFFFFF;
+            --sidebar-accent: #333333;
+            --sidebar-accent-dim: #222222;
+            --sidebar-glow: rgba(235, 234, 225, 0.6);
+            --sidebar-icon: #333333;
+            --sidebar-icon-active: #222222;
+            --main-area-bg: #EBEAE1;
+            --bg: #ffffff;
+            --surface: #F8F6F3;
+            --surface-hover: #F0EDE8;
+            --accent: #6B4C71;
+            --accent-dim: #5A3D5F;
+            --main-bg: #EBEAE1;
             --card: #ffffff;
-            --text: #1f2937;
-            --text-muted: #6b7280;
-            --border: #e5e7eb;
-            --radius: 10px;
-            --radius-sm: 6px;
+            --card-solid: #ffffff;
+            --text: #2D2428;
+            --text-muted: #5C5258;
+            --border: #E5E0DB;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow-sm: 0 2px 8px rgba(45, 36, 40, 0.06), 0 1px 3px rgba(0, 166, 166, 0.04);
+            --shadow-md: 0 6px 20px rgba(45, 36, 40, 0.08), 0 4px 12px rgba(0, 166, 166, 0.06);
+            --glass: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(222, 218, 205, 0.5);
+            --glass-border-light: rgba(107, 76, 113, 0.15);
+            --gradient-mesh: radial-gradient(ellipse 80% 50% at 20% 0%, rgba(222, 218, 205, 0.4) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 20%, rgba(0, 166, 166, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse 50% 30% at 50% 80%, rgba(107, 76, 113, 0.05) 0%, transparent 50%);
+            --gradient-header: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248, 246, 243, 0.98) 50%, rgba(245, 243, 239, 0.97) 100%);
+            --gradient-welcome: linear-gradient(135deg, rgba(222, 218, 205, 0.5) 0%, rgba(0, 166, 166, 0.04) 50%, rgba(107, 76, 113, 0.04) 100%);
+            --gradient-mixed: linear-gradient(135deg, #6B4C71 0%, #00A6A6 100%);
+            --gradient-mixed-soft: linear-gradient(135deg, rgba(107, 76, 113, 0.12) 0%, rgba(0, 166, 166, 0.08) 100%);
         }
 
         * {
@@ -40,13 +71,14 @@
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            font-family: 'DM Sans', 'Plus Jakarta Sans', -apple-system, sans-serif;
             background: var(--main-bg);
             min-height: 100vh;
             color: var(--text);
             line-height: 1.5;
             font-size: 15px;
         }
+
 
         .chat-container::before,
         .chat-container::after,
@@ -60,71 +92,106 @@
             display: flex;
             height: 100vh;
             width: 100%;
-            background: var(--card);
+            background: #EBEAE1;
             overflow: hidden;
         }
 
         .sidebar {
-            width: 220px;
-            background: var(--bg);
-            color: #e6edf3;
+            width: 88px;
+            min-width: 88px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-icon);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
+            align-items: center;
+            padding: 20px 0;
+            border-right: 1px solid rgba(0,0,0,0.06);
+            border-radius: 0 16px 16px 0;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
         }
 
         .sidebar-header {
-            padding: 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 0 0 20px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            margin-bottom: 12px;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 17px;
-            font-weight: 700;
-            color: #fff;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 0 12px;
+            height: 44px;
+            border-radius: 12px;
+            background: transparent;
+            color: #333333;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            text-transform: lowercase;
         }
 
         .logo i {
             font-size: 20px;
-            color: var(--accent);
+            flex-shrink: 0;
+            color: #333333;
         }
 
         .sidebar-nav {
             flex: 1;
-            padding: 12px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 16px;
-            color: #8b949e;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            color: #333333;
             text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: color 0.15s, background 0.15s;
-            border-left: 3px solid transparent;
+            font-size: 18px;
+            transition: all 0.2s;
         }
 
         .nav-item:hover {
-            color: #e6edf3;
-            background: var(--surface-hover);
+            color: #222222;
+            background: rgba(235, 234, 225, 0.6);
         }
 
         .nav-item.active {
-            color: var(--accent);
-            background: var(--surface);
-            border-left-color: var(--accent);
+            color: #222222;
+            background: rgba(235, 234, 225, 0.8);
         }
 
         .nav-item i {
-            width: 18px;
-            text-align: center;
-            opacity: 0.9;
+            font-size: 20px;
+        }
+
+        .sidebar-profile {
+            padding: 16px 0 0;
+            border-top: 1px solid rgba(0,0,0,0.06);
+        }
+
+        .sidebar-profile-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(235, 234, 225, 0.8);
+            border: 1px solid rgba(0,0,0,0.08);
+            color: #333333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
         }
 
         .main-content {
@@ -133,22 +200,165 @@
             flex-direction: column;
             min-height: 0;
             overflow: hidden;
-            background: var(--main-bg);
+            background: #EBEAE1;
+        }
+
+        .view-container {
+            background: #FFFFFF;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+            margin: 16px 16px 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            border: 1px solid rgba(222, 218, 205, 0.6);
+            box-shadow: 0 0 0 1px rgba(0, 166, 166, 0.04) inset;
         }
 
         .chat-header {
-            background: var(--card);
-            padding: 10px 16px;
-            border-bottom: 1px solid var(--border);
+            background: var(--gradient-header);
+            padding: 18px 28px;
+            border-bottom: 1px solid rgba(222, 218, 205, 0.6);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
+        }
+
+        .chat-header-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Provider pill — shows active provider */
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 10px;
+            background: var(--gradient-mixed-soft);
+            color: var(--accent);
+            border: 1px solid rgba(107, 76, 113, 0.2);
+            cursor: default;
+            white-space: nowrap;
+        }
+
+        .provider-pill i {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        /* Compact provider switcher dropdown */
+        .chat-provider-select {
+            font-size: 12px;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: #fff;
+            color: var(--text);
+            cursor: pointer;
+            outline: none;
+        }
+        .chat-provider-select:focus {
+            border-color: var(--accent);
         }
 
         .chat-title {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 20px;
+            font-weight: 800;
+            color: #222222;
+            letter-spacing: -0.02em;
+        }
+
+        /* Attached files strip above the chat */
+        .attached-files-strip {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 8px 16px;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .attached-file-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3px 10px 3px 8px;
+            font-size: 12px;
             color: var(--text);
+        }
+
+        .attached-file-chip .remove-chip {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .attached-file-chip .remove-chip:hover { color: #ef4444; }
+
+        /* Slash command suggestion popup */
+        .slash-suggestions {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            max-height: 220px;
+            overflow-y: auto;
+            margin: 0 4px 4px;
+        }
+
+        .slash-cmd {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background 0.12s;
+        }
+
+        .slash-cmd:last-child { border-bottom: none; }
+
+        .slash-cmd:hover, .slash-cmd.active {
+            background: #f0fdf4;
+        }
+
+        .slash-cmd-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+            min-width: 100px;
+        }
+
+        .slash-cmd-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* Streaming cursor blink */
+        .streaming-cursor::after {
+            content: '▋';
+            animation: blink 0.7s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
         }
 
         .status-indicator {
@@ -156,18 +366,19 @@
             align-items: center;
             gap: 6px;
             padding: 6px 12px;
-            background: var(--accent);
-            color: #fff;
-            border-radius: 20px;
+            background: #f0fdf4;
+            color: var(--accent);
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .status-indicator::before {
             content: '';
             width: 6px;
             height: 6px;
-            background: #fff;
+            background: var(--accent);
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
@@ -194,18 +405,20 @@
 
         .chat-messages {
             flex: 1;
-            padding: 8px 16px;
+            padding: 16px 24px;
             overflow-y: auto;
             overflow-x: hidden;
             display: flex;
             flex-direction: column;
             gap: 4px;
             min-height: 0;
+            background: transparent;
         }
 
         .chat-messages:has(.message:only-child) {
             justify-content: flex-start;
-            padding-top: 12px;
+            padding-top: 24px;
+            background: var(--gradient-welcome);
         }
 
         .message {
@@ -244,20 +457,23 @@
         }
 
         .message.user .message-avatar {
-            background: var(--accent-dim);
+            background: var(--accent);
             color: #fff;
         }
 
         .message.ai .message-avatar {
-            background: var(--surface);
+            background: rgba(107, 76, 113, 0.15);
             color: var(--accent);
+            border: 1px solid rgba(107, 76, 113, 0.3);
         }
 
         .message-content {
-            background: var(--card);
-            padding: 8px 12px 8px 4px;
-            border-radius: var(--radius);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            padding: 14px 18px;
+            border-radius: 14px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(107, 76, 113, 0.08);
+            border: 1px solid rgba(107, 76, 113, 0.12);
             overflow: visible;
         }
 
@@ -270,8 +486,8 @@
         }
 
         .message-content p {
-            margin: 0;
-            line-height: 1.5;
+            margin: 0 0 2px 0;
+            line-height: 1.35;
             font-size: 14px;
             padding: 0;
         }
@@ -280,9 +496,18 @@
             margin-bottom: 0;
         }
 
+        .message-content p + p {
+            margin-top: 0;
+        }
+
         .message.user .message-content {
-            background: var(--accent-dim);
+            background: var(--accent);
             color: #fff;
+            border-color: var(--accent-dim);
+        }
+
+        .message.user .message-content i {
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .message-text {
@@ -298,7 +523,7 @@
 
         .message-text .response {
             white-space: pre-line;
-            line-height: 1.7;
+            line-height: 1.35;
         }
 
         .message-text .response table {
@@ -313,7 +538,7 @@
         .message-text table {
             width: 100%;
             border-collapse: collapse;
-            margin: 12px 0;
+            margin: 4px 0;
             table-layout: auto;
         }
 
@@ -331,20 +556,13 @@
         }
 
         /* Repository Table Styles */
-        .repo-table-container {
-            flex: 1;
-            padding: 20px;
-            overflow: auto;
-            background: #fff;
-        }
-
         .message-text tr:nth-child(even) {
             background: #f9fafb;
         }
 
         .table-container {
             overflow-x: auto;
-            margin: 12px 0;
+            margin: 4px 0;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
         }
@@ -359,7 +577,7 @@
 
         .rendered-table th,
         .message-content table th {
-            background: var(--surface);
+            background: #f7f7f8;
             color: var(--accent);
             padding: 12px;
             font-weight: 600;
@@ -471,9 +689,56 @@
         }
 
         .chat-bubble {
-            padding: 12px 16px;
+            padding: 16px 20px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(107, 76, 113, 0.08);
+            border: 1px solid rgba(107, 76, 113, 0.12);
+            color: var(--text);
+        }
+
+        .message.ai .chat-bubble {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248, 250, 252, 0.98) 100%);
+        }
+
+        .chat-bubble:has(.welcome-icon) {
+            color: var(--accent);
+        }
+
+        .chat-bubble:has(.welcome-icon) code {
+            color: var(--accent);
+            background: rgba(107, 76, 113, 0.15);
+        }
+
+        .welcome-icon {
+            color: var(--accent);
+            margin-right: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 10px;
             border-radius: 12px;
-            background: white;
+            background: rgba(107, 76, 113, 0.15);
+        }
+
+        .welcome-icon i { font-size: 20px; color: var(--accent); }
+
+        .welcome-hint {
+            font-size: 13px;
+            color: var(--accent);
+            margin-top: 12px;
+            display: block;
+            padding: 10px 14px;
+            background: rgba(107, 76, 113, 0.08);
+            border-radius: 10px;
+            border: 1px solid rgba(107, 76, 113, 0.2);
+        }
+
+        .welcome-hint i {
+            font-size: 11px;
+            margin-right: 2px;
+            color: var(--accent);
         }
 
         .message-time {
@@ -483,7 +748,7 @@
         }
 
         .message.user .message-time {
-            color: rgba(255, 255, 255, 0.75);
+            color: rgba(255, 255, 255, 0.8);
         }
 
         .welcome-text h2,
@@ -533,9 +798,10 @@
         .message-content h1,
         .message-content h2,
         .message-content h3 {
-            margin: 0;
+            margin: 0 0 2px 0;
             padding: 0;
             font-weight: 600;
+            line-height: 1.3;
         }
 
         .message-content h1:first-child,
@@ -561,14 +827,14 @@
 
         .message-content ul,
         .message-content ol {
-            margin: 0;
+            margin: 1px 0 2px 0;
             padding-left: 16px;
         }
 
         .message-content li {
             margin: 0;
             padding: 0;
-            line-height: 1.5;
+            line-height: 1.35;
         }
 
         .message-content li+li {
@@ -579,32 +845,69 @@
             font-weight: 600;
         }
 
+        .message-content a {
+            color: var(--accent);
+        }
+
+        .message-content a:hover {
+            text-decoration: underline;
+        }
+
         .message-content code {
-            background: var(--border);
+            background: #f3f4f6;
             padding: 2px 5px;
             border-radius: 4px;
             font-size: 13px;
         }
 
         .message-content pre {
-            background: var(--border);
-            padding: 8px 10px;
+            background: #f3f4f6;
+            padding: 6px 10px;
             border-radius: var(--radius-sm);
             overflow-x: auto;
-            margin: 4px 0;
+            margin: 1px 0;
             font-size: 13px;
+        }
+
+        .story-choice-message {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+
+        .story-choice-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .story-choice-btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--accent);
+            background: rgba(107, 76, 113, 0.08);
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .story-choice-btn:hover {
+            background: var(--accent);
+            color: #fff;
         }
 
         .message-content blockquote {
             border-left: 3px solid var(--accent);
             padding-left: 10px;
-            margin: 4px 0;
+            margin: 1px 0;
             color: var(--text-muted);
             font-style: italic;
         }
 
         .message-content .table-container {
-            margin: 6px 0;
+            margin: 2px 0;
             overflow-x: auto;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
@@ -636,41 +939,77 @@
         }
 
         .chat-input-container {
-            padding: 8px 16px;
-            background: var(--card);
-            border-top: 1px solid var(--border);
+            padding: 20px 28px 24px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(248, 250, 252, 0.6) 100%);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(107, 76, 113, 0.1);
             flex-shrink: 0;
         }
 
         .input-wrapper {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: flex-end;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(107, 76, 113, 0.18);
+            border-radius: 14px;
+            padding: 10px 14px 10px 18px;
+            min-height: 52px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(107, 76, 113, 0.2);
         }
 
         .chat-input {
             flex: 1;
-            min-height: 44px;
+            min-height: 52px;
             max-height: 120px;
-            padding: 10px 14px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
+            padding: 10px 0;
+            border: none;
+            background: transparent;
+            border-radius: 0;
             font-size: 14px;
             font-family: inherit;
             resize: none;
             outline: none;
-            line-height: 1.45;
+            line-height: 1.5;
             box-sizing: border-box;
+            color: var(--text);
         }
 
-        .chat-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
+        .chat-input::placeholder {
+            color: #9ca3af;
         }
 
         .input-actions {
             display: flex;
-            gap: 6px;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .input-actions .btn-secondary {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            justify-content: center;
+            border-radius: 10px;
+            background: transparent;
+            color: #6b7280;
+        }
+
+        .input-actions .btn-secondary:hover {
+            background: #e5e7eb;
+            color: var(--text);
+        }
+
+        .input-actions .btn-primary {
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
         }
 
         .btn {
@@ -687,12 +1026,14 @@
         }
 
         .btn-primary {
-            background: var(--accent);
+            background: var(--gradient-mixed);
             color: #fff;
+            box-shadow: 0 2px 8px rgba(107, 76, 113, 0.25), 0 2px 4px rgba(0, 166, 166, 0.15);
         }
 
         .btn-primary:hover {
-            background: var(--accent-dim);
+            background: linear-gradient(135deg, var(--theme-plum-dim) 0%, var(--theme-surf-dim) 100%);
+            box-shadow: 0 4px 12px rgba(107, 76, 113, 0.3), 0 2px 8px rgba(0, 166, 166, 0.2);
         }
 
         .btn-secondary {
@@ -771,18 +1112,6 @@
         }
 
         /* --- Repository View Styles --- */
-        .repo-controls {
-            background: #fff;
-            padding: 24px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
         .chat-messages::-webkit-scrollbar,
         .documents-container::-webkit-scrollbar {
             width: 8px;
@@ -811,14 +1140,33 @@
             scrollbar-color: #d1d5db #f3f4f6;
         }
 
-        /* --- Repository View Styles --- */
+        /* --- Repository View Styles (My Documents theme) --- */
+        #testcasesView {
+            background: #f0f4f8;
+        }
+
+        #testcasesView .chat-title {
+            font-weight: 800;
+            color: #1f2937;
+        }
+
+        #testcasesView .status-indicator {
+            background: #22c55e;
+            color: #fff;
+            border-color: #16a34a;
+        }
+
+        #testcasesView .status-indicator::before {
+            background: #fff;
+        }
+
         .repo-controls {
             background: #fff;
-            padding: 20px 32px;
+            padding: 16px 24px;
             border-bottom: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 12px;
             position: sticky;
             top: 0;
             z-index: 10;
@@ -826,127 +1174,144 @@
 
         .repo-actions-secondary {
             display: flex;
-            gap: 12px;
-            margin-top: 4px;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
         .repo-actions-secondary .btn {
             font-size: 12px;
-            padding: 8px 16px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border: none;
-            color: white;
-            border-radius: 6px;
+            padding: 7px 14px;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        #repoRefreshBtn {
-            background: #6c63ff;
-        }
-
-        #repoExportCsvBtn {
-            background: #4caf50;
-        }
-
-        #repoExportExcelBtn {
-            background: #f06292;
-        }
-
-        #repoClearFiltersBtn {
-            background: #5c6bc0;
-        }
-
-        #repoRefreshBtn:hover {
-            background: #5a52d5;
-            transform: translateY(-1px);
-        }
-
-        #repoExportCsvBtn:hover {
-            background: #439e47;
-            transform: translateY(-1px);
-        }
-
-        #repoExportExcelBtn:hover {
-            background: #e91e63;
-            transform: translateY(-1px);
-        }
-
-        #repoClearFiltersBtn:hover {
-            background: #4a54a4;
-            transform: translateY(-1px);
-        }
-
-        .repo-actions-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
+            transition: all 0.15s;
+            display: inline-flex;
             align-items: center;
+            gap: 5px;
         }
 
-        .repo-filters {
+        #repoRefreshBtn, #repoExportCsvBtn, #repoExportExcelBtn, #repoClearFiltersBtn {
+            background: #fff;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            font-size: 12px;
+        }
+
+        #repoRefreshBtn:hover, #repoExportCsvBtn:hover,
+        #repoExportExcelBtn:hover, #repoClearFiltersBtn:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+
+        /* Toolbar: import + file selector + action buttons in one row */
+        .repo-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .repo-import-btn {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .repo-select-file {
+            min-width: 180px;
+            max-width: 280px;
+        }
+
+        /* Filter bar: labeled filter groups */
+        .repo-filter-bar {
             display: flex;
             gap: 12px;
+            align-items: flex-end;
             flex-wrap: wrap;
-            flex: 1;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+        }
+
+        .repo-filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .repo-filter-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
         }
 
         .repo-select,
         .repo-input {
-            padding: 12px 16px;
+            padding: 8px 12px;
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            font-size: 14px;
+            border-radius: var(--radius-sm, 6px);
+            font-size: 13px;
             background: #fff;
+            color: var(--text);
             outline: none;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            min-width: 130px;
+            height: 36px;
+        }
+
+        .repo-search-input {
+            min-width: 220px;
+            width: 100%;
         }
 
         .repo-select:focus,
         .repo-input:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.15);
-            transform: translateY(-1px);
+            box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.12);
         }
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        @media (max-width: 860px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         .stat-card {
-            padding: 20px;
-            border-radius: 16px;
+            padding: 14px 18px;
+            border-radius: 10px;
             border: 1px solid var(--border);
             text-align: left;
             background: #fff;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: box-shadow 0.2s;
             position: relative;
             overflow: hidden;
         }
 
         .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
         }
 
         .stat-card h4 {
             font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            font-weight: 700;
+            letter-spacing: 1px;
+            color: #374151;
+            margin-bottom: 6px;
+            font-weight: 800;
         }
 
         .stat-card .stat-value {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 800;
             line-height: 1;
+            color: #1f2937;
         }
 
         .stat-card.total {
@@ -972,7 +1337,7 @@
             flex: 1;
             padding: 24px;
             overflow: auto;
-            background: #f8fafc;
+            background: #f0f4f8;
         }
 
         .modern-ui-table {
@@ -986,23 +1351,24 @@
         }
 
         .modern-ui-table th {
-            background: #7b2ff7;
-            color: #ffffff;
+            background: #1e293b;
+            color: #e2e8f0;
             text-align: left;
-            padding: 16px 20px;
+            padding: 12px 16px;
             font-weight: 700;
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.15);
+            white-space: nowrap;
         }
 
         .modern-ui-table td {
-            padding: 16px 20px;
+            padding: 12px 14px;
             border-bottom: 1px solid var(--border);
-            font-size: 14px;
+            font-size: 13px;
             color: #334155;
-            line-height: 1.6;
+            line-height: 1.5;
             vertical-align: top;
             word-wrap: break-word;
             white-space: normal;
@@ -1010,18 +1376,20 @@
 
         .col-steps,
         .col-expected {
-            min-width: 250px;
-            max-width: 450px;
-            font-size: 13px !important;
+            min-width: 200px;
+            max-width: 360px;
+            font-size: 12px !important;
             color: #475569;
         }
 
         .col-id {
-            width: 90px;
-            font-weight: 800;
-            color: #4f46e5;
+            width: 80px;
+            font-weight: 700;
+            color: #1e293b;
             background: #f8fafc;
             text-align: center;
+            font-family: monospace;
+            font-size: 12px;
         }
 
         .col-priority {
@@ -1042,9 +1410,48 @@
             word-break: break-word;
         }
 
-        /* --- Professional Documents View Styles --- */
+        .module-badge {
+            display: inline-block;
+            background: #f1f5f9;
+            color: var(--accent);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .type-badge {
+            display: inline-block;
+            background: #f1f5f9;
+            color: var(--accent);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* --- Professional Documents View Styles (My Documents theme) --- */
+        #documentsView .chat-title {
+            font-weight: 800;
+            color: #1f2937;
+        }
+
+        #documentsView .status-indicator {
+            background: #22c55e;
+            color: #fff;
+            border-color: #16a34a;
+        }
+
+        #documentsView .status-indicator::before {
+            background: #fff;
+        }
+
         .documents-container {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            background: #f8fafc;
             padding: 32px 24px !important;
         }
 
@@ -1314,6 +1721,16 @@
             font-size: 15px;
         }
 
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e2e8f0;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+
         @media (max-width: 768px) {
             .documents-list {
                 grid-template-columns: 1fr !important;
@@ -1350,28 +1767,29 @@
         .settings-section-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            color: white;
+            gap: 10px;
+            margin-bottom: 14px;
+            color: var(--text);
         }
 
         .settings-section-header i {
-            font-size: 24px;
-            opacity: 0.9;
+            font-size: 18px;
+            color: var(--accent);
         }
 
         .settings-section-header h2 {
-            font-size: 22px;
+            font-size: 16px;
             font-weight: 700;
             margin: 0;
-            color: white;
+            color: var(--text);
         }
 
         .settings-card {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
         }
 
         .setting-item {
@@ -1418,6 +1836,226 @@
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .theme-options {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .theme-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theme-option:hover {
+            border-color: #94a3b8;
+        }
+
+        .theme-option.selected {
+            border-color: var(--accent);
+            background: rgba(107, 76, 113, 0.06);
+        }
+
+        .theme-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        /* Theme overrides - applied via body[data-theme] */
+        body[data-theme="orange"] .message.user .message-content,
+        body[data-theme="orange"] .message.user .message-avatar {
+            background: #EA580C !important;
+            border-color: #EA580C !important;
+        }
+
+        body[data-theme="orange"] .input-wrapper {
+            border-color: rgba(234, 88, 12, 0.3);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        body[data-theme="orange"] .input-wrapper:focus-within {
+            border-color: #EA580C;
+            box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
+        }
+
+        body[data-theme="orange"] .chat-input::placeholder {
+            color: #c2410c;
+        }
+
+        body[data-theme="orange"] .chat-input-container {
+            background: linear-gradient(180deg, rgba(254, 243, 199, 0.5) 0%, rgba(255, 237, 213, 0.6) 100%);
+        }
+
+        body[data-theme="teal"] .message.user .message-content,
+        body[data-theme="teal"] .message.user .message-avatar {
+            background: #0d9488 !important;
+            border-color: #0d9488 !important;
+        }
+
+        body[data-theme="teal"] .input-wrapper {
+            border-color: rgba(13, 148, 136, 0.3);
+        }
+
+        body[data-theme="teal"] .input-wrapper:focus-within {
+            border-color: #0d9488;
+            box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
+        }
+
+        body[data-theme="teal"] .chat-input-container {
+            background: linear-gradient(180deg, rgba(204, 251, 241, 0.5) 0%, rgba(240, 253, 250, 0.6) 100%);
+        }
+
+        body[data-theme="blue"] .message.user .message-content,
+        body[data-theme="blue"] .message.user .message-avatar {
+            background: #2563eb !important;
+            border-color: #2563eb !important;
+        }
+
+        body[data-theme="blue"] .input-wrapper {
+            border-color: rgba(37, 99, 235, 0.3);
+        }
+
+        body[data-theme="blue"] .input-wrapper:focus-within {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+
+        body[data-theme="blue"] .chat-input-container {
+            background: linear-gradient(180deg, rgba(219, 234, 254, 0.5) 0%, rgba(239, 246, 255, 0.6) 100%);
+        }
+
+        /* Welcome/AI avatar theme overrides */
+        body[data-theme="orange"] .message.ai .message-avatar,
+        body[data-theme="orange"] .welcome-icon,
+        body[data-theme="orange"] .welcome-icon i,
+        body[data-theme="orange"] .welcome-hint,
+        body[data-theme="orange"] .welcome-hint i,
+        body[data-theme="orange"] .welcome-list li i,
+        body[data-theme="orange"] .chat-bubble:has(.welcome-icon),
+        body[data-theme="orange"] .chat-bubble:has(.welcome-icon) code {
+            color: #EA580C !important;
+        }
+
+        body[data-theme="orange"] .message.ai .message-avatar {
+            background: rgba(249, 115, 22, 0.15) !important;
+            border-color: rgba(249, 115, 22, 0.3) !important;
+        }
+
+        body[data-theme="orange"] .welcome-icon {
+            background: rgba(249, 115, 22, 0.15) !important;
+        }
+
+        body[data-theme="orange"] .welcome-hint {
+            background: rgba(249, 115, 22, 0.08) !important;
+            border-color: rgba(249, 115, 22, 0.2) !important;
+        }
+
+        body[data-theme="teal"] .message.ai .message-avatar,
+        body[data-theme="teal"] .welcome-icon,
+        body[data-theme="teal"] .welcome-icon i,
+        body[data-theme="teal"] .welcome-hint,
+        body[data-theme="teal"] .welcome-hint i,
+        body[data-theme="teal"] .welcome-list li i,
+        body[data-theme="teal"] .chat-bubble:has(.welcome-icon),
+        body[data-theme="teal"] .chat-bubble:has(.welcome-icon) code {
+            color: #0d9488 !important;
+        }
+
+        body[data-theme="teal"] .message.ai .message-avatar {
+            background: rgba(13, 148, 136, 0.15) !important;
+            border-color: rgba(13, 148, 136, 0.3) !important;
+        }
+
+        body[data-theme="teal"] .welcome-icon {
+            background: rgba(13, 148, 136, 0.15) !important;
+        }
+
+        body[data-theme="teal"] .welcome-hint {
+            background: rgba(13, 148, 136, 0.08) !important;
+            border-color: rgba(13, 148, 136, 0.2) !important;
+        }
+
+        body[data-theme="blue"] .message.ai .message-avatar,
+        body[data-theme="blue"] .welcome-icon,
+        body[data-theme="blue"] .welcome-icon i,
+        body[data-theme="blue"] .welcome-hint,
+        body[data-theme="blue"] .welcome-hint i,
+        body[data-theme="blue"] .welcome-list li i,
+        body[data-theme="blue"] .chat-bubble:has(.welcome-icon),
+        body[data-theme="blue"] .chat-bubble:has(.welcome-icon) code {
+            color: #2563eb !important;
+        }
+
+        body[data-theme="blue"] .message.ai .message-avatar {
+            background: rgba(37, 99, 235, 0.15) !important;
+            border-color: rgba(37, 99, 235, 0.3) !important;
+        }
+
+        body[data-theme="blue"] .welcome-icon {
+            background: rgba(37, 99, 235, 0.15) !important;
+        }
+
+        body[data-theme="blue"] .welcome-hint {
+            background: rgba(37, 99, 235, 0.08) !important;
+            border-color: rgba(37, 99, 235, 0.2) !important;
+        }
+
+        body[data-theme="black"] .message.user .message-content,
+        body[data-theme="black"] .message.user .message-avatar {
+            background: #171717 !important;
+            border-color: #171717 !important;
+        }
+
+        body[data-theme="black"] .input-wrapper {
+            border-color: rgba(23, 23, 23, 0.3);
+        }
+
+        body[data-theme="black"] .input-wrapper:focus-within {
+            border-color: #171717;
+            box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.2);
+        }
+
+        body[data-theme="black"] .chat-input::placeholder {
+            color: #737373;
+        }
+
+        body[data-theme="black"] .chat-input-container {
+            background: linear-gradient(180deg, rgba(245, 245, 245, 0.5) 0%, rgba(250, 250, 250, 0.6) 100%);
+        }
+
+        body[data-theme="black"] .message.ai .message-avatar,
+        body[data-theme="black"] .welcome-icon,
+        body[data-theme="black"] .welcome-icon i,
+        body[data-theme="black"] .welcome-hint,
+        body[data-theme="black"] .welcome-hint i,
+        body[data-theme="black"] .welcome-list li i,
+        body[data-theme="black"] .chat-bubble:has(.welcome-icon),
+        body[data-theme="black"] .chat-bubble:has(.welcome-icon) code {
+            color: #171717 !important;
+        }
+
+        body[data-theme="black"] .message.ai .message-avatar {
+            background: rgba(23, 23, 23, 0.12) !important;
+            border-color: rgba(23, 23, 23, 0.25) !important;
+        }
+
+        body[data-theme="black"] .welcome-icon {
+            background: rgba(23, 23, 23, 0.12) !important;
+        }
+
+        body[data-theme="black"] .welcome-hint {
+            background: rgba(23, 23, 23, 0.06) !important;
+            border-color: rgba(23, 23, 23, 0.25) !important;
         }
 
         .setting-slider {
@@ -1681,8 +2319,8 @@
 
         .btn-pagination:hover:not(:disabled) {
             background: #f8fafc;
-            border-color: #6366f1;
-            color: #6366f1;
+            border-color: var(--accent);
+            color: var(--accent);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
@@ -1713,15 +2351,15 @@
         }
 
         .page-num.active {
-            background: #6366f1;
+            background: var(--accent);
             color: #fff;
-            border-color: #6366f1;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(63, 185, 80, 0.3);
         }
 
         .page-num:hover:not(.active) {
             background: #f1f5f9;
-            color: #4f46e5;
+            color: var(--accent);
         }
 
         .modern-ui-table tr:last-child td {
@@ -1754,8 +2392,8 @@
         }
 
         .prio-medium {
-            background: #dbeafe;
-            color: #1e40af;
+            background: #f1f5f9;
+            color: #475569;
         }
 
         .prio-low {
@@ -1763,109 +2401,421 @@
             color: #475569;
         }
 
-        /* --- Automation View Styles --- */
-        .automation-setup {
+        /* ---- Automation View ---- */
+        #automationView {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Two-column body: left = cards, right = logs */
+        .auto-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 0;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+
+        .auto-col-main {
+            padding: 20px 20px 20px 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .auto-col-logs {
+            padding: 20px 24px 20px 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Card */
+        .auto-card {
             background: #fff;
-            padding: 40px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .automation-form {
-            width: 100%;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 16px;
-        }
-
-        .automation-input,
-        .automation-textarea {
-            padding: 14px 18px;
             border: 1px solid var(--border);
-            border-radius: 12px;
-            font-size: 15px;
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .auto-logs-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Card header */
+        .auto-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .auto-card-icon {
+            font-size: 13px;
+            color: var(--accent);
+        }
+
+        .auto-badge {
+            margin-left: auto;
+            background: var(--accent);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            border-radius: 20px;
+            padding: 2px 9px;
+        }
+
+        /* Form fields */
+        .auto-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 12px;
+        }
+
+        .auto-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .auto-input,
+        .auto-textarea,
+        .auto-select {
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: inherit;
             background: #fff;
+            color: var(--text);
             outline: none;
             width: 100%;
-            transition: all 0.2s;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
 
-        .automation-input:focus,
-        .automation-textarea:focus {
+        .auto-input:focus,
+        .auto-textarea:focus,
+        .auto-select:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.15);
+            box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.12);
         }
 
-        .automation-textarea {
-            height: 140px;
+        .auto-textarea {
+            height: 88px;
+            min-height: 70px;
             resize: vertical;
-            line-height: 1.6;
+            line-height: 1.5;
         }
 
-        .automation-logs-container {
+        .auto-select {
+            cursor: pointer;
+            height: 38px;
+        }
+
+        /* Layout helpers */
+        .auto-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        /* Button row */
+        .auto-btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .auto-btn {
+            font-size: 13px;
+            padding: 8px 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .auto-btn-ghost {
+            background: #fff;
+            color: #64748b;
+            border: 1px solid var(--border);
+            margin-left: auto;
+        }
+
+        .auto-btn-ghost:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+
+        /* Upload row */
+        .auto-enhance-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .auto-file-input {
+            flex: 1;
+            min-width: 160px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 7px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            background: #fff;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .auto-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Plan content */
+        .auto-plan-content {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* Log terminal */
+        .auto-log-terminal {
             flex: 1;
             background: #0f172a;
-            padding: 30px;
-            overflow: auto;
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 13px;
-            color: #94a3b8;
-            border-top: 4px solid #1e293b;
+            border-radius: var(--radius-sm);
+            padding: 14px 18px;
+            min-height: 220px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            color: #e2e8f0;
+            line-height: 1.7;
+            flex: 1;
         }
 
+        .auto-clear-btn {
+            margin-left: auto;
+            padding: 3px 10px;
+            background: transparent;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            color: #64748b;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s;
+        }
+
+        .auto-clear-btn:hover {
+            background: #1e293b;
+            color: #94a3b8;
+        }
+
+        /* Log entry */
         .log-entry {
-            margin-bottom: 8px;
-            line-height: 1.6;
-            animation: fadeIn 0.3s ease-out;
+            margin-bottom: 6px;
+            line-height: 1.7;
+            font-size: 14px;
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        .auto-logs-collapse-btn {
+            background: none;
+            border: none;
+            color: #22d3ee;
+            cursor: pointer;
+            padding: 2px 6px;
+            margin-right: 4px;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .auto-logs-collapse-btn.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .auto-logs-collapse-btn:hover {
+            color: #67e8f9;
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateX(-4px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
+            from { opacity: 0; transform: translateX(-3px); }
+            to   { opacity: 1; transform: translateX(0); }
         }
 
-        .log-time {
-            color: #64748b;
-            margin-right: 12px;
-            font-weight: 500;
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
         }
 
-        .log-info {
-            color: #38bdf8;
+        .log-time    { color: #475569; margin-right: 8px; }
+        .log-info    { color: #64748b; font-weight: 600; }
+        .log-success { color: #4ade80; font-weight: 700; }
+        .log-warn    { color: #fbbf24; font-weight: 600; }
+        .log-error   { color: #f87171; font-weight: 700; }
+
+        /* Loading overlay */
+        .auto-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(240,242,245,0.88);
+            backdrop-filter: blur(6px);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auto-overlay-box {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+            font-size: 14px;
             font-weight: 600;
+            color: var(--text);
         }
 
-        .log-success {
-            color: #4ade80;
+        .auto-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+
+        /* Responsive: stack columns on narrow screens */
+        @media (max-width: 900px) {
+            .auto-body {
+                grid-template-columns: 1fr;
+            }
+            .auto-col-logs {
+                padding: 0 24px 20px;
+            }
+            .auto-log-terminal {
+                min-height: 160px;
+                max-height: 240px;
+            }
+        }
+
+        /* ---- Step Cards ---- */
+        .auto-step {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 7px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .auto-step-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .auto-step-num {
+            width: 22px;
+            height: 22px;
+            background: #e2e8f0;
+            color: #475569;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .auto-step-action {
+            font-size: 11px;
             font-weight: 700;
+            color: #334155;
+            letter-spacing: 0.04em;
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 4px;
         }
 
-        .log-warn {
-            color: #fbbf24;
-        }
-
-        .log-error {
-            color: #f87171;
+        .auto-step-badge {
+            margin-left: auto;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 20px;
             font-weight: 700;
+            background: #e5e7eb;
+            color: #6b7280;
         }
+
+        .auto-step-desc {
+            font-size: 12.5px;
+            color: #374151;
+            line-height: 1.45;
+        }
+
+        .auto-step-val {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Step status variants */
+        .auto-step-completed {
+            background: #f0fdf4;
+            border-color: #86efac;
+            border-left-color: #16a34a;
+        }
+        .auto-step-completed .auto-step-badge { background: #dcfce7; color: #16a34a; }
+        .auto-step-completed .auto-step-num   { background: #dcfce7; color: #16a34a; }
+        .auto-step-completed .auto-step-action{ background: #dcfce7; color: #166534; }
+
+        .auto-step-failed {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            border-left-color: #dc2626;
+        }
+        .auto-step-failed .auto-step-badge { background: #fee2e2; color: #dc2626; }
+        .auto-step-failed .auto-step-num   { background: #fee2e2; color: #dc2626; }
+
+        .auto-step-running {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            border-left-color: #64748b;
+        }
+        .auto-step-running .auto-step-badge { background: #f1f5f9; color: #475569; }
+        .auto-step-running .auto-step-num   { background: #f1f5f9; color: #475569; }
 
         /* General utility classes */
         .hidden {
@@ -1953,42 +2903,41 @@
     </style>
 </head>
 
-<body>
+<body data-theme="purple">
     <div class="app-container">
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i class="fas fa-brain"></i>
-                    Vise-AI
+                    <i class="fas fa-bolt"></i>
+                    Nexora
                 </div>
             </div>
             <nav class="sidebar-nav">
-                <a href="#" class="nav-item active" data-view="chat">
+                <a href="#" class="nav-item active" data-view="chat" title="Nexora Chat">
                     <i class="fas fa-comments"></i>
-                    Wise AI Chat
                 </a>
-                <a href="#" class="nav-item" data-view="testcases">
-                    <i class="fas fa-vial"></i>
-                    Testcase Repository
+                <a href="#" class="nav-item" data-view="testcases" title="Testcase Repository">
+                    <i class="fas fa-folder-open"></i>
                 </a>
-                <a href="#" class="nav-item" data-view="automation">
+                <a href="#" class="nav-item" data-view="automation" title="AI Automation">
                     <i class="fas fa-robot"></i>
-                    AI Automation
                 </a>
-                <a href="#" class="nav-item" data-view="documents">
+                <a href="#" class="nav-item" data-view="documents" title="Documents">
                     <i class="fas fa-file-alt"></i>
-                    Documents
                 </a>
-                <a href="#" class="nav-item" data-view="settings">
+                <a href="#" class="nav-item" data-view="settings" title="Settings">
                     <i class="fas fa-cog"></i>
-                    Settings
                 </a>
-                <a href="#" class="nav-item" data-view="history">
+                <a href="#" class="nav-item" data-view="history" title="History">
                     <i class="fas fa-history"></i>
-                    History
                 </a>
             </nav>
+            <div class="sidebar-profile">
+                <div class="sidebar-profile-avatar" title="User">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
         </div>
 
         <!-- Main Content -->
@@ -1997,11 +2946,22 @@
             <div id="chatView" class="view-container">
                 <!-- Chat Header -->
                 <div class="chat-header">
-                    <h1 class="chat-title">Vise-AI Assistant</h1>
-                    <div class="status-indicator">
-                        <span>Online</span>
+                    <h1 class="chat-title">Nexora Assistant</h1>
+                    <div class="chat-header-meta">
+                        <span class="provider-pill" id="activeProviderPill" title="Click to change provider">
+                            <i class="fas fa-bolt"></i> <span id="activeProviderLabel">Groq</span>
+                        </span>
+                        <select id="chatProviderSelect" class="chat-provider-select" title="Switch AI provider">
+                            <option value="groq">Groq</option>
+                            <option value="gemini">Gemini</option>
+                            <option value="openai">OpenAI</option>
+                        </select>
+                        <div class="status-indicator"><span>Online</span></div>
                     </div>
                 </div>
+
+                <!-- Uploaded files strip -->
+                <div id="attachedFilesStrip" class="attached-files-strip" style="display:none;"></div>
 
                 <!-- Chat Container -->
                 <div class="chat-container">
@@ -2012,7 +2972,11 @@
                                 <i class="fas fa-robot"></i>
                             </div>
                             <div class="chat-bubble">
-                                Hi! How can I help you today?
+                                <span class="welcome-icon"><i class="fas fa-hand"></i></span>
+                                Hi, I'm Nexora. How can I help you today?<br>
+                                <span class="welcome-hint">
+                                    <i class="fas fa-lightbulb"></i> Try <code>/help</code> for commands, or <i class="fas fa-paperclip"></i> to attach files.
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -2031,12 +2995,19 @@
 
                     <!-- Input Area -->
                     <div class="chat-input-container">
+                        <!-- Slash command suggestions -->
+                        <div id="slashSuggestions" class="slash-suggestions" style="display:none;"></div>
                         <div class="input-wrapper">
-                            <textarea id="messageInput" class="chat-input" placeholder="Ask Vise-AI anything..."
+                            <textarea id="messageInput" class="chat-input"
+                                placeholder="Ask anything… or type / for commands"
                                 rows="1"></textarea>
                             <div class="input-actions">
-                                <button class="btn btn-secondary" id="uploadBtn" title="Upload Document">
+                                <button class="btn btn-secondary" id="uploadBtn" title="Attach file(s)">
                                     <i class="fas fa-paperclip"></i>
+                                </button>
+                                <button class="btn btn-secondary" id="multiFileBtn" title="Load all files into context"
+                                    style="display:none;">
+                                    <i class="fas fa-layer-group"></i>
                                 </button>
                                 <button class="btn btn-primary" id="sendBtn">
                                     <i class="fas fa-paper-plane"></i>
@@ -2051,63 +3022,73 @@
             <!-- Testcase Repository View -->
             <div id="testcasesView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <h1 class="chat-title">🧪 Testcase Repository</h1>
+                    <h1 class="chat-title">Testcase Repository</h1>
                     <div class="status-indicator">
                         <span id="testcaseStats">0 TC Loaded</span>
                     </div>
                 </div>
 
                 <div class="repo-controls">
-                    <div class="repo-actions-bar">
+                    <!-- Row 1: Import + Repository selector + action buttons -->
+                    <div class="repo-toolbar">
                         <input type="file" id="repoUpload" multiple accept=".xlsx" class="hidden" />
-                        <button class="btn btn-primary" onclick="document.getElementById('repoUpload').click()">
-                            <i class="fas fa-upload"></i> Import Repositories (.xlsx)
+                        <button class="btn btn-primary repo-import-btn" onclick="document.getElementById('repoUpload').click()">
+                            <i class="fas fa-upload"></i> Import .xlsx
                         </button>
-
-                        <div class="repo-filters">
-                            <select id="repoFileSelector" class="repo-select">
-                                <option selected disabled>Select Repository</option>
-                            </select>
-                            <select id="repoModuleFilter" class="repo-select">
-                                <option>All Modules</option>
-                            </select>
-                            <select id="repoPriorityFilter" class="repo-select">
-                                <option>All Priorities</option>
-                            </select>
-                            <select id="repoTypeFilter" class="repo-select">
-                                <option>All Types</option>
-                            </select>
-                            <input type="text" id="repoSearch" placeholder="Search TC ID, Scenario, Result..."
-                                class="repo-input" />
+                        <select id="repoFileSelector" class="repo-select repo-select-file">
+                            <option selected disabled>Select Repository</option>
+                        </select>
+                        <div style="flex:1;"></div>
+                        <div class="repo-actions-secondary">
+                            <button class="btn btn-secondary" id="repoRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                            <button class="btn btn-secondary" id="repoExportCsvBtn"><i class="fas fa-file-csv"></i> CSV</button>
+                            <button class="btn btn-secondary" id="repoExportExcelBtn"><i class="fas fa-file-excel"></i> Excel</button>
+                            <button class="btn btn-secondary" id="repoClearFiltersBtn"><i class="fas fa-times-circle"></i> Clear</button>
                         </div>
                     </div>
 
-                    <div class="repo-actions-secondary" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <button class="btn btn-secondary" id="repoRefreshBtn"><i class="fas fa-sync"></i>
-                            Refresh</button>
-                        <button class="btn btn-secondary" id="repoExportCsvBtn"><i class="fas fa-file-csv"></i> Export
-                            CSV</button>
-                        <button class="btn btn-secondary" id="repoExportExcelBtn"><i class="fas fa-file-excel"></i>
-                            Export Excel</button>
-                        <button class="btn btn-secondary" id="repoClearFiltersBtn"><i class="fas fa-eraser"></i> Clear
-                            Filters</button>
+                    <!-- Row 2: Filter bar -->
+                    <div class="repo-filter-bar">
+                        <div class="repo-filter-group">
+                            <label class="repo-filter-label">Module</label>
+                            <select id="repoModuleFilter" class="repo-select">
+                                <option value="All Modules">All Modules</option>
+                            </select>
+                        </div>
+                        <div class="repo-filter-group">
+                            <label class="repo-filter-label">Priority</label>
+                            <select id="repoPriorityFilter" class="repo-select">
+                                <option value="All Priorities">All Priorities</option>
+                            </select>
+                        </div>
+                        <div class="repo-filter-group">
+                            <label class="repo-filter-label">Type</label>
+                            <select id="repoTypeFilter" class="repo-select">
+                                <option value="All Types">All Types</option>
+                            </select>
+                        </div>
+                        <div class="repo-filter-group" style="flex:1; min-width:220px;">
+                            <label class="repo-filter-label">Search</label>
+                            <input type="text" id="repoSearch" placeholder="TC ID, scenario, result…" class="repo-input repo-search-input" />
+                        </div>
                     </div>
 
+                    <!-- Row 3: Stats -->
                     <div class="stats-grid">
                         <div class="stat-card total">
-                            <h4>TOTAL TESTS</h4>
+                            <h4>Total Tests</h4>
                             <div id="statTotalTests" class="stat-value">0</div>
                         </div>
                         <div class="stat-card filtered">
-                            <h4>FILTERED TESTS</h4>
+                            <h4>Showing</h4>
                             <div id="statFilteredTests" class="stat-value">0</div>
                         </div>
                         <div class="stat-card critical">
-                            <h4>CRITICAL</h4>
+                            <h4>Critical</h4>
                             <div id="statCriticalTests" class="stat-value">0</div>
                         </div>
                         <div class="stat-card high">
-                            <h4>HIGH PRIORITY</h4>
+                            <h4>High Priority</h4>
                             <div id="statHighPriority" class="stat-value">0</div>
                         </div>
                     </div>
@@ -2117,21 +3098,22 @@
                     <table class="modern-ui-table" id="repoTable">
                         <thead>
                             <tr>
-                                <th>TC ID</th>
-                                <th>TEST SCENARIO</th>
-                                <th>PRE-CONDITIONS</th>
-                                <th>STEPS</th>
-                                <th>EXPECTED RESULT</th>
-                                <th>PRIORITY</th>
-                                <th>TEST TYPE</th>
+                                <th style="width:80px;">TC ID</th>
+                                <th style="min-width:180px;">Test Scenario</th>
+                                <th style="min-width:120px;">Module</th>
+                                <th style="min-width:140px;">Pre-Conditions</th>
+                                <th style="min-width:220px;">Steps</th>
+                                <th style="min-width:200px;">Expected Result</th>
+                                <th style="width:110px;">Priority</th>
+                                <th style="width:110px;">Type</th>
                             </tr>
                         </thead>
                         <tbody id="repoTableBody">
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                                    <i class="fas fa-folder-open"
-                                        style="font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.3;"></i>
-                                    No repositories loaded. Please upload .xlsx files to begin.
+                                <td colspan="8" style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+                                    <i class="fas fa-folder-open" style="font-size:36px;display:block;margin-bottom:14px;opacity:0.25;"></i>
+                                    <span style="font-size:15px;font-weight:500;">No repositories loaded.</span><br>
+                                    <span style="font-size:13px;">Click <strong>Import .xlsx</strong> to get started.</span>
                                 </td>
                             </tr>
                         </tbody>
@@ -2140,15 +3122,12 @@
 
                 <div class="repo-pagination">
                     <div class="pagination-info">
-                        Showing <span id="paginationStart">0</span> to <span id="paginationEnd">0</span> of <span
-                            id="paginationTotal">0</span> entries
+                        Showing <span id="paginationStart">0</span>–<span id="paginationEnd">0</span> of <span id="paginationTotal">0</span> entries
                     </div>
                     <div class="pagination-controls">
-                        <button class="btn-pagination" id="prevPageBtn" disabled><i class="fas fa-chevron-left"></i>
-                            Previous</button>
+                        <button class="btn-pagination" id="prevPageBtn" disabled><i class="fas fa-chevron-left"></i> Prev</button>
                         <div id="pageNumbers" class="page-numbers"></div>
-                        <button class="btn-pagination" id="nextPageBtn">Next <i
-                                class="fas fa-chevron-right"></i></button>
+                        <button class="btn-pagination" id="nextPageBtn">Next <i class="fas fa-chevron-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -2156,60 +3135,127 @@
             <!-- AI Automation View -->
             <div id="automationView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <h1 class="chat-title">🤖 AI Automation Workbench</h1>
+                    <h1 class="chat-title">AI Automation Workbench</h1>
                     <div class="status-indicator">
-                        <span>Ready</span>
+                        <span id="automationStatus">Ready</span>
                     </div>
                 </div>
 
-                <div class="automation-setup">
-                    <div class="automation-form">
-                        <h3 style="font-size: 18px; font-weight: 600;">Start Browser Automation Task</h3>
+                <div class="auto-body">
 
-                        <div class="form-group">
-                            <label
-                                style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Target
-                                URL</label>
-                            <div class="form-row">
-                                <input type="text" id="automationUrl" placeholder="https://example.com"
-                                    class="automation-input" />
-                                <select id="automationProvider" class="repo-select" style="width: 150px;">
-                                    <option value="groq">Groq (Fast)</option>
-                                    <option value="gemini">Gemini Pro</option>
-                                </select>
+                    <!-- Left column -->
+                    <div class="auto-col-main">
+
+                        <!-- Task Setup Card -->
+                        <div class="auto-card">
+                            <div class="auto-card-header">
+                                <i class="fas fa-robot auto-card-icon"></i>
+                                <span>Browser Automation Task</span>
+                            </div>
+
+                            <div class="auto-field">
+                                <label class="auto-label">Target URL</label>
+                                <input type="url" id="automationUrl" placeholder="https://example.com"
+                                    value="https://www.amazon.com" class="auto-input" />
+                            </div>
+
+                            <div class="auto-field">
+                                <label class="auto-label">Task Description</label>
+                                <textarea id="automationPrompt" rows="4"
+                                    placeholder="Describe what you want to automate on this website…"
+                                    class="auto-textarea"></textarea>
+                            </div>
+
+                            <div class="auto-row">
+                                <div class="auto-field" style="flex:1;">
+                                    <label class="auto-label">AI Provider</label>
+                                    <select id="automationProvider" class="auto-input auto-select">
+                                        <option value="groq">Groq — Llama (Fast)</option>
+                                        <option value="gemini">Google Gemini</option>
+                                        <option value="openai">OpenAI GPT</option>
+                                        <option value="compare">⚖️ Compare Providers</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="auto-btn-row">
+                                <button id="automationPlanBtn" class="btn btn-secondary auto-btn">
+                                    <i class="fas fa-map"></i> Plan Only
+                                </button>
+                                <button id="startAutomationBtn" class="btn btn-primary auto-btn">
+                                    <i class="fas fa-play"></i> Execute Task
+                                </button>
+                                <button id="automationTestBtn" class="btn auto-btn auto-btn-ghost">
+                                    <i class="fas fa-plug"></i> Test Connection
+                                </button>
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label
-                                style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Automation
-                                Objective</label>
-                            <textarea id="automationPrompt"
-                                placeholder="What should I do on this website? (e.g. 'Find the best selling laptop under $1000')"
-                                class="automation-textarea"></textarea>
+                        <!-- Upload & Enhance Plan Card -->
+                        <div class="auto-card">
+                            <div class="auto-card-header">
+                                <i class="fas fa-upload auto-card-icon" style="color:#64748b;"></i>
+                                <span>Upload &amp; Enhance Plan</span>
+                            </div>
+                            <div class="auto-enhance-row">
+                                <input type="file" id="automationPlanUpload" accept=".json,.txt,.md,.yaml,.yml"
+                                    class="auto-file-input" />
+                                <button id="automationEnhanceBtn" class="btn btn-primary auto-btn" style="white-space:nowrap;">
+                                    <i class="fas fa-magic"></i> Enhance
+                                </button>
+                            </div>
+                            <p class="auto-hint">Upload an existing plan (.json, .txt, .md) and AI will reformat it into actionable automation steps.</p>
                         </div>
 
-                        <button class="btn btn-primary" id="startAutomationBtn"
-                            style="padding: 12px; font-weight: 700; font-size: 15px; justify-content: center;">
-                            <i class="fas fa-play"></i> Execute Automation Objective
-                        </button>
+                        <!-- Execution Plan Card (hidden until plan is ready) -->
+                        <div id="automationPlanSection" class="auto-card" style="display:none;">
+                            <div class="auto-card-header">
+                                <i class="fas fa-list-ol auto-card-icon" style="color:var(--accent);"></i>
+                                <span>Execution Plan</span>
+                                <span id="autoPlanStepCount" class="auto-badge"></span>
+                            </div>
+                            <div id="automationPlanContent" class="auto-plan-content"></div>
+                        </div>
+
                     </div>
+
+                    <!-- Right column: Live Logs -->
+                    <div class="auto-col-logs">
+                        <div class="auto-card auto-logs-card">
+                            <div class="auto-card-header">
+                                <button type="button" class="auto-logs-collapse-btn" id="autoLogsCollapseBtn" title="Collapse/Expand">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <i class="fas fa-terminal auto-card-icon" style="color:#22d3ee;"></i>
+                                <span>Live Logs</span>
+                                <button class="auto-clear-btn" onclick="document.getElementById('automationLogContainer').innerHTML=''">
+                                    <i class="fas fa-trash-alt"></i> Clear
+                                </button>
+                            </div>
+                            <div class="auto-log-terminal" id="autoLogTerminal">
+                                <div class="log-entry"><span class="log-info">[SYSTEM]</span> Automation engine ready. Waiting for task…</div>
+                                <div id="automationLogContainer"></div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
-                <div class="automation-logs-container">
-                    <div class="log-entry"><span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span
-                            class="log-info">[SYSTEM]</span> Automation engine initialized. Waiting for objectives...
+                <!-- Loading overlay (scoped inside automation view) -->
+                <div id="automationLoadingOverlay" class="auto-overlay">
+                    <div class="auto-overlay-box">
+                        <div class="auto-spinner"></div>
+                        <span id="automationLoadingText">Working…</span>
                     </div>
-                    <div id="automationLogContainer"></div>
                 </div>
             </div>
 
             <!-- Documents View -->
             <div id="documentsView" class="view-container" style="display: none;">
-                <div class="chat-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); padding: 24px 32px; border-bottom: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                    <h1 class="chat-title" style="color: white; font-size: 28px; font-weight: 700; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">📁 My Documents</h1>
-                    <div class="status-indicator" style="background: rgba(255, 255, 255, 0.25); padding: 8px 16px; border-radius: 20px; margin-top: 12px; backdrop-filter: blur(10px);">
-                        <span id="documentsCount" style="color: white; font-weight: 600; font-size: 14px;">0 files</span>
+                <div class="chat-header">
+                    <h1 class="chat-title">My Documents</h1>
+                    <div class="status-indicator">
+                        <span id="documentsCount">0 files</span>
                     </div>
                 </div>
 
@@ -2236,15 +3282,15 @@
 
             <!-- Settings View -->
             <div id="settingsView" class="view-container" style="display: none;">
-                <div class="chat-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 24px 32px; border-bottom: none;">
-                    <h1 class="chat-title" style="color: white; font-size: 28px; font-weight: 700; margin: 0;">⚙️ Settings</h1>
-                    <div class="status-indicator" style="background: rgba(255, 255, 255, 0.2); padding: 8px 16px; border-radius: 20px; margin-top: 12px;">
-                        <span style="color: white; font-weight: 600; font-size: 14px;">Configuration</span>
+                <div class="chat-header">
+                    <h1 class="chat-title">Settings</h1>
+                    <div class="status-indicator">
+                        <span>Configuration</span>
                     </div>
                 </div>
 
-                <div class="settings-container" style="flex: 1; padding: 32px; overflow: auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div class="settings-content" style="max-width: 900px; margin: 0 auto;">
+                <div class="settings-container" style="flex: 1; padding: 24px 32px; overflow: auto; background: var(--main-bg);">
+                    <div class="settings-content" style="max-width: 800px; margin: 0 auto;">
                         
                         <!-- AI Provider Settings -->
                         <div class="settings-section">
@@ -2283,6 +3329,45 @@
                                             <span class="key-status" id="groqKeyStatus">Not Configured</span>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Theme & Color Settings -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <i class="fas fa-palette"></i>
+                                <h2>Theme & Color</h2>
+                            </div>
+                            <div class="settings-card">
+                                <div class="setting-item">
+                                    <div class="setting-label">
+                                        <label>Chat Theme</label>
+                                        <span class="setting-description">Choose the color theme for chat bubbles, input, and accents</span>
+                                    </div>
+                                    <div class="theme-options">
+                                        <label class="theme-option" data-theme="purple">
+                                            <span class="theme-swatch" style="background:#6B4C71;"></span>
+                                            <span>Purple</span>
+                                        </label>
+                                        <label class="theme-option" data-theme="orange">
+                                            <span class="theme-swatch" style="background:#EA580C;"></span>
+                                            <span>Orange</span>
+                                        </label>
+                                        <label class="theme-option" data-theme="teal">
+                                            <span class="theme-swatch" style="background:#0d9488;"></span>
+                                            <span>Teal</span>
+                                        </label>
+                                        <label class="theme-option" data-theme="blue">
+                                            <span class="theme-swatch" style="background:#2563eb;"></span>
+                                            <span>Blue</span>
+                                        </label>
+                                        <label class="theme-option" data-theme="black">
+                                            <span class="theme-swatch" style="background:#171717;"></span>
+                                            <span>Black</span>
+                                        </label>
+                                    </div>
+                                    <input type="hidden" id="themeSelect" value="purple">
                                 </div>
                             </div>
                         </div>
@@ -2397,14 +3482,14 @@
 
             <!-- History View -->
             <div id="historyView" class="view-container" style="display: none;">
-                <div class="chat-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 24px 32px; border-bottom: none;">
-                    <h1 class="chat-title" style="color: white; font-size: 28px; font-weight: 700; margin: 0;">📜 Conversation History</h1>
-                    <div class="status-indicator" style="background: rgba(255, 255, 255, 0.2); padding: 8px 16px; border-radius: 20px; margin-top: 12px;">
-                        <span id="historyCount" style="color: white; font-weight: 600; font-size: 14px;">0 messages</span>
+                <div class="chat-header">
+                    <h1 class="chat-title">Conversation History</h1>
+                    <div class="status-indicator">
+                        <span id="historyCount">0 messages</span>
                     </div>
                 </div>
 
-                <div class="history-container" style="flex: 1; padding: 32px; overflow: auto; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="history-container" style="flex: 1; padding: 24px 32px; overflow: auto; background: var(--main-bg);">
                     <div class="history-content" style="max-width: 1000px; margin: 0 auto;">
                         <div class="history-filters" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                             <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
@@ -2471,6 +3556,10 @@
                 // Automation Logic Initialization
                 this.setupAutomation();
                 this.setupSocketIO();
+
+                // Apply saved theme on load
+                const s = JSON.parse(localStorage.getItem('viserAISettings') || '{}');
+                this.applyTheme(s.theme || 'purple');
             }
 
             generateSessionId() {
@@ -2482,17 +3571,48 @@
                 this.sendBtn.addEventListener('click', () => this.sendMessage());
                 this.uploadBtn.addEventListener('click', () => this.handleFileUpload());
 
+                // Multi-file context button
+                const mfBtn = document.getElementById('multiFileBtn');
+                if (mfBtn) mfBtn.addEventListener('click', async () => {
+                    this.messageInput.value = '/files';
+                    await this.sendMessage();
+                });
+
                 this.messageInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         this.sendMessage();
                     }
+                    if (e.key === 'Escape') this.hideSuggestions();
                 });
 
                 this.messageInput.addEventListener('input', () => {
                     this.autoResize();
                     this.sendBtn.disabled = !this.messageInput.value.trim();
+                    // Slash command suggestions
+                    const val = this.messageInput.value;
+                    if (val.startsWith('/')) {
+                        this.showSuggestions(val);
+                    } else {
+                        this.hideSuggestions();
+                    }
                 });
+
+                // Live provider switcher in chat header
+                const cps = document.getElementById('chatProviderSelect');
+                if (cps) {
+                    cps.addEventListener('change', async () => {
+                        const prov = cps.value;
+                        try {
+                            await fetch('/api/settings/provider', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ provider: prov })
+                            });
+                            this._updateProviderUI(prov);
+                        } catch(e) { console.error('Provider switch failed', e); }
+                    });
+                }
 
                 // Sidebar navigation
                 document.querySelectorAll('.nav-item').forEach(item => {
@@ -2502,6 +3622,11 @@
                         this.switchView(view);
                     });
                 });
+
+                // Fetch active provider on load
+                fetch('/api/settings/provider').then(r => r.json()).then(d => {
+                    if (d.provider) this._updateProviderUI(d.provider);
+                }).catch(()=>{});
             }
 
             setupAutoResize() {
@@ -2527,16 +3652,28 @@
                 const message = this.messageInput.value.trim();
                 if (!message) return;
 
-                // Add user message
+                // ── Slash commands ──────────────────────────────────────────
+                if (message.startsWith('/')) {
+                    const handled = await this.handleSlashCommand(message);
+                    if (handled) {
+                        this.messageInput.value = '';
+                        this.autoResize();
+                        this.hideSuggestions();
+                        return;
+                    }
+                }
+
                 this.addMessage('user', message);
                 this.messageInput.value = '';
                 this.autoResize();
                 this.sendBtn.disabled = true;
+                this.hideSuggestions();
 
                 // Check if this is an analysis request
                 const isAnalysisRequest = this.isAnalysisRequest(message);
                 if (isAnalysisRequest && this.uploadedFiles.length > 0) {
                     await this.analyzeLatestFile();
+                    this.sendBtn.disabled = false;
                     return;
                 }
 
@@ -2544,22 +3681,430 @@
                 this.showTypingIndicator();
 
                 try {
-                    const response = await this.callAPI(message);
-                    this.addMessage('ai', response, true);
-
-                    // Add download options if content is structured
-                    setTimeout(() => {
-                        this.addDownloadOptions(response);
-                    }, 1000);
+                    await this.callAPIStreaming(message);
+                    // Download options are added inside callAPIStreaming on completion
                 } catch (error) {
                     const msg = error.name === 'AbortError'
-                        ? 'Request timed out. The server is taking too long to respond. Please try again.'
+                        ? 'Request timed out. Please try again.'
                         : `Sorry, I encountered an error: ${error.message}`;
                     this.addMessage('ai', msg, true);
                 } finally {
                     this.hideTypingIndicator();
                     this.sendBtn.disabled = false;
                 }
+            }
+
+            // ── Streaming chat call ─────────────────────────────────────────
+            async callAPIStreaming(message) {
+                const controller = new AbortController();
+                const timeoutId  = setTimeout(() => controller.abort(), 120000);
+
+                const response = await fetch('/api/chat/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, session_id: this.sessionId }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const err = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${err}`);
+                }
+
+                // Create the AI bubble immediately
+                const messageId = `msg_${this.messageCounter++}`;
+                const bubble = this._createStreamingBubble(messageId);
+                this.hideTypingIndicator();
+
+                let fullText = '';
+                let isStoryChoice = false;
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        const lines = decoder.decode(value).split('\n');
+                        for (const line of lines) {
+                            if (!line.startsWith('data: ')) continue;
+                            try {
+                                const evt = JSON.parse(line.slice(6));
+                                if (evt.story_type_choice) {
+                                    isStoryChoice = true;
+                                    const wrapper = bubble.closest('.message-text');
+                                    if (wrapper) {
+                                        const msg = document.createElement('p');
+                                        msg.className = 'story-choice-message';
+                                        msg.textContent = evt.message || 'Which type of story would you like to write?';
+                                        const btns = document.createElement('div');
+                                        btns.className = 'story-choice-buttons';
+                                        (evt.options || []).forEach(opt => {
+                                            const btn = document.createElement('button');
+                                            btn.className = 'story-choice-btn';
+                                            btn.textContent = opt;
+                                            btn.onclick = () => this.sendStoryTypeSelection(opt);
+                                            btns.appendChild(btn);
+                                        });
+                                        wrapper.innerHTML = '';
+                                        wrapper.appendChild(msg);
+                                        wrapper.appendChild(btns);
+                                    }
+                                    this.aiResponses.set(messageId, evt.message || '');
+                                    fullText = evt.message || '';
+                                }
+                                if (evt.email_generate_choice) {
+                                    isStoryChoice = true;
+                                    const wrapper = bubble.closest('.message-text');
+                                    if (wrapper) {
+                                        const msg = document.createElement('p');
+                                        msg.className = 'story-choice-message';
+                                        msg.textContent = evt.message || 'Should I generate the email for you?';
+                                        const btns = document.createElement('div');
+                                        btns.className = 'story-choice-buttons';
+                                        (evt.options || []).forEach(opt => {
+                                            const btn = document.createElement('button');
+                                            btn.className = 'story-choice-btn';
+                                            btn.textContent = opt;
+                                            btn.onclick = () => this.sendEmailChoice(opt);
+                                            btns.appendChild(btn);
+                                        });
+                                        wrapper.innerHTML = '';
+                                        wrapper.appendChild(msg);
+                                        wrapper.appendChild(btns);
+                                    }
+                                    fullText = evt.message || '';
+                                }
+                                if (evt.email_rephrase_choice) {
+                                    isStoryChoice = true;
+                                    const wrapper = bubble.closest('.message-text');
+                                    if (wrapper) {
+                                        const msg = document.createElement('p');
+                                        msg.className = 'story-choice-message';
+                                        msg.textContent = evt.message || 'Should I rephrase or help you with your email?';
+                                        const btns = document.createElement('div');
+                                        btns.className = 'story-choice-buttons';
+                                        (evt.options || []).forEach(opt => {
+                                            const btn = document.createElement('button');
+                                            btn.className = 'story-choice-btn';
+                                            btn.textContent = opt;
+                                            btn.onclick = () => this.sendEmailChoice(opt);
+                                            btns.appendChild(btn);
+                                        });
+                                        wrapper.innerHTML = '';
+                                        wrapper.appendChild(msg);
+                                        wrapper.appendChild(btns);
+                                    }
+                                    fullText = evt.message || '';
+                                }
+                                if (evt.email_send_confirm) {
+                                    isStoryChoice = true;
+                                    const wrapper = bubble.closest('.message-text');
+                                    if (wrapper) {
+                                        if (fullText && this.renderMarkdownContent) {
+                                            bubble.innerHTML = this.renderMarkdownContent(fullText);
+                                        }
+                                        const msg = document.createElement('p');
+                                        msg.className = 'story-choice-message';
+                                        msg.textContent = evt.message || 'Send email?';
+                                        msg.style.marginTop = '12px';
+                                        const btns = document.createElement('div');
+                                        btns.className = 'story-choice-buttons';
+                                        (evt.options || []).forEach(opt => {
+                                            const btn = document.createElement('button');
+                                            btn.className = 'story-choice-btn';
+                                            btn.textContent = opt;
+                                            btn.onclick = () => this.sendEmailChoice(opt);
+                                            btns.appendChild(btn);
+                                        });
+                                        wrapper.appendChild(msg);
+                                        wrapper.appendChild(btns);
+                                    }
+                                    fullText = (fullText || '') + (evt.message ? '\n\n' + evt.message : '');
+                                }
+                                if (evt.email_recipient_needed) {
+                                    isStoryChoice = true;
+                                    const wrapper = bubble.closest('.message-text');
+                                    if (wrapper) {
+                                        const msg = document.createElement('p');
+                                        msg.className = 'story-choice-message';
+                                        msg.textContent = evt.message || 'Enter recipient email address:';
+                                        const inp = document.createElement('input');
+                                        inp.type = 'email';
+                                        inp.placeholder = 'recipient@example.com';
+                                        inp.value = '';
+                                        inp.className = 'story-choice-btn';
+                                        inp.style.width = '100%';
+                                        inp.style.padding = '10px 16px';
+                                        inp.style.marginTop = '8px';
+                                        const sendBtn = document.createElement('button');
+                                        sendBtn.className = 'story-choice-btn';
+                                        sendBtn.textContent = 'Send';
+                                        sendBtn.onclick = () => {
+                                            const recipient = inp.value.trim();
+                                            if (recipient) this.sendEmailChoice(recipient);
+                                            else alert('Please enter a recipient email address.');
+                                        };
+                                        const div = document.createElement('div');
+                                        div.className = 'story-choice-buttons';
+                                        div.style.flexDirection = 'column';
+                                        div.appendChild(inp);
+                                        div.appendChild(sendBtn);
+                                        wrapper.innerHTML = '';
+                                        wrapper.appendChild(msg);
+                                        wrapper.appendChild(div);
+                                    }
+                                    fullText = evt.message || '';
+                                }
+                                if (evt.chunk) {
+                                    fullText += evt.chunk;
+                                    bubble.textContent = fullText;
+                                    bubble.classList.add('streaming-cursor');
+                                    this.scrollToBottom();
+                                }
+                                if (evt.done) {
+                                    bubble.classList.remove('streaming-cursor');
+                                    if (!isStoryChoice && fullText) {
+                                        const wrapper = bubble.closest('.message-text');
+                                        if (wrapper) {
+                                            wrapper.innerHTML = this.renderMarkdownContent ? this.renderMarkdownContent(fullText) : fullText;
+                                        }
+                                        this.aiResponses.set(messageId, fullText);
+                                        setTimeout(() => this.addDownloadOptions(fullText), 800);
+                                    }
+                                }
+                                if (evt.error) throw new Error(evt.error);
+                            } catch (_) { /* non-JSON line */ }
+                        }
+                    }
+                } finally {
+                    bubble.classList.remove('streaming-cursor');
+                    reader.releaseLock();
+                }
+                return fullText;
+            }
+
+            async sendStoryTypeSelection(option) {
+                this.addMessage('user', option);
+                this.showTypingIndicator();
+                this.sendBtn.disabled = true;
+                try {
+                    await this.callAPIStreaming(option);
+                } catch (error) {
+                    const msg = error.name === 'AbortError'
+                        ? 'Request timed out. Please try again.'
+                        : `Sorry, I encountered an error: ${error.message}`;
+                    this.addMessage('ai', msg, true);
+                } finally {
+                    this.hideTypingIndicator();
+                    this.sendBtn.disabled = false;
+                }
+            }
+
+            async sendEmailChoice(option) {
+                this.addMessage('user', option);
+                this.showTypingIndicator();
+                this.sendBtn.disabled = true;
+                try {
+                    await this.callAPIStreaming(option);
+                } catch (error) {
+                    const msg = error.name === 'AbortError'
+                        ? 'Request timed out. Please try again.'
+                        : `Sorry, I encountered an error: ${error.message}`;
+                    this.addMessage('ai', msg, true);
+                } finally {
+                    this.hideTypingIndicator();
+                    this.sendBtn.disabled = false;
+                }
+            }
+
+            _createStreamingBubble(messageId) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ai';
+                messageDiv.id = messageId;
+
+                const avatar = document.createElement('div');
+                avatar.className = 'message-avatar';
+                avatar.innerHTML = '<i class="fas fa-robot"></i>';
+
+                const content = document.createElement('div');
+                content.className = 'message-content';
+
+                const text = document.createElement('div');
+                text.className = 'message-text';
+
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble streaming-cursor';
+                bubble.textContent = '';
+
+                text.appendChild(bubble);
+                content.appendChild(text);
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(content);
+                this.chatMessages.appendChild(messageDiv);
+                this.scrollToBottom();
+                return bubble;
+            }
+
+            // ── Slash command handler ────────────────────────────────────────
+            async handleSlashCommand(raw) {
+                const parts   = raw.trim().split(/\s+/);
+                const cmd     = parts[0].toLowerCase();
+                const arg     = parts.slice(1).join(' ');
+
+                const COMMANDS = {
+                    '/help':      'Show available commands',
+                    '/clear':     'Clear conversation history',
+                    '/analyze':   'Analyze the most recently uploaded file',
+                    '/summarize': 'Summarize the current conversation',
+                    '/files':     'Load all uploaded files into AI context',
+                    '/provider':  'Switch AI provider  e.g. /provider groq',
+                    '/email':     'Write and send an email (guided flow)',
+                };
+
+                if (cmd === '/help') {
+                    const lines = Object.entries(COMMANDS)
+                        .map(([c, d]) => `**${c}** — ${d}`).join('\n');
+                    this.addMessage('user', raw);
+                    this.addMessage('ai', `**Available commands:**\n\n${lines}`, true);
+                    return true;
+                }
+
+                if (cmd === '/clear') {
+                    this.addMessage('user', raw);
+                    await fetch('/api/clear-context', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: this.sessionId })
+                    });
+                    this.chatMessages.innerHTML = '';
+                    this.addMessage('ai', '<i class="fas fa-trash-alt"></i> Conversation cleared. Starting fresh.', true);
+                    return true;
+                }
+
+                if (cmd === '/analyze') {
+                    this.addMessage('user', raw);
+                    if (this.uploadedFiles.length === 0) {
+                        this.addMessage('ai', '<i class="fas fa-exclamation-triangle"></i> No files uploaded. Use the <i class="fas fa-paperclip"></i> button to attach a file first.', true);
+                    } else {
+                        await this.analyzeLatestFile();
+                    }
+                    return true;
+                }
+
+                if (cmd === '/summarize') {
+                    this.addMessage('user', raw);
+                    this.showTypingIndicator();
+                    try {
+                        const r = await this.callAPIStreaming('Please summarize our conversation so far in bullet points.');
+                    } catch(e) {
+                        this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> ${e.message}`, true);
+                    } finally {
+                        this.hideTypingIndicator();
+                    }
+                    return true;
+                }
+
+                if (cmd === '/files') {
+                    this.addMessage('user', raw);
+                    if (this.uploadedFiles.length === 0) {
+                        this.addMessage('ai', '<i class="fas fa-exclamation-triangle"></i> No files in session. Upload files with <i class="fas fa-paperclip"></i> first.', true);
+                        return true;
+                    }
+                    this.showTypingIndicator();
+                    try {
+                        const res = await fetch('/api/summarize-files', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ session_id: this.sessionId })
+                        });
+                        const data = await res.json();
+                        this.hideTypingIndicator();
+                        this.addMessage('ai', `<i class="fas fa-check-circle"></i> **${data.files_loaded} file(s)** loaded into context. You can now ask questions about all of them together.`, true);
+                    } catch(e) {
+                        this.hideTypingIndicator();
+                        this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> ${e.message}`, true);
+                    }
+                    return true;
+                }
+
+                if (cmd === '/provider') {
+                    const prov = arg.trim().toLowerCase();
+                    const valid = ['groq','gemini','openai'];
+                    this.addMessage('user', raw);
+                    if (!valid.includes(prov)) {
+                        this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> Unknown provider. Use one of: ${valid.join(', ')}`, true);
+                        return true;
+                    }
+                    try {
+                        const res = await fetch('/api/settings/provider', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ provider: prov })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            this._updateProviderUI(prov);
+                            this.addMessage('ai', `<i class="fas fa-check-circle"></i> Switched to **${prov.toUpperCase()}** provider.`, true);
+                        } else {
+                            this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> ${data.error}`, true);
+                        }
+                    } catch(e) {
+                        this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> ${e.message}`, true);
+                    }
+                    return true;
+                }
+
+                return false; // not a known command, send as normal message
+            }
+
+            _updateProviderUI(provider) {
+                const labels = { groq:'Groq', gemini:'Gemini', openai:'OpenAI', fallback:'Fallback' };
+                const el = document.getElementById('activeProviderLabel');
+                if (el) el.textContent = labels[provider] || provider;
+                const sel = document.getElementById('chatProviderSelect');
+                if (sel) sel.value = provider;
+                const settings = document.getElementById('aiProviderSelect');
+                if (settings) settings.value = provider;
+            }
+
+            // ── Slash suggestions popup ─────────────────────────────────────
+            showSuggestions(input) {
+                const box = document.getElementById('slashSuggestions');
+                if (!box) return;
+                const COMMANDS = [
+                    { cmd: '/help',      desc: 'Show all commands' },
+                    { cmd: '/clear',     desc: 'Clear conversation' },
+                    { cmd: '/analyze',   desc: 'Analyze uploaded file' },
+                    { cmd: '/summarize', desc: 'Summarize conversation' },
+                    { cmd: '/files',     desc: 'Load all files into context' },
+                    { cmd: '/provider',  desc: 'Switch AI provider (groq/gemini/openai)' },
+                    { cmd: '/email',     desc: 'Write and send an email' },
+                ];
+                const filtered = COMMANDS.filter(c => c.cmd.startsWith(input.toLowerCase()));
+                if (filtered.length === 0) { box.style.display = 'none'; return; }
+                box.innerHTML = filtered.map((c, i) =>
+                    `<div class="slash-cmd${i===0?' active':''}" onclick="viseAI.pickSuggestion('${c.cmd}')">
+                        <span class="slash-cmd-name">${c.cmd}</span>
+                        <span class="slash-cmd-desc">${c.desc}</span>
+                    </div>`
+                ).join('');
+                box.style.display = 'block';
+            }
+
+            hideSuggestions() {
+                const box = document.getElementById('slashSuggestions');
+                if (box) box.style.display = 'none';
+            }
+
+            pickSuggestion(cmd) {
+                if (this.messageInput) {
+                    this.messageInput.value = cmd + ' ';
+                    this.messageInput.focus();
+                }
+                this.hideSuggestions();
             }
 
             async loadConversationContext() {
@@ -2574,14 +4119,24 @@
                             this.uploadedFiles = context.uploaded_files.map(file => ({
                                 filename: file.filename,
                                 path: file.path,
-                                fileId: file.fileId || file.file_id || '',  // Handle both fileId and file_id
+                                fileId: file.fileId || file.file_id || '',
                                 size: file.size,
                                 type: file.type || 'unknown',
                                 extension: file.extension || ''
                             }));
+                            this._refreshAttachedStrip();
                             console.log(`📁 Loaded ${this.uploadedFiles.length} uploaded files from context`);
                         } else {
                             this.uploadedFiles = [];
+                        }
+
+                        // Restore persistent conversation messages
+                        if (context.conversation_history && context.conversation_history.length > 0) {
+                            context.conversation_history.forEach(msg => {
+                                if (msg.role === 'user' || msg.role === 'assistant') {
+                                    this.addMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, msg.role === 'assistant');
+                                }
+                            });
                         }
 
                         // Display context info
@@ -2601,39 +4156,25 @@
             }
 
             async callAPI(message) {
-                console.log('🔄 Calling API with message:', message);
-                console.log('🔑 Session ID:', this.sessionId);
-
+                // Non-streaming fallback (kept for analysis/email flows)
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 min timeout
-
-                const response = await fetch('/api/chat', {
+                const timeoutId  = setTimeout(() => controller.abort(), 120000);
+                const response   = await fetch('/api/chat', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        session_id: this.sessionId
-                    }),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, session_id: this.sessionId }),
                     signal: controller.signal
                 });
-
                 clearTimeout(timeoutId);
-                console.log('📊 Response status:', response.status);
-
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ API Error:', errorText);
-                    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                    const err = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${err}`);
                 }
-
                 const data = await response.json();
-                console.log('✅ API Response:', data);
                 return data.response || 'No response received';
             }
 
-            addMessage(sender, content, isFormatted = false) {
+            addMessage(sender, content, isFormatted = false, allowHtml = false) {
                 const messageId = `msg_${this.messageCounter++}`;
                 if (sender === 'ai') {
                     this.aiResponses.set(messageId, content);
@@ -2655,7 +4196,7 @@
                 if (sender === 'ai') {
                     messageText.innerHTML = this.renderMarkdownContent(content);
                 } else {
-                    messageText.textContent = content;
+                    messageText[allowHtml ? 'innerHTML' : 'textContent'] = content;
                 }
 
                 const messageTime = document.createElement('div');
@@ -2882,10 +4423,13 @@
 
             renderMarkdownContent(content) {
                 if (typeof marked !== 'undefined') {
-                    // 1. Aggressive structural repair
+                    // 1. Collapse excessive newlines (reduces vertical spacing)
+                    content = content.replace(/\n{3,}/g, '\n\n');
+
+                    // 2. Aggressive structural repair
                     content = this.repairMarkdownTable(content);
 
-                    // 2. Structural normalization
+                    // 3. Structural normalization
                     marked.setOptions({
                         breaks: true,
                         gfm: true,
@@ -3098,18 +4642,19 @@
                 } catch (error) {
                     console.error('File Analysis Error:', error);
                     this.hideTypingIndicator();
-                    this.addMessage('ai', `⚠️ File analysis failed: ${error.message}\n\nPlease try again or check the server logs for more details.`, true);
+                    this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> File analysis failed: ${error.message}\n\nPlease try again or check the server logs for more details.`, true);
                 }
             }
 
             handleFileUpload() {
                 const input = document.createElement('input');
                 input.type = 'file';
+                input.multiple = true;
                 input.accept = '.pdf,.docx,.txt,.md,.jpg,.jpeg,.png,.gif,.bmp,.webp,.tiff,.svg';
-                input.onchange = (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        this.uploadFile(file);
+                input.onchange = async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    for (const file of files) {
+                        await this.uploadFile(file);
                     }
                 };
                 input.click();
@@ -3118,8 +4663,8 @@
             async uploadFile(file) {
                 // Determine if it's an image
                 const isImage = file.type.startsWith('image/');
-                const icon = isImage ? '🖼️' : '📄';
-                this.addMessage('user', `${icon} Uploading: ${file.name}`);
+                const iconClass = isImage ? 'fa-image' : 'fa-file-alt';
+                this.addMessage('user', `<i class="fas ${iconClass}"></i> Uploading: ${file.name}`, false, true);
                 this.showTypingIndicator();
 
                 try {
@@ -3149,18 +4694,18 @@
                     };
                     this.uploadedFiles.push(fileInfo);
                     console.log(`📁 File added to uploadedFiles:`, fileInfo);
-                    console.log(`📁 Total uploaded files: ${this.uploadedFiles.length}`);
+                    this._refreshAttachedStrip();
 
                     this.hideTypingIndicator();
 
                     // Check if it's an image and show preview
                     const isImage = data.type === 'image';
-                    const successIcon = isImage ? '🖼️' : '📄';
+                    const successIconClass = isImage ? 'fa-image' : 'fa-file-alt';
                     const analyzePrompt = isImage ?
                         `Would you like me to analyze this image? Just type "analyze" or "analyze image" and I'll provide a detailed visual analysis.` :
                         `Would you like me to analyze "${data.filename}"? Just type "analyze" or "analyze file" and I'll provide a comprehensive analysis of the document content.`;
 
-                    this.addMessage('ai', `✅ ${successIcon} File uploaded successfully! ${data.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-check-circle"></i> <i class="fas ${successIconClass}"></i> File uploaded successfully. ${data.message}`, true);
 
                     // Show image preview if it's an image
                     if (isImage) {
@@ -3176,7 +4721,7 @@
 
                 } catch (error) {
                     this.hideTypingIndicator();
-                    this.addMessage('ai', `❌ Upload failed: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Upload failed: ${error.message}`, true);
                 }
             }
 
@@ -3188,7 +4733,7 @@
                     previewDiv.innerHTML = `
                         <div class="message-content">
                             <div class="message-text">
-                                🖼️ <strong>Image Preview:</strong> ${filename}
+                                <i class="fas fa-image"></i> <strong>Image Preview:</strong> ${filename}
                             </div>
                             <div class="image-container">
                                 <img src="${e.target.result}" alt="${filename}" class="uploaded-image">
@@ -3240,7 +4785,7 @@
 
                 const text = document.createElement('div');
                 text.className = 'message-text';
-                text.textContent = '✅ Analysis complete! Would you like to email this report?';
+                text.innerHTML = '<i class="fas fa-check-circle"></i> Analysis complete. Would you like to email this report?';
                 contentDiv.appendChild(text);
 
                 const btnOptions = document.createElement('div');
@@ -3249,12 +4794,12 @@
 
                 const emailBtn = document.createElement('button');
                 emailBtn.className = 'email-btn';
-                emailBtn.innerHTML = '📧 Email Report';
+                emailBtn.innerHTML = '<i class="fas fa-envelope"></i> Email Report';
                 emailBtn.onclick = () => this.sendAnalysisEmail(filename, analysis);
 
                 const settingsBtn = document.createElement('button');
                 settingsBtn.className = 'email-btn secondary';
-                settingsBtn.innerHTML = '⚙️ Email Settings';
+                settingsBtn.innerHTML = '<i class="fas fa-cog"></i> Email Settings';
                 settingsBtn.onclick = () => this.showEmailConfig();
 
                 btnOptions.appendChild(emailBtn);
@@ -3309,19 +4854,35 @@
                 this.scrollToBottom();
             }
 
-            async sendAnalysisEmail(filename, analysis) {
+            async sendAnalysisEmail(filename, analysis, recipientOverride) {
                 try {
-                    this.addMessage('user', '📧 Sending analysis report via email...');
+                    let recipient = recipientOverride;
+                    if (!recipient) {
+                        const configRes = await fetch('/api/email-config');
+                        if (configRes.ok) {
+                            const config = await configRes.json();
+                            recipient = config.default_recipient || '';
+                        }
+                    }
+                    if (!recipient) {
+                        recipient = prompt('Enter recipient email address:');
+                        if (!recipient || !recipient.trim()) {
+                            this.addMessage('ai', '<i class="fas fa-info-circle"></i> Email cancelled. Recipient address is required.', true);
+                            return;
+                        }
+                        recipient = recipient.trim();
+                    }
+
+                    this.addMessage('user', `<i class="fas fa-envelope"></i> Sending analysis report to ${recipient}...`, false, true);
                     this.showTypingIndicator();
 
                     const response = await fetch('/api/email-analysis', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             filename: filename,
                             analysis: analysis,
+                            recipient: recipient,
                             session_id: this.sessionId
                         })
                     });
@@ -3330,15 +4891,15 @@
 
                     if (response.ok) {
                         const data = await response.json();
-                        this.addMessage('ai', `✅ Analysis report sent successfully to ${data.recipient}!`, true);
+                        this.addMessage('ai', `<i class="fas fa-check-circle"></i> Analysis report sent successfully to ${data.recipient}.`, true);
                     } else {
                         const error = await response.json();
-                        this.addMessage('ai', `❌ Failed to send email: ${error.error}`, true);
+                        this.addMessage('ai', `<i class="fas fa-times-circle"></i> Failed to send email: ${error.error}`, true);
                     }
 
                 } catch (error) {
                     this.hideTypingIndicator();
-                    this.addMessage('ai', `❌ Email error: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Email error: ${error.message}`, true);
                 }
             }
 
@@ -3349,15 +4910,16 @@
                     if (response.ok) {
                         const config = await response.json();
                         const configInfo = `
-📧 **Email Configuration:**
+**Email Configuration:**
 
-• **Status:** ${config.email_enabled ? '✅ Enabled' : '❌ Disabled'}
-• **SMTP Server:** ${config.smtp_server}
-• **Sender:** ${config.sender_email}
-• **Default Recipient:** ${config.default_recipient}
-• **Configuration:** ${config.smtp_configured ? '✅ Complete' : '❌ Incomplete'}
+• **Status:** ${config.email_enabled ? '<i class="fas fa-check-circle"></i> Enabled' : '<i class="fas fa-times-circle"></i> Disabled'}
+• **SMTP Server:** ${config.smtp_server || '(not set)'}
+• **Sender:** ${config.sender_email || '(not set)'}
+• **Default Recipient:** ${config.default_recipient || '(not set - you will be prompted)'}
+• **Configuration:** ${config.smtp_configured ? '<i class="fas fa-check-circle"></i> Complete' : '<i class="fas fa-times-circle"></i> Incomplete'}
 
-${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functionality is disabled.'}
+${!config.smtp_configured ? '**Setup:** Add SENDER_EMAIL, APP_PASSWORD, and SMTP_SERVER to your .env file. For Gmail, use an App Password from https://myaccount.google.com/apppasswords' : ''}
+${config.email_enabled && config.smtp_configured ? 'Email functionality is ready to use!' : ''}
                         `;
 
                         this.addMessage('ai', configInfo, true);
@@ -3384,40 +4946,55 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                         }, 500);
 
                     } else {
-                        this.addMessage('ai', '❌ Failed to retrieve email configuration.', true);
+                        this.addMessage('ai', '<i class="fas fa-times-circle"></i> Failed to retrieve email configuration.', true);
                     }
 
                 } catch (error) {
-                    this.addMessage('ai', `❌ Configuration error: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Configuration error: ${error.message}`, true);
                 }
             }
 
-            async sendTestEmail() {
+            async sendTestEmail(recipientOverride) {
                 try {
+                    let recipient = recipientOverride;
+                    if (!recipient) {
+                        const configRes = await fetch('/api/email-config');
+                        if (configRes.ok) {
+                            const config = await configRes.json();
+                            recipient = config.default_recipient || '';
+                        }
+                    }
+                    if (!recipient) {
+                        recipient = prompt('Enter your email to receive the test:');
+                        if (!recipient || !recipient.trim()) {
+                            this.addMessage('ai', '<i class="fas fa-info-circle"></i> Test email cancelled. Recipient address is required.', true);
+                            return;
+                        }
+                        recipient = recipient.trim();
+                    }
+
                     this.addMessage('user', '🧪 Sending test email...');
                     this.showTypingIndicator();
 
                     const response = await fetch('/api/test-email', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ recipient: recipient })
                     });
 
                     this.hideTypingIndicator();
 
                     if (response.ok) {
                         const data = await response.json();
-                        this.addMessage('ai', `✅ Test email sent successfully to ${data.recipient}! Check your inbox.`, true);
+                        this.addMessage('ai', `<i class="fas fa-check-circle"></i> Test email sent successfully to ${data.recipient}. Check your inbox.`, true);
                     } else {
                         const error = await response.json();
-                        this.addMessage('ai', `❌ Test email failed: ${error.error}`, true);
+                        this.addMessage('ai', `<i class="fas fa-times-circle"></i> Test email failed: ${error.error}`, true);
                     }
 
                 } catch (error) {
                     this.hideTypingIndicator();
-                    this.addMessage('ai', `❌ Test email error: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Test email error: ${error.message}`, true);
                 }
             }
 
@@ -3442,7 +5019,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
 
                 const header = document.createElement('div');
                 header.className = 'message-text';
-                header.innerHTML = '📄 <strong>Download Options:</strong> Export this content as a document';
+                header.innerHTML = '<i class="fas fa-file-download"></i> <strong>Download Options:</strong> Export this content as a document';
                 contentDiv.appendChild(header);
 
                 const btnContainer = document.createElement('div');
@@ -3450,10 +5027,10 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                 btnContainer.style.marginTop = '15px';
 
                 const formats = [
-                    { id: 'pdf', label: '📄 PDF' },
+                    { id: 'pdf', label: 'PDF' },
                     { id: 'docx', label: '📝 DOCX' },
                     { id: 'excel', label: '📊 Excel' },
-                    { id: 'txt', label: '📄 TXT' }
+                    { id: 'txt', label: 'TXT' }
                 ];
 
                 formats.forEach(f => {
@@ -3519,7 +5096,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
 
             async downloadDocument(content, format) {
                 try {
-                    this.addMessage('user', `📥 Generating ${format.toUpperCase()} document...`);
+                    this.addMessage('user', `<i class="fas fa-download"></i> Generating ${format.toUpperCase()} document...`, false, true);
                     this.showTypingIndicator();
 
                     // Generate document
@@ -3531,7 +5108,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                         body: JSON.stringify({
                             content: content,
                             format: format,
-                            filename: `vise-ai-${format}-${Date.now()}`
+                            filename: `nexora-${format}-${Date.now()}`
                         })
                     });
 
@@ -3551,16 +5128,16 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                         link.click();
                         document.body.removeChild(link);
 
-                        this.addMessage('ai', `✅ ${format.toUpperCase()} document downloaded successfully! (${data.filename})`, true);
+                        this.addMessage('ai', `<i class="fas fa-check-circle"></i> ${format.toUpperCase()} document downloaded successfully (${data.filename})`, true);
 
                     } else {
                         const error = await generateResponse.json();
-                        this.addMessage('ai', `❌ Document generation failed: ${error.error}`, true);
+                        this.addMessage('ai', `<i class="fas fa-times-circle"></i> Document generation failed: ${error.error || error.message}`, true);
                     }
 
                 } catch (error) {
                     this.hideTypingIndicator();
-                    this.addMessage('ai', `❌ Download error: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Download error: ${error.message}`, true);
                 }
             }
 
@@ -3569,10 +5146,35 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
             }
 
             scrollToBottom() {
-                // Use requestAnimationFrame for smoother scrolling
                 requestAnimationFrame(() => {
                     this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
                 });
+            }
+
+            _refreshAttachedStrip() {
+                const strip   = document.getElementById('attachedFilesStrip');
+                const mfBtn   = document.getElementById('multiFileBtn');
+                if (!strip) return;
+                const files   = this.uploadedFiles;
+                if (files.length === 0) {
+                    strip.style.display = 'none';
+                    if (mfBtn) mfBtn.style.display = 'none';
+                    return;
+                }
+                strip.style.display = 'flex';
+                if (mfBtn) mfBtn.style.display = files.length > 1 ? 'inline-flex' : 'none';
+                strip.innerHTML = files.map((f, i) => {
+                    const icon = f.type === 'image' ? '<i class="fas fa-image"></i>' : '<i class="fas fa-file-alt"></i>';
+                    return `<span class="attached-file-chip">
+                        ${icon} ${f.filename}
+                        <button class="remove-chip" onclick="viseAI._removeAttachedFile(${i})" title="Remove"><i class="fas fa-times"></i></button>
+                    </span>`;
+                }).join('');
+            }
+
+            _removeAttachedFile(index) {
+                this.uploadedFiles.splice(index, 1);
+                this._refreshAttachedStrip();
             }
 
             // View Management
@@ -3655,7 +5257,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                     console.error('Error loading documents:', error);
                     documentsList.innerHTML = `
                         <div class="loading-state">
-                            <p>❌ Error loading documents: ${error.message}</p>
+                            <p><i class="fas fa-times-circle"></i> Error loading documents: ${error.message}</p>
                             <button class="btn btn-primary" onclick="viseAI.loadDocuments()">
                                 <i class="fas fa-refresh"></i>
                                 Retry
@@ -3765,27 +5367,49 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
 
                 const applyFilters = () => {
                     if (!this.currentRepoFile) return;
-                    let filtered = [...this.allRepoData[this.currentRepoFile]]; // Create a copy to avoid reference issues
+                    let filtered = [...this.allRepoData[this.currentRepoFile]];
 
-                    const mod = moduleFilter.value;
-                    const prio = priorityFilter.value;
-                    const type = document.getElementById('repoTypeFilter').value;
-                    const search = searchBox.value.toLowerCase();
+                    const mod    = moduleFilter.value;
+                    const prio   = priorityFilter.value;
+                    const type   = document.getElementById('repoTypeFilter').value;
+                    const search = searchBox.value.toLowerCase().trim();
 
-                    if (mod !== 'All Modules') filtered = filtered.filter(tc => tc.Module === mod);
-                    if (prio !== 'All Priorities') filtered = filtered.filter(tc => (tc.Priority || '').toLowerCase() === prio.toLowerCase());
-                    if (type !== 'All Types') filtered = filtered.filter(tc => (tc["Test Type"] || tc.Type || '').toLowerCase() === type.toLowerCase());
-                    if (search.trim()) {
-                        filtered = filtered.filter(tc =>
-                            (tc.TC_ID || '').toString().toLowerCase().includes(search) ||
-                            (tc["Test Scenario"] || '').toString().toLowerCase().includes(search) ||
-                            (tc["Expected Result"] || '').toString().toLowerCase().includes(search)
-                        );
+                    // Module: exact match (set from sheet name)
+                    if (mod && mod !== 'All Modules') {
+                        filtered = filtered.filter(tc => String(tc.Module || '') === mod);
                     }
-                    this.filteredRepoData = filtered; // Set filtered data
-                    console.log(`Filters applied: ${filtered.length} records filtered from ${this.allRepoData[this.currentRepoFile].length} total`);
+                    // Priority: case-insensitive string match across common key names
+                    if (prio && prio !== 'All Priorities') {
+                        filtered = filtered.filter(tc => {
+                            const val = String(tc.Priority || tc.priority || tc.PRIORITY || '').trim();
+                            return val.toLowerCase() === prio.toLowerCase();
+                        });
+                    }
+                    // Type: case-insensitive match
+                    if (type && type !== 'All Types') {
+                        filtered = filtered.filter(tc => {
+                            const val = String(tc["Test Type"] || tc.Type || tc.type || tc.TYPE || '').trim();
+                            return val.toLowerCase() === type.toLowerCase();
+                        });
+                    }
+                    // Search: across ID, Scenario, Steps, Expected, Module
+                    if (search) {
+                        filtered = filtered.filter(tc => {
+                            const haystack = [
+                                tc.TC_ID, tc.TCID, tc.ID, tc["Test ID"],
+                                tc["Test Scenario"], tc.Scenario, tc.Title,
+                                tc["Test steps"], tc.Steps,
+                                tc["Expected Result"], tc.Expected,
+                                tc.Module
+                            ].map(v => String(v || '').toLowerCase()).join(' ');
+                            return haystack.includes(search);
+                        });
+                    }
+
+                    this.filteredRepoData = filtered;
+                    console.log(`Filters: mod="${mod}" prio="${prio}" type="${type}" search="${search}" → ${filtered.length}/${this.allRepoData[this.currentRepoFile].length}`);
                     this.repoPage = 1;
-                    this.renderRepoTable(); // Render without data param to use filteredRepoData
+                    this.renderRepoTable();
                 };
 
                 // Pagination Buttons
@@ -3815,7 +5439,11 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                     priorityFilter.value = 'All Priorities';
                     document.getElementById('repoTypeFilter').value = 'All Types';
                     searchBox.value = '';
-                    if (this.currentRepoFile) this.renderRepoTable(this.allRepoData[this.currentRepoFile]);
+                    if (this.currentRepoFile && this.allRepoData[this.currentRepoFile]) {
+                        this.filteredRepoData = [...this.allRepoData[this.currentRepoFile]];
+                        this.repoPage = 1;
+                        this.renderRepoTable();
+                    }
                 });
 
                 // Refresh - reload repository data from server
@@ -3900,27 +5528,36 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
             }
 
             populateRepoFilters(data) {
-                const moduleFilter = document.getElementById('repoModuleFilter');
+                const moduleFilter   = document.getElementById('repoModuleFilter');
                 const priorityFilter = document.getElementById('repoPriorityFilter');
-                const typeFilter = document.getElementById('repoTypeFilter');
+                const typeFilter     = document.getElementById('repoTypeFilter');
                 if (!moduleFilter || !data || data.length === 0) return;
 
-                // Extract modules, filtering out undefined/null/empty values
-                const modules = [...new Set(data.map(tc => tc.Module).filter(m => m && m.trim() !== ''))];
-                const types = [...new Set(data.map(tc => tc["Test Type"] || tc.Type).filter(t => t && t.trim() !== ''))];
-                const priorities = ['Critical', 'High', 'Medium', 'Low'];
+                // Helper to get unique non-empty values
+                const unique = (arr) => [...new Set(arr.filter(v => v !== undefined && v !== null && String(v).trim() !== ''))].sort();
 
-                // Populate module dropdown
-                moduleFilter.innerHTML = `<option>All Modules</option>` + modules.map(m => `<option>${m}</option>`).join('');
-                
-                // Populate priority dropdown
-                priorityFilter.innerHTML = `<option>All Priorities</option>` + priorities.map(p => `<option>${p}</option>`).join('');
-                
-                // Populate type dropdown
-                typeFilter.innerHTML = `<option>All Types</option>` + types.map(t => `<option>${t}</option>`).join('');
-                
-                // Debug logging
-                console.log('Populated filters:', { modules, types, dataLength: data.length });
+                const modules    = unique(data.map(tc => tc.Module));
+                const priorities = unique(data.map(tc => {
+                    const raw = tc.Priority || tc.priority || tc.PRIORITY || '';
+                    return raw ? String(raw).trim() : null;
+                }));
+                const types = unique(data.map(tc => tc["Test Type"] || tc.Type || tc.type || tc.TYPE));
+
+                // Preserve current selections
+                const curMod  = moduleFilter.value;
+                const curPrio = priorityFilter.value;
+                const curType = typeFilter.value;
+
+                moduleFilter.innerHTML   = `<option value="All Modules">All Modules</option>`   + modules.map(m => `<option value="${m}">${m}</option>`).join('');
+                priorityFilter.innerHTML = `<option value="All Priorities">All Priorities</option>` + priorities.map(p => `<option value="${p}">${p}</option>`).join('');
+                typeFilter.innerHTML     = `<option value="All Types">All Types</option>`       + types.map(t => `<option value="${t}">${t}</option>`).join('');
+
+                // Restore selections if still valid
+                if (modules.includes(curMod))    moduleFilter.value   = curMod;
+                if (priorities.includes(curPrio)) priorityFilter.value = curPrio;
+                if (types.includes(curType))      typeFilter.value     = curType;
+
+                console.log('Filters populated:', { modules: modules.length, priorities: priorities.length, types: types.length, rows: data.length });
             }
 
             renderRepoTable(data = null) {
@@ -3944,7 +5581,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                 }
 
                 if (!this.filteredRepoData || this.filteredRepoData.length === 0) {
-                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 font-italic">No matching test cases found.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px 20px;color:var(--text-muted);font-style:italic;">No matching test cases found.</td></tr>`;
                     this.updateRepoStats([]);
                     this.updatePagination(0);
                     return;
@@ -3984,41 +5621,38 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                 tableBody.innerHTML = pageData.map(tc => {
                     const id = findValue(tc, ['TC_ID', 'TCID', 'ID', 'Test ID', 'Test Case ID']) || '';
                     const scenario = findValue(tc, ['Test Scenario', 'Scenario', 'Title', 'Test Case', 'Description']) || '';
+                    const module   = tc.Module || '';
                     const preConditions = findValue(tc, ['Pre-conditions', 'Preconditions', 'Prerequisites', 'Pre Conditions']) || '';
-                    
+
                     // Try multiple variations for test steps
-                    const stepVariations = ['Test steps', 'Test Steps', 'TEST STEPS', 'Test Step', 'TEST STEP', 
-                                           'Steps', 'STEPS', 'Step', 'STEP', 'Action', 'ACTION', 
+                    const stepVariations = ['Test steps', 'Test Steps', 'TEST STEPS', 'Test Step', 'TEST STEP',
+                                           'Steps', 'STEPS', 'Step', 'STEP', 'Action', 'ACTION',
                                            'Test Steps Description', 'Test Step Description', 'Test Actions'];
                     let steps = findValue(tc, stepVariations);
-                    
+
                     const expectedVariations = ['Expected Result', 'Expected', 'Outcome', 'Expected Outcome', 'Expected Results'];
                     let expected = findValue(tc, expectedVariations);
-                    
+
                     const priority = findValue(tc, ['Priority', 'Weight', 'Severity']) || 'Medium';
-                    const type = findValue(tc, ['Test Type', 'Type']) || 'Manual';
+                    const type     = findValue(tc, ['Test Type', 'Type']) || 'Manual';
 
+                    const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                     const formatText = (text) => {
-                        if (!text) return '';
-                        if (typeof text !== 'string') {
-                            // Convert to string if it's a number or other type
-                            text = String(text);
-                        }
-                        return text.replace(/\s(\d+\.)\s/g, '<br>$1 ');
+                        if (!text) return '<span style="color:#cbd5e1">—</span>';
+                        text = String(text);
+                        return esc(text).replace(/\s(\d+\.)\s/g, '<br>$1 ');
                     };
-
-                    steps = formatText(steps);
-                    expected = formatText(expected);
 
                     return `
                         <tr>
-                            <td class="col-id">${id}</td>
-                            <td style="min-width: 180px; font-weight: 600;">${scenario}</td>
-                            <td style="width: 150px; font-size: 12px; color: #64748b; font-weight: 600;">${preConditions}</td>
-                            <td class="col-steps text-pre-wrap" style="font-weight: 600;">${steps}</td>
-                            <td class="col-expected text-pre-wrap" style="font-weight: 600;">${expected}</td>
-                            <td class="col-priority"><span class="priority-badge ${this.getPriorityClass(priority)}">${priority}</span></td>
-                            <td class="col-type" style="font-weight: 700;">${type}</td>
+                            <td class="col-id">${esc(id)}</td>
+                            <td style="font-weight:600;font-size:13px;">${esc(scenario)}</td>
+                            <td style="font-size:12px;color:#64748b;"><span class="module-badge">${esc(module)}</span></td>
+                            <td style="font-size:12px;color:#64748b;">${formatText(preConditions)}</td>
+                            <td class="col-steps text-pre-wrap">${formatText(steps)}</td>
+                            <td class="col-expected text-pre-wrap">${formatText(expected)}</td>
+                            <td class="col-priority"><span class="priority-badge ${this.getPriorityClass(priority)}">${esc(priority)}</span></td>
+                            <td class="col-type"><span class="type-badge">${esc(type)}</span></td>
                         </tr>
                     `;
                 }).join('');
@@ -4087,9 +5721,9 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                     // Show loading state
                     const tableBody = document.getElementById('repoTableBody');
                     if (tableBody) {
-                        tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 32px; display: block; margin-bottom: 12px;"></i>
-                            Loading repositories...
+                        tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">
+                            <i class="fas fa-spinner fa-spin" style="font-size:28px;display:block;margin-bottom:12px;"></i>
+                            Loading repositories…
                         </td></tr>`;
                     }
 
@@ -4135,9 +5769,10 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                         } else {
                             // No files found - show empty state
                             if (tableBody) {
-                                tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                                    <i class="fas fa-folder-open" style="font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.3;"></i>
-                                    No repositories found in Test Archive folder. Please upload .xlsx files to begin.
+                                tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+                                    <i class="fas fa-folder-open" style="font-size:36px;display:block;margin-bottom:14px;opacity:0.25;"></i>
+                                    <span style="font-size:15px;font-weight:500;">No repositories found.</span><br>
+                                    <span style="font-size:13px;">Click <strong>Import .xlsx</strong> to upload a testcase file.</span>
                                 </td></tr>`;
                             }
                             const headerPill = document.getElementById('testcaseStats');
@@ -4150,8 +5785,8 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                     console.error('Error auto-loading repo files:', err);
                     const tableBody = document.getElementById('repoTableBody');
                     if (tableBody) {
-                        tableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--error-color);">
-                            <i class="fas fa-exclamation-triangle" style="font-size: 32px; display: block; margin-bottom: 12px;"></i>
+                        tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#ef4444;">
+                            <i class="fas fa-exclamation-triangle" style="font-size:28px;display:block;margin-bottom:12px;"></i>
                             Error loading repositories: ${err.message}
                         </td></tr>`;
                     }
@@ -4188,88 +5823,262 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                 this.socket = io();
 
                 this.socket.on('connect', () => {
-                    console.log('✅ Connected to automation server');
+                    console.log('Connected to Nexora');
+                    this.addAutomationLog('Connected to Nexora Core Engine', 'INFO');
+                });
+
+                this.socket.on('disconnect', () => {
+                    this.addAutomationLog('Disconnected from server', 'WARN');
+                    this.setAutomationLoading(false);
                 });
 
                 this.socket.on('log_message', (data) => {
-                    this.addAutomationLog(data.message, data.level, data.timestamp);
+                    const msg = data.timestamp ? `[${data.timestamp}] ${data.message}` : data.message;
+                    this.addAutomationLog(msg, data.level);
                 });
 
                 this.socket.on('plan_ready', (data) => {
-                    this.addAutomationLog(`🎯 Task Plan Ready (${data.intent})`, 'SUCCESS');
-                    if (data.plan && data.plan.steps) {
-                        data.plan.steps.forEach(step => {
-                            this.addAutomationLog(`   Step ${step.id}: ${step.action} -> ${step.target}`, 'INFO');
-                        });
-                    } else if (data.plan && data.plan.task_description) {
-                        this.addAutomationLog(`   Task: ${data.plan.task_description}`, 'INFO');
-                    }
+                    this.setAutomationLoading(false);
+                    this.setAutomationButtonsEnabled(true);
+                    this.addAutomationLog('Plan generated successfully', 'SUCCESS');
+                    this.displayAutomationPlan(data);
+                });
+
+                this.socket.on('task_started', (data) => {
+                    this.addAutomationLog(`Task started: ${data.prompt || ''}`, 'INFO');
+                    this.setAutomationLoading(true, 'Executing task...');
                 });
 
                 this.socket.on('step_update', (data) => {
-                    const statusIcon = data.status === 'completed' ? '✅' : '❌';
-                    this.addAutomationLog(`${statusIcon} Step ${data.step_id}: ${data.status}`, data.status === 'completed' ? 'INFO' : 'ERROR');
+                    this.updateAutomationStepStatus(data.step_id, data.status);
+                    const icon = data.status === 'completed' ? '[OK]' : data.status === 'failed' ? '[FAIL]' : '[...]';
+                    this.addAutomationLog(`${icon} Step ${data.step_id} [${data.action}] → ${data.status}`, data.status === 'failed' ? 'ERROR' : 'INFO');
+                });
+
+                this.socket.on('page_info', (data) => {
+                    if (data.url) this.addAutomationLog(`Page: ${data.url}`, 'INFO');
                 });
 
                 this.socket.on('task_success', (data) => {
-                    this.addAutomationLog(data.message || '✅ Task completed successfully!', 'SUCCESS');
-                    document.getElementById('startAutomationBtn').disabled = false;
+                    this.addAutomationLog(data.message || 'Task completed successfully.', 'SUCCESS');
+                    if (data.steps_completed) this.addAutomationLog(`Steps completed: ${data.steps_completed}`, 'INFO');
+                    this.setAutomationLoading(false);
+                    this.setAutomationButtonsEnabled(true);
+                    document.getElementById('automationStatus').textContent = 'Ready';
+                });
+
+                this.socket.on('task_warning', (data) => {
+                    this.addAutomationLog(data.message, 'WARN');
+                    this.setAutomationLoading(false);
+                    this.setAutomationButtonsEnabled(true);
+                    document.getElementById('automationStatus').textContent = 'Ready';
                 });
 
                 this.socket.on('task_error', (data) => {
-                    this.addAutomationLog(`💥 Error: ${data.error}`, 'ERROR');
-                    document.getElementById('startAutomationBtn').disabled = false;
+                    this.addAutomationLog(`Error: ${data.error}`, 'ERROR');
+                    this.setAutomationLoading(false);
+                    this.setAutomationButtonsEnabled(true);
+                    document.getElementById('automationStatus').textContent = 'Ready';
                 });
 
                 this.socket.on('task_completed', () => {
-                    document.getElementById('startAutomationBtn').disabled = false;
+                    this.setAutomationLoading(false);
+                    this.setAutomationButtonsEnabled(true);
+                    document.getElementById('automationStatus').textContent = 'Ready';
+                });
+
+                this.socket.on('error', (data) => {
+                    this.addAutomationLog(data.message, 'ERROR');
+                    this.setAutomationLoading(false);
+                    this.setAutomationButtonsEnabled(true);
+                });
+
+                this.socket.on('status', (data) => {
+                    if (data.connected) this.addAutomationLog('Server confirmed connection', 'INFO');
                 });
             }
 
             setupAutomation() {
-                const startBtn = document.getElementById('startAutomationBtn');
-                if (!startBtn) return;
+                const startBtn   = document.getElementById('startAutomationBtn');
+                const planBtn    = document.getElementById('automationPlanBtn');
+                const enhanceBtn = document.getElementById('automationEnhanceBtn');
+                const testBtn    = document.getElementById('automationTestBtn');
 
-                startBtn.addEventListener('click', () => {
-                    const url = document.getElementById('automationUrl').value;
-                    const prompt = document.getElementById('automationPrompt').value;
-                    const provider = document.getElementById('automationProvider').value;
-
-                    if (!url || !prompt) {
-                        alert('Please provide both a URL and a task objective.');
-                        return;
-                    }
-
-                    startBtn.disabled = true;
-
-                    // Clear logs
-                    document.getElementById('automationLogContainer').innerHTML = '';
-                    this.addAutomationLog(`Initializing task for: ${url}`, 'INFO');
-
-                    // Emit task to backend
-                    this.socket.emit('execute_task', {
-                        url: url,
-                        prompt: prompt,
-                        provider: provider
+                if (startBtn) {
+                    startBtn.addEventListener('click', () => {
+                        const url      = document.getElementById('automationUrl').value.trim();
+                        const prompt   = document.getElementById('automationPrompt').value.trim();
+                        const provider = document.getElementById('automationProvider').value;
+                        if (!url || !prompt) { this.addAutomationLog('Please provide both a URL and a task objective.', 'WARN'); return; }
+                        if (!url.startsWith('http://') && !url.startsWith('https://')) { this.addAutomationLog('URL must start with http:// or https://', 'WARN'); return; }
+                        document.getElementById('automationLogContainer').innerHTML = '';
+                        this.addAutomationLog(`Executing with ${provider.toUpperCase()}...`, 'INFO');
+                        document.getElementById('automationStatus').textContent = 'Running…';
+                        this.setAutomationButtonsEnabled(false);
+                        this.socket.emit('execute_task', { url, prompt, provider });
                     });
+                }
+
+                if (planBtn) {
+                    planBtn.addEventListener('click', () => {
+                        const url      = document.getElementById('automationUrl').value.trim();
+                        const prompt   = document.getElementById('automationPrompt').value.trim();
+                        const provider = document.getElementById('automationProvider').value;
+                        if (!url || !prompt) { this.addAutomationLog('Please provide both a URL and a task objective.', 'WARN'); return; }
+                        if (!url.startsWith('http://') && !url.startsWith('https://')) { this.addAutomationLog('URL must start with http:// or https://', 'WARN'); return; }
+
+                        // Show plan section with placeholder immediately
+                        const ps = document.getElementById('automationPlanSection');
+                        const pc = document.getElementById('automationPlanContent');
+                        if (ps && pc) { ps.style.display = 'block'; pc.innerHTML = '<div class="log-entry"><span class="log-info">[INFO]</span> Generating plan…</div>'; }
+
+                        this.setAutomationLoading(true, 'Generating plan...');
+                        this.addAutomationLog(`Planning with ${provider.toUpperCase()}...`, 'INFO');
+                        this.setAutomationButtonsEnabled(false);
+                        this.socket.emit('plan_task', { url, prompt, provider });
+                    });
+                }
+
+                if (enhanceBtn) {
+                    enhanceBtn.addEventListener('click', async () => {
+                        const fileInput = document.getElementById('automationPlanUpload');
+                        if (!fileInput.files || fileInput.files.length === 0) {
+                            this.addAutomationLog('Please select a plan file to upload', 'WARN'); return;
+                        }
+                        const file     = fileInput.files[0];
+                        const text     = await file.text();
+                        const url      = document.getElementById('automationUrl').value.trim();
+                        const provider = document.getElementById('automationProvider').value;
+                        this.addAutomationLog(`Uploading plan: ${file.name}`, 'INFO');
+                        this.setAutomationButtonsEnabled(false);
+                        this.socket.emit('enhance_plan', { raw: text, filename: file.name, url, provider });
+                        this.setAutomationLoading(true, 'Enhancing plan...');
+                    });
+                }
+
+                if (testBtn) {
+                    testBtn.addEventListener('click', () => {
+                        this.addAutomationLog('Testing connection...', 'INFO');
+                        this.socket.emit('test_connection');
+                    });
+                }
+
+                const collapseBtn = document.getElementById('autoLogsCollapseBtn');
+                const logTerminal = document.getElementById('autoLogTerminal');
+                if (collapseBtn && logTerminal) {
+                    collapseBtn.addEventListener('click', () => {
+                        const isHidden = logTerminal.style.display === 'none';
+                        logTerminal.style.display = isHidden ? '' : 'none';
+                        collapseBtn.classList.toggle('collapsed', !isHidden);
+                        collapseBtn.querySelector('i').className = isHidden ? 'fas fa-chevron-down' : 'fas fa-chevron-right';
+                    });
+                }
+            }
+
+            setAutomationLoading(isLoading, text = 'Working…') {
+                const overlay = document.getElementById('automationLoadingOverlay');
+                const txt     = document.getElementById('automationLoadingText');
+                if (!overlay) return;
+                if (this._autoLoadingTimeout) { clearTimeout(this._autoLoadingTimeout); this._autoLoadingTimeout = null; }
+                if (isLoading) {
+                    if (txt) txt.textContent = text;
+                    overlay.style.display = 'flex';
+                    this._autoLoadingTimeout = setTimeout(() => {
+                        this.setAutomationLoading(false);
+                        this.addAutomationLog('Operation timed out after 60s', 'WARN');
+                        this.setAutomationButtonsEnabled(true);
+                    }, 60000);
+                } else {
+                    overlay.style.display = 'none';
+                }
+            }
+
+            setAutomationButtonsEnabled(enabled) {
+                ['startAutomationBtn','automationPlanBtn','automationEnhanceBtn'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.disabled = !enabled;
                 });
+            }
+
+            displayAutomationPlan(data) {
+                const ps    = document.getElementById('automationPlanSection');
+                const pc    = document.getElementById('automationPlanContent');
+                const badge = document.getElementById('autoPlanStepCount');
+                if (!ps || !pc) return;
+                ps.style.display = 'block';
+
+                if (data.type === 'compare') {
+                    let totalSteps = 0;
+                    let html = '';
+                    for (const [prov, result] of Object.entries(data.results || {})) {
+                        if (result.error) {
+                            html += `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:13px;margin-bottom:8px;"><strong>${prov.toUpperCase()}:</strong> ${result.error}</div>`;
+                        } else {
+                            const steps = result.steps || [];
+                            totalSteps += steps.length;
+                            html += `<div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;padding:10px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px;">${prov.toUpperCase()} — ${steps.length} steps</div>`;
+                            html += this.renderAutomationSteps(steps);
+                        }
+                    }
+                    pc.innerHTML = html;
+                    if (badge) badge.textContent = totalSteps + ' steps';
+                } else {
+                    const plan = data.plan || {};
+                    if (plan.steps && Array.isArray(plan.steps) && plan.steps.length) {
+                        if (badge) badge.textContent = plan.steps.length + ' steps';
+                        pc.innerHTML = this.renderAutomationSteps(plan.steps);
+                    } else if (plan.task_description) {
+                        if (badge) badge.textContent = 'Agent';
+                        pc.innerHTML = `<div style="padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;color:#166534;font-size:13px;"><i class="fas fa-robot"></i> ${plan.task_description}</div>`;
+                    } else {
+                        if (badge) badge.textContent = '';
+                        pc.innerHTML = '<div style="padding:10px 14px;background:#fefce8;border:1px solid #fde047;border-radius:6px;color:#854d0e;font-size:13px;"><i class="fas fa-exclamation-triangle"></i> No steps found in plan.</div>';
+                    }
+                }
+            }
+
+            renderAutomationSteps(steps) {
+                return steps.map((step, idx) => {
+                    const num    = step.id ?? (idx + 1);
+                    const action = (step.action || '').toUpperCase();
+                    const desc   = step.instruction || step.description || step.objective || '';
+                    const val    = step.value || step.selector || '';
+                    const status = step.status || 'pending';
+                    return `
+                    <div id="auto-step-${num}" class="auto-step">
+                        <div class="auto-step-top">
+                            <div class="auto-step-num">${num}</div>
+                            <div class="auto-step-action">${action || 'ACTION'}</div>
+                            <span class="auto-step-badge auto-step-status-${num}">${status}</span>
+                        </div>
+                        ${desc  ? `<div class="auto-step-desc">${desc}</div>` : ''}
+                        ${val   ? `<div class="auto-step-val"><i class="fas fa-code" style="margin-right:4px;"></i>${val}</div>` : ''}
+                    </div>`;
+                }).join('');
+            }
+
+            updateAutomationStepStatus(stepId, status) {
+                const el = document.getElementById(`auto-step-${stepId}`);
+                if (!el) return;
+                // Remove old status classes and apply new one
+                el.classList.remove('auto-step-completed','auto-step-failed','auto-step-running','auto-step-pending');
+                el.classList.add(`auto-step-${status}`);
+                const badge = el.querySelector(`.auto-step-status-${stepId}`);
+                if (badge) badge.textContent = status;
             }
 
             addAutomationLog(message, level) {
                 const logContainer = document.getElementById('automationLogContainer');
                 if (!logContainer) return;
-
                 const entry = document.createElement('div');
-                const time = new Date().toLocaleTimeString();
-
+                const time  = new Date().toLocaleTimeString();
+                const lvl   = (level || 'INFO').toUpperCase();
                 let levelClass = 'log-info';
-                if (level === 'ERROR') levelClass = 'log-error';
-                else if (level === 'SUCCESS') levelClass = 'log-success';
-                else if (level === 'WARN') levelClass = 'log-warn';
-
+                if (lvl === 'ERROR') levelClass = 'log-error';
+                else if (lvl === 'SUCCESS') levelClass = 'log-success';
+                else if (lvl === 'WARN' || lvl === 'WARNING') levelClass = 'log-warn';
                 entry.className = 'log-entry';
-                entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="${levelClass}">[${level || 'INFO'}]</span> ${message}`;
-
+                entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="${levelClass}">[${lvl}]</span> ${message}`;
                 logContainer.appendChild(entry);
                 logContainer.parentElement.scrollTop = logContainer.parentElement.scrollHeight;
             }
@@ -4316,7 +6125,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                             </div>
                             <div class="document-status">
                                 <span class="status-badge ${doc.analyzed ? 'analyzed' : 'pending'}">
-                                    ${doc.analyzed ? '✅ Analyzed' : '⏳ Pending'}
+                                    ${doc.analyzed ? 'Analyzed' : 'Pending'}
                                 </span>
                                 <span>${doc.type !== 'unknown' ? doc.type : 'Document'}${doc.extension ? ` • ${doc.extension.toUpperCase()}` : ''}</span>
                             </div>
@@ -4354,7 +6163,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                         // Switch to chat and show document info
                         this.switchView('chat');
 
-                        const message = `📄 **Document Details:**\n\n**Filename:** ${doc.filename}\n**Type:** ${doc.type}\n**Size:** ${doc.stats ? doc.stats.size_mb + ' MB' : 'Unknown'}\n**Uploaded:** ${new Date(doc.upload_time * 1000).toLocaleString()}\n**Status:** ${doc.analyzed ? 'Analyzed' : 'Not analyzed'}\n**File exists:** ${doc.exists ? 'Yes' : 'No'}`;
+                        const message = `**Document Details:**\n\n**Filename:** ${doc.filename}\n**Type:** ${doc.type}\n**Size:** ${doc.stats ? doc.stats.size_mb + ' MB' : 'Unknown'}\n**Uploaded:** ${new Date(doc.upload_time * 1000).toLocaleString()}\n**Status:** ${doc.analyzed ? 'Analyzed' : 'Not analyzed'}\n**File exists:** ${doc.exists ? 'Yes' : 'No'}`;
 
                         this.addMessage('ai', message, true);
                     } else {
@@ -4363,7 +6172,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                 } catch (error) {
                     console.error('Error viewing document:', error);
                     this.switchView('chat');
-                    this.addMessage('ai', `❌ Error viewing document: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Error viewing document: ${error.message}`, true);
                 }
             }
 
@@ -4375,7 +6184,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                     // Find the document in uploaded files
                     const document = this.uploadedFiles.find(file => file.fileId === fileId);
                     if (!document) {
-                        this.addMessage('ai', '❌ Document not found in session.', true);
+                        this.addMessage('ai', '<i class="fas fa-times-circle"></i> Document not found in session.', true);
                         return;
                     }
 
@@ -4392,7 +6201,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
 
                 } catch (error) {
                     console.error('Error analyzing document:', error);
-                    this.addMessage('ai', `❌ Error analyzing document: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Error analyzing document: ${error.message}`, true);
                 }
             }
 
@@ -4417,13 +6226,13 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
 
                         // Show success message
                         this.switchView('chat');
-                        this.addMessage('ai', `✅ Document "${filename}" deleted successfully.`, true);
+                        this.addMessage('ai', `<i class="fas fa-check-circle"></i> Document "${filename}" deleted successfully.`, true);
                     } else {
                         throw new Error('Failed to delete document');
                     }
                 } catch (error) {
                     console.error('Error deleting document:', error);
-                    this.addMessage('ai', `❌ Error deleting document: ${error.message}`, true);
+                    this.addMessage('ai', `<i class="fas fa-times-circle"></i> Error deleting document: ${error.message}`, true);
                 }
             }
 
@@ -4480,13 +6289,13 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
 
                     if (response.ok) {
                         this.loadHistory();
-                        alert('✅ History cleared successfully!');
+                        alert('History cleared successfully.');
                     } else {
                         throw new Error('Failed to clear history');
                     }
                 } catch (error) {
                     console.error('Error clearing history:', error);
-                    alert(`❌ Error clearing history: ${error.message}`);
+                    alert(`Error clearing history: ${error.message}`);
                 }
             }
 
@@ -4515,7 +6324,7 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                     const date = new Date(msg.timestamp * 1000);
                     const timeStr = date.toLocaleString();
                     const roleClass = msg.role === 'user' ? 'user' : 'assistant';
-                    const roleLabel = msg.role === 'user' ? '👤 User' : '🤖 AI';
+                    const roleLabel = msg.role === 'user' ? 'User' : 'AI';
                     const contentPreview = msg.content.substring(0, 200) + (msg.content.length > 200 ? '...' : '');
 
                     return `
@@ -4574,6 +6383,25 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                 const autoLoadRepo = document.getElementById('autoLoadRepoCheckbox');
                 if (autoLoadRepo) autoLoadRepo.checked = settings.autoLoadRepo !== false;
 
+                const theme = settings.theme || 'purple';
+                const themeSelect = document.getElementById('themeSelect');
+                if (themeSelect) themeSelect.value = theme;
+                this.applyTheme(theme);
+                document.querySelectorAll('.theme-option').forEach(el => {
+                    el.classList.toggle('selected', el.dataset.theme === theme);
+                });
+
+                // Theme option click handlers
+                document.querySelectorAll('.theme-option').forEach(el => {
+                    el.onclick = () => {
+                        const t = el.dataset.theme;
+                        if (themeSelect) themeSelect.value = t;
+                        document.querySelectorAll('.theme-option').forEach(o => o.classList.remove('selected'));
+                        el.classList.add('selected');
+                        this.applyTheme(t);
+                    };
+                });
+
                 // Setup temperature slider
                 if (temperature && temperatureValue) {
                     temperature.oninput = () => {
@@ -4597,7 +6425,11 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                 this.checkAPIKeyStatus();
             }
 
-            saveSettings() {
+            applyTheme(themeName) {
+                document.body.dataset.theme = themeName || 'purple';
+            }
+
+            async saveSettings() {
                 const settings = {
                     aiProvider: document.getElementById('aiProviderSelect')?.value || 'groq',
                     temperature: parseFloat(document.getElementById('temperatureSlider')?.value || 0.6),
@@ -4606,41 +6438,70 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
                     analysisDetail: document.getElementById('analysisDetailSelect')?.value || 'standard',
                     autoAnalyze: document.getElementById('autoAnalyzeCheckbox')?.checked || false,
                     itemsPerPage: parseInt(document.getElementById('itemsPerPageInput')?.value || 25),
-                    autoLoadRepo: document.getElementById('autoLoadRepoCheckbox')?.checked !== false
+                    autoLoadRepo: document.getElementById('autoLoadRepoCheckbox')?.checked !== false,
+                    theme: document.getElementById('themeSelect')?.value || 'purple'
                 };
 
                 localStorage.setItem('viserAISettings', JSON.stringify(settings));
-                
-                // Apply settings
+                this.applyTheme(settings.theme);
                 this.repoItemsPerPage = settings.itemsPerPage;
-                
-                // Show success message
-                alert('✅ Settings saved successfully!');
+
+                // ── Push provider to backend live ──────────────────────
+                try {
+                    const res = await fetch('/api/settings/provider', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ provider: settings.aiProvider })
+                    });
+                    const d = await res.json();
+                    if (d.success) this._updateProviderUI(settings.aiProvider);
+                } catch(e) { console.warn('Provider update failed:', e); }
+
+                alert('Settings saved. Theme: ' + (settings.theme || 'purple') + ', AI provider: ' + settings.aiProvider.toUpperCase());
             }
 
             resetSettings() {
                 if (confirm('Are you sure you want to reset all settings to defaults?')) {
                     localStorage.removeItem('viserAISettings');
                     this.loadSettings();
-                    alert('✅ Settings reset to defaults!');
+                    alert('Settings reset to defaults.');
                 }
             }
 
             async checkAPIKeyStatus() {
-                // This would check with backend - for now just show placeholder
-                const statuses = ['openaiKeyStatus', 'geminiKeyStatus', 'groqKeyStatus'];
-                statuses.forEach(id => {
+                const map = {
+                    openaiKeyStatus:  'openai',
+                    geminiKeyStatus:  'gemini',
+                    groqKeyStatus:    'groq',
+                };
+                Object.values(map).forEach(provider => {
+                    const id = Object.keys(map).find(k => map[k] === provider);
                     const el = document.getElementById(id);
-                    if (el) {
-                        el.textContent = 'Checking...';
-                        el.className = 'key-status';
-                        // In real implementation, check with backend
-                        setTimeout(() => {
-                            el.textContent = 'Configured';
-                            el.classList.add('configured');
-                        }, 500);
-                    }
+                    if (el) { el.textContent = 'Checking…'; el.className = 'key-status'; }
                 });
+                try {
+                    const res = await fetch('/api/key-status');
+                    const data = await res.json();
+                    Object.entries(map).forEach(([elId, provider]) => {
+                        const el = document.getElementById(elId);
+                        if (!el) return;
+                        const info = data[provider] || {};
+                        if (info.set) {
+                            el.textContent = `Configured (${info.preview})`;
+                            el.className = 'key-status configured';
+                            el.style.color = '#64748b';
+                        } else {
+                            el.textContent = 'Not configured';
+                            el.className = 'key-status';
+                            el.style.color = '#dc2626';
+                        }
+                    });
+                    // Update active provider badge
+                    const sel = document.getElementById('aiProviderSelect');
+                    if (sel && data.active_provider) sel.value = data.active_provider;
+                } catch (e) {
+                    console.warn('Key status check failed:', e);
+                }
             }
 
             escapeHtml(text) {
@@ -4655,6 +6516,20 @@ ${config.email_enabled ? 'Email functionality is ready to use!' : 'Email functio
 
         document.addEventListener('DOMContentLoaded', () => {
             viseAI = new ViseAIChat();
+            // Optional: fetch Unsplash background when UNSPLASH_ACCESS_KEY is set
+            fetch('/api/unsplash/random?query=gradient+abstract+purple')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.enabled && data.url) {
+                        const main = document.querySelector('.main-content');
+                        if (main) {
+                            main.style.backgroundImage = `linear-gradient(rgba(245,245,247,0.92) 0%, rgba(250,245,255,0.88) 100%), url(${data.url})`;
+                            main.style.backgroundSize = 'cover';
+                            main.style.backgroundPosition = 'center';
+                        }
+                    }
+                })
+                .catch(() => {});
         });
     </script>
 </body>
