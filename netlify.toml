@@ -28,8 +28,8 @@
 #   status = 200
 #   force = false
 
-# Redirect root to index if you have a static frontend
-# [[redirects]]
-#   from = "/*"
-#   to = "/index.html"
-#   status = 200
+# Redirect root to main frontend
+[[redirects]]
+  from = "/"
+  to = "/viser-ai-modern.html"
+  status = 200
