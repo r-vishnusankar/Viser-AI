@@ -3524,6 +3524,12 @@
     </div>
 
     <script>
+        // Backend URL when frontend is on Netlify (static). Set to your Flask backend URL (Railway, Render, etc.)
+        window.API_BASE = (window.location.hostname.includes('netlify.app') || window.location.hostname.includes('netlify.com'))
+            ? 'https://viser-ai.onrender.com'  // CHANGE THIS: deploy Flask to Railway/Render and paste URL
+            : '';
+        const _api = (path) => (window.API_BASE || '') + path;
+
         class ViseAIChat {
             constructor() {
                 this.chatMessages = document.getElementById('chatMessages');
@@ -3604,7 +3610,7 @@
                     cps.addEventListener('change', async () => {
                         const prov = cps.value;
                         try {
-                            await fetch('/api/settings/provider', {
+                            await fetch(_api('/api/settings/provider'), {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ provider: prov })
@@ -3624,7 +3630,7 @@
                 });
 
                 // Fetch active provider on load
-                fetch('/api/settings/provider').then(r => r.json()).then(d => {
+                fetch(_api('/api/settings/provider')).then(r => r.json()).then(d => {
                     if (d.provider) this._updateProviderUI(d.provider);
                 }).catch(()=>{});
             }
@@ -3699,7 +3705,7 @@
                 const controller = new AbortController();
                 const timeoutId  = setTimeout(() => controller.abort(), 120000);
 
-                const response = await fetch('/api/chat/stream', {
+                const response = await fetch(_api('/api/chat/stream'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, session_id: this.sessionId }),
@@ -3974,7 +3980,7 @@
 
                 if (cmd === '/clear') {
                     this.addMessage('user', raw);
-                    await fetch('/api/clear-context', {
+                    await fetch(_api('/api/clear-context'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ session_id: this.sessionId })
@@ -4015,7 +4021,7 @@
                     }
                     this.showTypingIndicator();
                     try {
-                        const res = await fetch('/api/summarize-files', {
+                        const res = await fetch(_api('/api/summarize-files'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ session_id: this.sessionId })
@@ -4039,7 +4045,7 @@
                         return true;
                     }
                     try {
-                        const res = await fetch('/api/settings/provider', {
+                        const res = await fetch(_api('/api/settings/provider'), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ provider: prov })
@@ -4109,7 +4115,7 @@
 
             async loadConversationContext() {
                 try {
-                    const response = await fetch(`/api/context?session_id=${this.sessionId}`);
+                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`);
                     if (response.ok) {
                         const context = await response.json();
                         console.log('📚 Loaded context:', context);
@@ -4159,7 +4165,7 @@
                 // Non-streaming fallback (kept for analysis/email flows)
                 const controller = new AbortController();
                 const timeoutId  = setTimeout(() => controller.abort(), 120000);
-                const response   = await fetch('/api/chat', {
+                const response   = await fetch(_api('/api/chat'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, session_id: this.sessionId }),
@@ -4602,7 +4608,7 @@
 
                     console.log('📡 Sending analysis request...');
                     const response = await Promise.race([
-                        fetch('/api/analyze', {
+                        fetch(_api('/api/analyze'), {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -4672,7 +4678,7 @@
                     formData.append('file', file);
                     formData.append('session_id', this.sessionId);
 
-                    const response = await fetch('/api/upload', {
+                    const response = await fetch(_api('/api/upload'), {
                         method: 'POST',
                         body: formData
                     });
@@ -4858,7 +4864,7 @@
                 try {
                     let recipient = recipientOverride;
                     if (!recipient) {
-                        const configRes = await fetch('/api/email-config');
+                        const configRes = await fetch(_api('/api/email-config'));
                         if (configRes.ok) {
                             const config = await configRes.json();
                             recipient = config.default_recipient || '';
@@ -4876,7 +4882,7 @@
                     this.addMessage('user', `<i class="fas fa-envelope"></i> Sending analysis report to ${recipient}...`, false, true);
                     this.showTypingIndicator();
 
-                    const response = await fetch('/api/email-analysis', {
+                    const response = await fetch(_api('/api/email-analysis'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -4905,7 +4911,7 @@
 
             async showEmailConfig() {
                 try {
-                    const response = await fetch('/api/email-config');
+                    const response = await fetch(_api('/api/email-config'));
 
                     if (response.ok) {
                         const config = await response.json();
@@ -4958,7 +4964,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 try {
                     let recipient = recipientOverride;
                     if (!recipient) {
-                        const configRes = await fetch('/api/email-config');
+                        const configRes = await fetch(_api('/api/email-config'));
                         if (configRes.ok) {
                             const config = await configRes.json();
                             recipient = config.default_recipient || '';
@@ -4976,7 +4982,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     this.addMessage('user', '🧪 Sending test email...');
                     this.showTypingIndicator();
 
-                    const response = await fetch('/api/test-email', {
+                    const response = await fetch(_api('/api/test-email'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ recipient: recipient })
@@ -5100,7 +5106,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     this.showTypingIndicator();
 
                     // Generate document
-                    const generateResponse = await fetch('/api/generate-document', {
+                    const generateResponse = await fetch(_api('/api/generate-document'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5118,7 +5124,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                         const data = await generateResponse.json();
 
                         // Download the file
-                        const downloadUrl = `/api/download/${data.file_id}`;
+                        const downloadUrl = _api(`/api/download/${data.file_id}`);
 
                         // Create temporary link and trigger download
                         const link = document.createElement('a');
@@ -5234,7 +5240,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 emptyState.style.display = 'none';
 
                 try {
-                    const response = await fetch(`/api/documents?session_id=${this.sessionId}`);
+                    const response = await fetch(_api(`/api/documents?session_id=${this.sessionId}`);
 
                     if (response.ok) {
                         const data = await response.json();
@@ -5335,7 +5341,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     } else {
                         // Load file from server
                         try {
-                            const fileResp = await fetch(`/api/repo/load/${selectedFile}`);
+                            const fileResp = await fetch(_api(`/api/repo/load/${selectedFile}`);
                             if (fileResp.ok) {
                                 const arrayBuffer = await fileResp.arrayBuffer();
                                 const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
@@ -5727,7 +5733,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                         </td></tr>`;
                     }
 
-                    const response = await fetch('/api/repo/files');
+                    const response = await fetch(_api('/api/repo/files'));
                     if (response.ok) {
                         const data = await response.json();
                         if (data.files && data.files.length > 0) {
@@ -5741,7 +5747,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
                             // Auto-load first file
                             const firstFile = data.files[0];
-                            const fileResp = await fetch(`/api/repo/load/${firstFile}`);
+                            const fileResp = await fetch(_api(`/api/repo/load/${firstFile}`);
                             if (fileResp.ok) {
                                 const arrayBuffer = await fileResp.arrayBuffer();
                                 const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
@@ -5820,7 +5826,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
             }
 
             setupSocketIO() {
-                this.socket = io();
+                this.socket = io(window.API_BASE || '');
 
                 this.socket.on('connect', () => {
                     console.log('Connected to Nexora');
@@ -6154,7 +6160,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
             async viewDocument(fileId) {
                 try {
-                    const response = await fetch(`/api/documents/${fileId}?session_id=${this.sessionId}`);
+                    const response = await fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`);
 
                     if (response.ok) {
                         const data = await response.json();
@@ -6211,7 +6217,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 }
 
                 try {
-                    const response = await fetch(`/api/documents/${fileId}/delete?session_id=${this.sessionId}`, {
+                    const response = await fetch(_api(`/api/documents/${fileId}/delete?session_id=${this.sessionId}`), {
                         method: 'DELETE'
                     });
 
@@ -6242,7 +6248,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 const historyCount = document.getElementById('historyCount');
 
                 try {
-                    const response = await fetch(`/api/context?session_id=${this.sessionId}`);
+                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`);
                     if (response.ok) {
                         const data = await response.json();
                         const messages = data.conversation_history || [];
@@ -6281,7 +6287,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 }
 
                 try {
-                    const response = await fetch('/api/clear-context', {
+                    const response = await fetch(_api('/api/clear-context'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ session_id: this.sessionId })
@@ -6448,7 +6454,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
                 // ── Push provider to backend live ──────────────────────
                 try {
-                    const res = await fetch('/api/settings/provider', {
+                    const res = await fetch(_api('/api/settings/provider'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ provider: settings.aiProvider })
@@ -6480,7 +6486,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     if (el) { el.textContent = 'Checking…'; el.className = 'key-status'; }
                 });
                 try {
-                    const res = await fetch('/api/key-status');
+                    const res = await fetch(_api('/api/key-status'));
                     const data = await res.json();
                     Object.entries(map).forEach(([elId, provider]) => {
                         const el = document.getElementById(elId);
@@ -6517,7 +6523,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
         document.addEventListener('DOMContentLoaded', () => {
             viseAI = new ViseAIChat();
             // Optional: fetch Unsplash background when UNSPLASH_ACCESS_KEY is set
-            fetch('/api/unsplash/random?query=gradient+abstract+purple')
+            fetch(_api('/api/unsplash/random?query=gradient+abstract+purple'))
                 .then(r => r.json())
                 .then(data => {
                     if (data.enabled && data.url) {
