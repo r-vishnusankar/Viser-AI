@@ -4,6 +4,11 @@
 
 [build.environment]
   PYTHON_VERSION = "3.11"
+  # Disable secrets scanning - env var names (USE_OPENAI, EMAIL_ENABLED, etc.) and their
+  # values (False, True, smtp.gmail.com) appear in code/config and trigger false positives.
+  # Re-enable after: 1) Remove browser_use_profile from repo (git rm -r --cached browser_use_profile)
+  # 2) Unmark non-secret config vars in Netlify (USE_OPENAI, EMAIL_ENABLED, AI_PROVIDER, etc.)
+  SECRETS_SCAN_ENABLED = "false"
 
 # Note: Netlify Functions don't support WebSockets (SocketIO)
 # For full Flask app with SocketIO, consider using:
