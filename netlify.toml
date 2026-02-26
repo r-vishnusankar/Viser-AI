@@ -28,8 +28,9 @@
 #   status = 200
 #   force = false
 
-# Redirect root to main frontend
+# Serve app at root - clean URL (no /viser-ai-modern.html in address bar)
 [[redirects]]
   from = "/"
   to = "/viser-ai-modern.html"
   status = 200
+  force = true

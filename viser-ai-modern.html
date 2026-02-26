@@ -92,41 +92,98 @@
             display: flex;
             height: 100vh;
             width: 100%;
+            min-height: 100vh;
             background: #EBEAE1;
             overflow: hidden;
         }
 
         .sidebar {
-            width: 88px;
-            min-width: 88px;
+            width: 260px;
+            min-width: 64px;
             background: var(--sidebar-bg);
             color: var(--sidebar-icon);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            align-items: center;
-            padding: 20px 0;
+            align-items: stretch;
+            padding: 16px 0;
             border-right: 1px solid rgba(0,0,0,0.06);
             border-radius: 0 16px 16px 0;
             box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            transition: width 0.25s ease;
+            height: 100vh;
+            position: relative;
+            z-index: 100;
+        }
+
+        .sidebar.collapsed {
+            width: 64px;
+            min-width: 64px;
+            padding: 16px 8px;
+        }
+
+        .sidebar.collapsed .sidebar-label,
+        .sidebar.collapsed .logo-text,
+        .sidebar.collapsed .sidebar-chat-section {
+            display: none !important;
+        }
+
+        .sidebar.collapsed .sidebar-header {
+            justify-content: center;
+            padding: 0 4px 12px;
+        }
+
+        .sidebar.collapsed .nav-item,
+        .sidebar.collapsed .sidebar-new-chat-btn {
+            justify-content: center;
+            padding: 12px;
+            min-width: 48px;
+        }
+
+        .sidebar.collapsed .sidebar-chat-history {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-nav {
+            padding: 0 4px;
+            align-items: center;
+        }
+
+        .sidebar.collapsed .sidebar-profile {
+            padding: 16px 4px 0;
+        }
+
+        .sidebar-toggle-btn {
+            background: none;
+            border: none;
+            color: #333;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 18px;
+            transition: background 0.2s;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: rgba(235, 234, 225, 0.6);
         }
 
         .sidebar-header {
-            padding: 0 0 20px;
+            padding: 0 12px 16px;
             border-bottom: 1px solid rgba(0,0,0,0.06);
             margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 8px;
-            width: 100%;
-            padding: 0 12px;
-            height: 44px;
-            border-radius: 12px;
-            background: transparent;
+            flex: 1;
+            min-width: 0;
+            height: 36px;
             color: #333333;
             font-family: 'DM Sans', sans-serif;
             font-size: 15px;
@@ -141,24 +198,130 @@
             color: #333333;
         }
 
+        .sidebar-chat-section {
+            padding: 0 12px 12px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            margin-bottom: 12px;
+        }
+
+        .sidebar-new-chat-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px dashed rgba(0,0,0,0.2);
+            border-radius: 10px;
+            background: transparent;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sidebar-new-chat-btn:hover {
+            background: rgba(235, 234, 225, 0.6);
+            border-color: var(--accent);
+        }
+
+        .sidebar-chat-history {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+
+        .sidebar-chat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .sidebar-chat-item:hover {
+            background: rgba(235, 234, 225, 0.5);
+        }
+
+        .sidebar-chat-item.active {
+            background: rgba(107, 76, 113, 0.12);
+            color: var(--accent);
+        }
+
+        .sidebar-chat-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sidebar-chat-item-title {
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar-chat-item-time {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .sidebar-chat-item-delete {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 12px;
+            transition: opacity 0.2s;
+        }
+
+        .sidebar-chat-item:hover .sidebar-chat-item-delete {
+            opacity: 1;
+        }
+
+        .sidebar-chat-item-delete:hover {
+            color: #ef4444;
+        }
+
+        .msg-action-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+        .msg-action-btn:hover {
+            color: var(--accent);
+        }
+
         .sidebar-nav {
             flex: 1;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             gap: 4px;
+            padding: 0 12px;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            width: 48px;
-            height: 48px;
+            gap: 10px;
+            padding: 12px 14px;
             border-radius: 12px;
             color: #333333;
             text-decoration: none;
-            font-size: 18px;
+            font-size: 14px;
+            font-weight: 500;
             transition: all 0.2s;
         }
 
@@ -173,11 +336,13 @@
         }
 
         .nav-item i {
-            font-size: 20px;
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
         }
 
         .sidebar-profile {
-            padding: 16px 0 0;
+            padding: 16px 12px 0;
             border-top: 1px solid rgba(0,0,0,0.06);
         }
 
@@ -196,6 +361,7 @@
 
         .main-content {
             flex: 1;
+            min-width: 0;
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -2906,31 +3072,47 @@
 <body data-theme="purple">
     <div class="app-container">
         <!-- Sidebar -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="logo">
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Collapse/Expand">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="logo" id="sidebarLogo">
                     <i class="fas fa-bolt"></i>
-                    Nexora
+                    <span class="logo-text">Nexora</span>
                 </div>
+            </div>
+            <div class="sidebar-chat-section" id="sidebarChatSection">
+                <button type="button" class="sidebar-new-chat-btn" id="newChatBtn" title="New Chat">
+                    <i class="fas fa-plus"></i>
+                    <span class="sidebar-label">New Chat</span>
+                </button>
+                <div class="sidebar-chat-history" id="sidebarChatHistory"></div>
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-view="chat" title="Nexora Chat">
                     <i class="fas fa-comments"></i>
+                    <span class="sidebar-label">Chat</span>
                 </a>
                 <a href="#" class="nav-item" data-view="testcases" title="Testcase Repository">
                     <i class="fas fa-folder-open"></i>
+                    <span class="sidebar-label">Testcases</span>
                 </a>
                 <a href="#" class="nav-item" data-view="automation" title="AI Automation">
                     <i class="fas fa-robot"></i>
+                    <span class="sidebar-label">Automation</span>
                 </a>
                 <a href="#" class="nav-item" data-view="documents" title="Documents">
                     <i class="fas fa-file-alt"></i>
+                    <span class="sidebar-label">Documents</span>
                 </a>
                 <a href="#" class="nav-item" data-view="settings" title="Settings">
                     <i class="fas fa-cog"></i>
+                    <span class="sidebar-label">Settings</span>
                 </a>
                 <a href="#" class="nav-item" data-view="history" title="History">
                     <i class="fas fa-history"></i>
+                    <span class="sidebar-label">History</span>
                 </a>
             </nav>
             <div class="sidebar-profile">
@@ -2948,14 +3130,6 @@
                 <div class="chat-header">
                     <h1 class="chat-title">Nexora Assistant</h1>
                     <div class="chat-header-meta">
-                        <span class="provider-pill" id="activeProviderPill" title="Click to change provider">
-                            <i class="fas fa-bolt"></i> <span id="activeProviderLabel">Groq</span>
-                        </span>
-                        <select id="chatProviderSelect" class="chat-provider-select" title="Switch AI provider">
-                            <option value="groq">Groq</option>
-                            <option value="gemini">Gemini</option>
-                            <option value="openai">OpenAI</option>
-                        </select>
                         <div class="status-indicator"><span>Online</span></div>
                     </div>
                 </div>
@@ -3050,6 +3224,12 @@
                     <!-- Row 2: Filter bar -->
                     <div class="repo-filter-bar">
                         <div class="repo-filter-group">
+                            <label class="repo-filter-label">Platform</label>
+                            <select id="repoPlatformFilter" class="repo-select">
+                                <option value="All Platforms">All Platforms</option>
+                            </select>
+                        </div>
+                        <div class="repo-filter-group">
                             <label class="repo-filter-label">Module</label>
                             <select id="repoModuleFilter" class="repo-select">
                                 <option value="All Modules">All Modules</option>
@@ -3069,7 +3249,7 @@
                         </div>
                         <div class="repo-filter-group" style="flex:1; min-width:220px;">
                             <label class="repo-filter-label">Search</label>
-                            <input type="text" id="repoSearch" placeholder="TC ID, scenario, result…" class="repo-input repo-search-input" />
+                            <input type="text" id="repoSearch" placeholder="TC ID, platform, scenario, result…" class="repo-input repo-search-input" />
                         </div>
                     </div>
 
@@ -3099,6 +3279,7 @@
                         <thead>
                             <tr>
                                 <th style="width:80px;">TC ID</th>
+                                <th style="min-width:100px;">Platform</th>
                                 <th style="min-width:180px;">Test Scenario</th>
                                 <th style="min-width:120px;">Module</th>
                                 <th style="min-width:140px;">Pre-Conditions</th>
@@ -3110,7 +3291,7 @@
                         </thead>
                         <tbody id="repoTableBody">
                             <tr>
-                                <td colspan="8" style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+                                <td colspan="9" style="text-align:center;padding:48px 20px;color:var(--text-muted);">
                                     <i class="fas fa-folder-open" style="font-size:36px;display:block;margin-bottom:14px;opacity:0.25;"></i>
                                     <span style="font-size:15px;font-weight:500;">No repositories loaded.</span><br>
                                     <span style="font-size:13px;">Click <strong>Import .xlsx</strong> to get started.</span>
@@ -3166,12 +3347,11 @@
                                     class="auto-textarea"></textarea>
                             </div>
 
-                            <div class="auto-row">
+                            <div class="auto-row" style="display:none;">
                                 <div class="auto-field" style="flex:1;">
                                     <label class="auto-label">AI Provider</label>
                                     <select id="automationProvider" class="auto-input auto-select">
                                         <option value="groq">Groq — Llama (Fast)</option>
-                                        <option value="gemini">Google Gemini</option>
                                         <option value="openai">OpenAI GPT</option>
                                         <option value="compare">⚖️ Compare Providers</option>
                                     </select>
@@ -3292,44 +3472,14 @@
                 <div class="settings-container" style="flex: 1; padding: 24px 32px; overflow: auto; background: var(--main-bg);">
                     <div class="settings-content" style="max-width: 800px; margin: 0 auto;">
                         
-                        <!-- AI Provider Settings -->
-                        <div class="settings-section">
+                        <!-- AI Provider Settings (internal routing - no user config) -->
+                        <div class="settings-section" style="display:none;">
                             <div class="settings-section-header">
                                 <i class="fas fa-robot"></i>
                                 <h2>AI Provider Configuration</h2>
                             </div>
                             <div class="settings-card">
-                                <div class="setting-item">
-                                    <div class="setting-label">
-                                        <label>Default AI Provider</label>
-                                        <span class="setting-description">Choose your preferred AI provider for chat and analysis</span>
-                                    </div>
-                                    <select id="aiProviderSelect" class="setting-input">
-                                        <option value="openai">OpenAI (GPT-3.5)</option>
-                                        <option value="gemini">Google Gemini</option>
-                                        <option value="groq">Groq (Llama)</option>
-                                    </select>
-                                </div>
-                                <div class="setting-item">
-                                    <div class="setting-label">
-                                        <label>API Key Status</label>
-                                        <span class="setting-description">Manage your API keys for different providers</span>
-                                    </div>
-                                    <div class="api-key-status">
-                                        <div class="key-status-item">
-                                            <span class="key-name">OpenAI</span>
-                                            <span class="key-status" id="openaiKeyStatus">Not Configured</span>
-                                        </div>
-                                        <div class="key-status-item">
-                                            <span class="key-name">Gemini</span>
-                                            <span class="key-status" id="geminiKeyStatus">Not Configured</span>
-                                        </div>
-                                        <div class="key-status-item">
-                                            <span class="key-name">Groq</span>
-                                            <span class="key-status" id="groqKeyStatus">Not Configured</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <p class="setting-description" style="margin:0;">AI provider routing is handled automatically. Groq and OpenAI are used internally.</p>
                             </div>
                         </div>
 
@@ -3464,6 +3614,25 @@
                                         </label>
                                     </div>
                                 </div>
+                                <div class="setting-item">
+                                    <div class="setting-label">
+                                        <label>Use Google Sheets</label>
+                                        <span class="setting-description">Use a live Google Sheet as testcase source instead of local files</span>
+                                    </div>
+                                    <div class="setting-toggle">
+                                        <input type="checkbox" id="useGoogleSheetsCheckbox">
+                                        <label for="useGoogleSheetsCheckbox" class="toggle-label">
+                                            <span class="toggle-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-item" id="gsheetsUrlSettingItem" style="display: none;">
+                                    <div class="setting-label">
+                                        <label>Google Sheet URL</label>
+                                        <span class="setting-description">Paste the full URL (e.g. https://docs.google.com/spreadsheets/d/.../edit)</span>
+                                    </div>
+                                    <input type="url" id="gsheetsUrlInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="setting-input">
+                                </div>
                             </div>
                         </div>
 
@@ -3524,9 +3693,9 @@
     </div>
 
     <script>
-        // Backend URL when frontend is on Netlify (static). Set to your Flask backend URL (Railway, Render, etc.)
+        // When on Netlify, point API/Socket.IO to your Render backend
         window.API_BASE = (window.location.hostname.includes('netlify.app') || window.location.hostname.includes('netlify.com'))
-            ? 'https://viser-ai.onrender.com'  // CHANGE THIS: deploy Flask to Railway/Render and paste URL
+            ? 'https://viser-ai.onrender.com'
             : '';
         const _api = (path) => (window.API_BASE || '') + path;
 
@@ -3541,15 +3710,19 @@
                 // Store uploaded files for analysis
                 this.uploadedFiles = [];
 
-                // Generate unique session ID for context awareness
-                this.sessionId = this.generateSessionId();
+                // Chat session persistence
+                this.STORAGE_KEY = 'nexora_chat_sessions';
+                this.SIDEBAR_COLLAPSED_KEY = 'nexora_sidebar_collapsed';
+                this.sessionId = null;
                 this.aiResponses = new Map();
                 this.messageCounter = 0;
-                console.log(`🔑 Session ID: ${this.sessionId}`);
+                this.sessions = this.loadSessionsFromStorage();
 
                 this.initializeEventListeners();
                 this.setupAutoResize();
-                this.loadConversationContext();
+                this.setupSidebarToggle();
+                this.setupChatHistory();
+                this.restoreOrCreateSession();
 
                 // Repository Logic Initialization
                 this.allRepoData = {};
@@ -3569,8 +3742,184 @@
             }
 
             generateSessionId() {
-                // Generate a unique session ID
                 return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            }
+
+            loadSessionsFromStorage() {
+                try {
+                    const raw = localStorage.getItem(this.STORAGE_KEY);
+                    return raw ? JSON.parse(raw) : [];
+                } catch (e) {
+                    return [];
+                }
+            }
+
+            saveSessionsToStorage() {
+                try {
+                    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.sessions));
+                } catch (e) { console.warn('Session save failed', e); }
+            }
+
+            setupSidebarToggle() {
+                const sidebar = document.getElementById('sidebar');
+                const btn = document.getElementById('sidebarToggleBtn');
+                const collapsed = localStorage.getItem(this.SIDEBAR_COLLAPSED_KEY) === 'true';
+                if (collapsed && sidebar) sidebar.classList.add('collapsed');
+                if (btn && sidebar) {
+                    btn.onclick = () => {
+                        sidebar.classList.toggle('collapsed');
+                        localStorage.setItem(this.SIDEBAR_COLLAPSED_KEY, sidebar.classList.contains('collapsed'));
+                    };
+                }
+            }
+
+            setupChatHistory() {
+                const newBtn = document.getElementById('newChatBtn');
+                if (newBtn) newBtn.onclick = () => this.startNewChat();
+                this.renderChatHistory();
+            }
+
+            renderChatHistory() {
+                const el = document.getElementById('sidebarChatHistory');
+                if (!el) return;
+                el.innerHTML = this.sessions.map(s => `
+                    <div class="sidebar-chat-item ${s.session_id === this.sessionId ? 'active' : ''}" data-session="${s.session_id}">
+                        <div class="sidebar-chat-item-content">
+                            <div class="sidebar-chat-item-title">${this.escapeHtml(s.session_title || 'Untitled')}</div>
+                            <div class="sidebar-chat-item-time">${this.formatSessionTime(s.timestamp)}</div>
+                        </div>
+                        <button class="sidebar-chat-item-delete" data-session="${s.session_id}" title="Delete"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `).join('');
+                el.querySelectorAll('.sidebar-chat-item').forEach(item => {
+                    item.onclick = (e) => {
+                        if (e.target.closest('.sidebar-chat-item-delete')) return;
+                        this.switchToSession(item.dataset.session);
+                    };
+                });
+                el.querySelectorAll('.sidebar-chat-item-delete').forEach(btn => {
+                    btn.onclick = (e) => { e.stopPropagation(); this.deleteSession(btn.dataset.session); };
+                });
+            }
+
+            escapeHtml(s) {
+                const d = document.createElement('div');
+                d.textContent = s || '';
+                return d.innerHTML;
+            }
+
+            formatSessionTime(ts) {
+                if (!ts) return '';
+                const d = new Date(ts);
+                const now = new Date();
+                if (d.toDateString() === now.toDateString()) {
+                    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+                return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            }
+
+            startNewChat() {
+                this.sessionId = this.generateSessionId();
+                this.sessions.unshift({
+                    session_id: this.sessionId,
+                    session_title: 'New Chat',
+                    messages: [],
+                    timestamp: Date.now(),
+                    provider_used: 'groq'
+                });
+                this.saveSessionsToStorage();
+                this.chatMessages.innerHTML = '';
+                this.addMessage('ai', '<i class="fas fa-hand"></i> Hi, I\'m Nexora. How can I help you today?<br><span class="welcome-hint"><i class="fas fa-lightbulb"></i> Try <code>/help</code> for commands, or <i class="fas fa-paperclip"></i> to attach files.</span>', true);
+                this.renderChatHistory();
+                this.loadConversationContext();
+            }
+
+            async switchToSession(sid) {
+                const s = this.sessions.find(x => x.session_id === sid);
+                if (!s) return;
+                this.sessionId = sid;
+                this.chatMessages.innerHTML = '';
+                try {
+                    const res = await fetch(_api(`/api/context?session_id=${sid}`));
+                    const ctx = res.ok ? await res.json() : null;
+                    const msgs = (ctx && ctx.conversation_history && ctx.conversation_history.length) ? ctx.conversation_history : (s.messages || []);
+                    msgs.forEach(m => {
+                        if (m.role === 'user' || m.role === 'assistant')
+                            this.addMessage(m.role === 'user' ? 'user' : 'ai', m.content, m.role === 'assistant');
+                    });
+                    if (s.messages && s.messages.length && (!ctx || !ctx.conversation_history.length)) {
+                        await fetch(_api('/api/context/sync'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ session_id: sid, messages: s.messages })
+                        });
+                    }
+                } catch (e) { console.warn('Context load failed', e); }
+                if (this.chatMessages.children.length === 0) {
+                    this.addMessage('ai', '<i class="fas fa-hand"></i> Hi, I\'m Nexora. How can I help you today?<br><span class="welcome-hint"><i class="fas fa-lightbulb"></i> Try <code>/help</code> for commands.</span>', true);
+                }
+                this.renderChatHistory();
+                this.loadConversationContext();
+            }
+
+            deleteSession(sid) {
+                this.sessions = this.sessions.filter(x => x.session_id !== sid);
+                this.saveSessionsToStorage();
+                if (this.sessionId === sid) this.startNewChat();
+                else this.renderChatHistory();
+            }
+
+            persistCurrentSession() {
+                const msgs = this.collectMessagesFromDOM();
+                let s = this.sessions.find(x => x.session_id === this.sessionId);
+                if (s) {
+                    s.messages = msgs;
+                    s.timestamp = Date.now();
+                } else if (this.sessionId && msgs.length > 0) {
+                    this.sessions.unshift({
+                        session_id: this.sessionId,
+                        session_title: msgs[0]?.role === 'user' ? this.truncateTitle(msgs[0].content) : 'New Chat',
+                        messages: msgs,
+                        timestamp: Date.now(),
+                        provider_used: 'groq'
+                    });
+                }
+                this.saveSessionsToStorage();
+                this.renderChatHistory();
+            }
+
+            truncateTitle(text, max = 40) {
+                if (!text) return 'New Chat';
+                const t = text.replace(/\s+/g, ' ').trim();
+                return t.length > max ? t.slice(0, max) + '…' : t;
+            }
+
+            updateSessionTitle(title) {
+                const s = this.sessions.find(x => x.session_id === this.sessionId);
+                if (s && (!s.session_title || s.session_title === 'New Chat')) {
+                    s.session_title = this.truncateTitle(title);
+                    this.saveSessionsToStorage();
+                    this.renderChatHistory();
+                }
+            }
+
+            restoreOrCreateSession() {
+                if (this.sessions.length > 0) {
+                    this.switchToSession(this.sessions[0].session_id);
+                } else {
+                    this.startNewChat();
+                }
+            }
+
+            collectMessagesFromDOM() {
+                const msgs = [];
+                this.chatMessages.querySelectorAll('.message').forEach(m => {
+                    const role = m.classList.contains('user') ? 'user' : 'assistant';
+                    const bubble = m.querySelector('.chat-bubble, .message-text');
+                    const content = bubble ? (bubble.innerText || bubble.textContent || '').trim() : '';
+                    if (content) msgs.push({ role, content });
+                });
+                return msgs;
             }
 
             initializeEventListeners() {
@@ -3604,22 +3953,6 @@
                     }
                 });
 
-                // Live provider switcher in chat header
-                const cps = document.getElementById('chatProviderSelect');
-                if (cps) {
-                    cps.addEventListener('change', async () => {
-                        const prov = cps.value;
-                        try {
-                            await fetch(_api('/api/settings/provider'), {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ provider: prov })
-                            });
-                            this._updateProviderUI(prov);
-                        } catch(e) { console.error('Provider switch failed', e); }
-                    });
-                }
-
                 // Sidebar navigation
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.addEventListener('click', (e) => {
@@ -3629,10 +3962,6 @@
                     });
                 });
 
-                // Fetch active provider on load
-                fetch(_api('/api/settings/provider')).then(r => r.json()).then(d => {
-                    if (d.provider) this._updateProviderUI(d.provider);
-                }).catch(()=>{});
             }
 
             setupAutoResize() {
@@ -3674,6 +4003,8 @@
                 this.autoResize();
                 this.sendBtn.disabled = true;
                 this.hideSuggestions();
+                this.updateSessionTitle(message);
+                this.persistCurrentSession();
 
                 // Check if this is an analysis request
                 const isAnalysisRequest = this.isAnalysisRequest(message);
@@ -3878,8 +4209,9 @@
                                             wrapper.innerHTML = this.renderMarkdownContent ? this.renderMarkdownContent(fullText) : fullText;
                                         }
                                         this.aiResponses.set(messageId, fullText);
-                                        setTimeout(() => this.addDownloadOptions(fullText), 800);
+                                        setTimeout(() => this.addDownloadOptions(messageId), 800);
                                     }
+                                    this.persistCurrentSession();
                                 }
                                 if (evt.error) throw new Error(evt.error);
                             } catch (_) { /* non-JSON line */ }
@@ -3966,7 +4298,7 @@
                     '/analyze':   'Analyze the most recently uploaded file',
                     '/summarize': 'Summarize the current conversation',
                     '/files':     'Load all uploaded files into AI context',
-                    '/provider':  'Switch AI provider  e.g. /provider groq',
+                    '/provider':  '(Internal) Provider routing is automatic',
                     '/email':     'Write and send an email (guided flow)',
                 };
 
@@ -3987,6 +4319,7 @@
                     });
                     this.chatMessages.innerHTML = '';
                     this.addMessage('ai', '<i class="fas fa-trash-alt"></i> Conversation cleared. Starting fresh.', true);
+                    this.persistCurrentSession();
                     return true;
                 }
 
@@ -4037,44 +4370,14 @@
                 }
 
                 if (cmd === '/provider') {
-                    const prov = arg.trim().toLowerCase();
-                    const valid = ['groq','gemini','openai'];
                     this.addMessage('user', raw);
-                    if (!valid.includes(prov)) {
-                        this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> Unknown provider. Use one of: ${valid.join(', ')}`, true);
-                        return true;
-                    }
-                    try {
-                        const res = await fetch(_api('/api/settings/provider'), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ provider: prov })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            this._updateProviderUI(prov);
-                            this.addMessage('ai', `<i class="fas fa-check-circle"></i> Switched to **${prov.toUpperCase()}** provider.`, true);
-                        } else {
-                            this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> ${data.error}`, true);
-                        }
-                    } catch(e) {
-                        this.addMessage('ai', `<i class="fas fa-exclamation-triangle"></i> ${e.message}`, true);
-                    }
+                    this.addMessage('ai', 'Provider routing is automatic. Groq and OpenAI are used internally.', true);
                     return true;
                 }
 
                 return false; // not a known command, send as normal message
             }
 
-            _updateProviderUI(provider) {
-                const labels = { groq:'Groq', gemini:'Gemini', openai:'OpenAI', fallback:'Fallback' };
-                const el = document.getElementById('activeProviderLabel');
-                if (el) el.textContent = labels[provider] || provider;
-                const sel = document.getElementById('chatProviderSelect');
-                if (sel) sel.value = provider;
-                const settings = document.getElementById('aiProviderSelect');
-                if (settings) settings.value = provider;
-            }
 
             // ── Slash suggestions popup ─────────────────────────────────────
             showSuggestions(input) {
@@ -4086,7 +4389,7 @@
                     { cmd: '/analyze',   desc: 'Analyze uploaded file' },
                     { cmd: '/summarize', desc: 'Summarize conversation' },
                     { cmd: '/files',     desc: 'Load all files into context' },
-                    { cmd: '/provider',  desc: 'Switch AI provider (groq/gemini/openai)' },
+                    { cmd: '/provider',  desc: 'Provider info (auto-managed)' },
                     { cmd: '/email',     desc: 'Write and send an email' },
                 ];
                 const filtered = COMMANDS.filter(c => c.cmd.startsWith(input.toLowerCase()));
@@ -4115,7 +4418,7 @@
 
             async loadConversationContext() {
                 try {
-                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`);
+                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`));
                     if (response.ok) {
                         const context = await response.json();
                         console.log('📚 Loaded context:', context);
@@ -4136,8 +4439,8 @@
                             this.uploadedFiles = [];
                         }
 
-                        // Restore persistent conversation messages
-                        if (context.conversation_history && context.conversation_history.length > 0) {
+                        // Restore persistent conversation messages only if chat is empty (avoid duplicates on session switch)
+                        if (this.chatMessages.children.length === 0 && context.conversation_history && context.conversation_history.length > 0) {
                             context.conversation_history.forEach(msg => {
                                 if (msg.role === 'user' || msg.role === 'assistant') {
                                     this.addMessage(msg.role === 'user' ? 'user' : 'ai', msg.content, msg.role === 'assistant');
@@ -4180,6 +4483,16 @@
                 return data.response || 'No response received';
             }
 
+            async copyToClipboard(text) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    if (typeof toast === 'function') toast('Copied to clipboard');
+                    else alert('Copied to clipboard');
+                } catch (e) {
+                    alert('Copy failed');
+                }
+            }
+
             addMessage(sender, content, isFormatted = false, allowHtml = false) {
                 const messageId = `msg_${this.messageCounter++}`;
                 if (sender === 'ai') {
@@ -4209,8 +4522,21 @@
                 messageTime.className = 'message-time';
                 messageTime.textContent = this.getCurrentTime();
 
+                const msgFooter = document.createElement('div');
+                msgFooter.className = 'message-footer';
+                msgFooter.style.cssText = 'display:flex;align-items:center;gap:12px;margin-top:6px;';
+                msgFooter.appendChild(messageTime);
+                if (sender === 'ai') {
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'msg-action-btn';
+                    copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+                    copyBtn.title = 'Copy response';
+                    copyBtn.onclick = () => this.copyToClipboard(content);
+                    msgFooter.appendChild(copyBtn);
+                }
+
                 messageContent.appendChild(messageText);
-                messageContent.appendChild(messageTime);
+                messageContent.appendChild(msgFooter);
 
                 messageDiv.appendChild(avatar);
                 messageDiv.appendChild(messageContent);
@@ -5005,12 +5331,14 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
             }
 
             isStructuredContent(content) {
-                // Check if content is suitable for document generation
+                // Check if content is suitable for document generation (testcase, story, or structured)
                 const hasTable = this.containsMarkdownTable(content);
                 const hasStructuredData = content.includes('|') || content.includes('Test Case') || content.includes('Steps') || content.includes('Expected Result');
-                const hasLongContent = content.length > 200;
+                const hasStoryContent = /User Story|Use Case|Epic Story|Feature Story|Requirement Story|As a .* I want|format|structure|Best practices|^\d+\./m.test(content);
+                const hasLongContent = content.length > 150;
+                const hasMultipleSections = (content.match(/\n\n/g) || []).length >= 2 && content.length > 200;
 
-                return hasTable || (hasStructuredData && hasLongContent);
+                return hasTable || (hasStructuredData && content.length > 200) || (hasStoryContent && hasLongContent) || hasMultipleSections;
             }
 
             addDownloadOptions(messageId) {
@@ -5240,7 +5568,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 emptyState.style.display = 'none';
 
                 try {
-                    const response = await fetch(_api(`/api/documents?session_id=${this.sessionId}`);
+                    const response = await fetch(_api(`/api/documents?session_id=${this.sessionId}`));
 
                     if (response.ok) {
                         const data = await response.json();
@@ -5297,7 +5625,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
                                 workbook.SheetNames.forEach(sheetName => {
                                     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                                    rows.forEach(row => row.Module = sheetName);
+                                    rows.forEach(row => { if (!(row.Module || row.module)) row.Module = sheetName; });
                                     fileData.push(...rows);
                                 });
 
@@ -5341,14 +5669,14 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     } else {
                         // Load file from server
                         try {
-                            const fileResp = await fetch(_api(`/api/repo/load/${selectedFile}`);
+                            const fileResp = await fetch(_api(`/api/repo/load/${selectedFile}`));
                             if (fileResp.ok) {
                                 const arrayBuffer = await fileResp.arrayBuffer();
                                 const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
                                 let fileData = [];
                                 workbook.SheetNames.forEach(sheetName => {
                                     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                                    rows.forEach(row => row.Module = sheetName);
+                                    rows.forEach(row => { if (!(row.Module || row.module)) row.Module = sheetName; });
                                     fileData.push(...rows);
                                 });
                                 
@@ -5375,11 +5703,19 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     if (!this.currentRepoFile) return;
                     let filtered = [...this.allRepoData[this.currentRepoFile]];
 
+                    const platform = document.getElementById('repoPlatformFilter')?.value;
                     const mod    = moduleFilter.value;
                     const prio   = priorityFilter.value;
                     const type   = document.getElementById('repoTypeFilter').value;
                     const search = searchBox.value.toLowerCase().trim();
 
+                    // Platform: exact match
+                    if (platform && platform !== 'All Platforms') {
+                        filtered = filtered.filter(tc => {
+                            const val = String(tc.Platform || tc.platform || '').trim();
+                            return val === platform;
+                        });
+                    }
                     // Module: exact match (set from sheet name)
                     if (mod && mod !== 'All Modules') {
                         filtered = filtered.filter(tc => String(tc.Module || '') === mod);
@@ -5398,7 +5734,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                             return val.toLowerCase() === type.toLowerCase();
                         });
                     }
-                    // Search: across ID, Scenario, Steps, Expected, Module
+                    // Search: across ID, Scenario, Steps, Expected, Module, Platform
                     if (search) {
                         filtered = filtered.filter(tc => {
                             const haystack = [
@@ -5406,14 +5742,14 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                                 tc["Test Scenario"], tc.Scenario, tc.Title,
                                 tc["Test steps"], tc.Steps,
                                 tc["Expected Result"], tc.Expected,
-                                tc.Module
+                                tc.Module, tc.Platform, tc.platform
                             ].map(v => String(v || '').toLowerCase()).join(' ');
                             return haystack.includes(search);
                         });
                     }
 
                     this.filteredRepoData = filtered;
-                    console.log(`Filters: mod="${mod}" prio="${prio}" type="${type}" search="${search}" → ${filtered.length}/${this.allRepoData[this.currentRepoFile].length}`);
+                    console.log(`Filters: platform="${platform}" mod="${mod}" prio="${prio}" type="${type}" search="${search}" → ${filtered.length}/${this.allRepoData[this.currentRepoFile].length}`);
                     this.repoPage = 1;
                     this.renderRepoTable();
                 };
@@ -5434,6 +5770,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     }
                 });
 
+                document.getElementById('repoPlatformFilter')?.addEventListener('change', applyFilters);
                 moduleFilter.addEventListener('change', applyFilters);
                 priorityFilter.addEventListener('change', applyFilters);
                 document.getElementById('repoTypeFilter').addEventListener('change', applyFilters);
@@ -5441,6 +5778,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
                 // Clear Filters
                 document.getElementById('repoClearFiltersBtn').addEventListener('click', () => {
+                    const platformFilter = document.getElementById('repoPlatformFilter');
+                    if (platformFilter) platformFilter.value = 'All Platforms';
                     moduleFilter.value = 'All Modules';
                     priorityFilter.value = 'All Priorities';
                     document.getElementById('repoTypeFilter').value = 'All Types';
@@ -5534,6 +5873,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
             }
 
             populateRepoFilters(data) {
+                const platformFilter = document.getElementById('repoPlatformFilter');
                 const moduleFilter   = document.getElementById('repoModuleFilter');
                 const priorityFilter = document.getElementById('repoPriorityFilter');
                 const typeFilter     = document.getElementById('repoTypeFilter');
@@ -5542,6 +5882,10 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 // Helper to get unique non-empty values
                 const unique = (arr) => [...new Set(arr.filter(v => v !== undefined && v !== null && String(v).trim() !== ''))].sort();
 
+                const platforms = unique(data.map(tc => {
+                    const raw = tc.Platform || tc.platform || '';
+                    return raw ? String(raw).trim() : null;
+                }));
                 const modules    = unique(data.map(tc => tc.Module));
                 const priorities = unique(data.map(tc => {
                     const raw = tc.Priority || tc.priority || tc.PRIORITY || '';
@@ -5550,10 +5894,15 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 const types = unique(data.map(tc => tc["Test Type"] || tc.Type || tc.type || tc.TYPE));
 
                 // Preserve current selections
+                const curPlatform = platformFilter?.value;
                 const curMod  = moduleFilter.value;
                 const curPrio = priorityFilter.value;
                 const curType = typeFilter.value;
 
+                if (platformFilter) {
+                    platformFilter.innerHTML = `<option value="All Platforms">All Platforms</option>` + platforms.map(p => `<option value="${p}">${p}</option>`).join('');
+                    if (platforms.includes(curPlatform)) platformFilter.value = curPlatform;
+                }
                 moduleFilter.innerHTML   = `<option value="All Modules">All Modules</option>`   + modules.map(m => `<option value="${m}">${m}</option>`).join('');
                 priorityFilter.innerHTML = `<option value="All Priorities">All Priorities</option>` + priorities.map(p => `<option value="${p}">${p}</option>`).join('');
                 typeFilter.innerHTML     = `<option value="All Types">All Types</option>`       + types.map(t => `<option value="${t}">${t}</option>`).join('');
@@ -5563,7 +5912,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 if (priorities.includes(curPrio)) priorityFilter.value = curPrio;
                 if (types.includes(curType))      typeFilter.value     = curType;
 
-                console.log('Filters populated:', { modules: modules.length, priorities: priorities.length, types: types.length, rows: data.length });
+                console.log('Filters populated:', { platforms: platforms.length, modules: modules.length, priorities: priorities.length, types: types.length, rows: data.length });
             }
 
             renderRepoTable(data = null) {
@@ -5587,7 +5936,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 }
 
                 if (!this.filteredRepoData || this.filteredRepoData.length === 0) {
-                    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px 20px;color:var(--text-muted);font-style:italic;">No matching test cases found.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px 20px;color:var(--text-muted);font-style:italic;">No matching test cases found.</td></tr>`;
                     this.updateRepoStats([]);
                     this.updatePagination(0);
                     return;
@@ -5626,6 +5975,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
                 tableBody.innerHTML = pageData.map(tc => {
                     const id = findValue(tc, ['TC_ID', 'TCID', 'ID', 'Test ID', 'Test Case ID']) || '';
+                    const platform = findValue(tc, ['Platform', 'platform']) || '';
                     const scenario = findValue(tc, ['Test Scenario', 'Scenario', 'Title', 'Test Case', 'Description']) || '';
                     const module   = tc.Module || '';
                     const preConditions = findValue(tc, ['Pre-conditions', 'Preconditions', 'Prerequisites', 'Pre Conditions']) || '';
@@ -5652,6 +6002,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     return `
                         <tr>
                             <td class="col-id">${esc(id)}</td>
+                            <td style="font-size:12px;color:#64748b;"><span class="module-badge">${esc(platform)}</span></td>
                             <td style="font-weight:600;font-size:13px;">${esc(scenario)}</td>
                             <td style="font-size:12px;color:#64748b;"><span class="module-badge">${esc(module)}</span></td>
                             <td style="font-size:12px;color:#64748b;">${formatText(preConditions)}</td>
@@ -5718,26 +6069,46 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
             async loadRepositoryData() {
                 try {
-                    // Clear existing data
+                    const settings = JSON.parse(localStorage.getItem('viserAISettings') || '{}');
+                    const useGoogleSheets = settings.useGoogleSheets && settings.gsheetsUrl;
                     const fileSelector = document.getElementById('repoFileSelector');
                     fileSelector.innerHTML = `<option selected disabled>Select Repository</option>`;
                     this.allRepoData = {};
                     this.currentRepoFile = null;
-                    
-                    // Show loading state
+
                     const tableBody = document.getElementById('repoTableBody');
                     if (tableBody) {
-                        tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">
+                        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">
                             <i class="fas fa-spinner fa-spin" style="font-size:28px;display:block;margin-bottom:12px;"></i>
                             Loading repositories…
                         </td></tr>`;
+                    }
+
+                    if (useGoogleSheets) {
+                        const url = encodeURIComponent(settings.gsheetsUrl);
+                        const response = await fetch(_api(`/api/repo/gsheets?url=${url}`));
+                        const data = await response.json().catch(() => ({}));
+                        if (response.ok && data.success && data.data) {
+                            const fileData = data.data;
+                            const opt = document.createElement('option');
+                            opt.value = 'Google Sheets';
+                            opt.text = 'Google Sheets';
+                            fileSelector.appendChild(opt);
+                            this.allRepoData['Google Sheets'] = fileData;
+                            this.currentRepoFile = 'Google Sheets';
+                            fileSelector.value = 'Google Sheets';
+                            this.populateRepoFilters(fileData);
+                            this.renderRepoTable(fileData);
+                        } else {
+                            throw new Error(data.error || (response.status ? `HTTP ${response.status}` : 'Failed to load Google Sheet'));
+                        }
+                        return;
                     }
 
                     const response = await fetch(_api('/api/repo/files'));
                     if (response.ok) {
                         const data = await response.json();
                         if (data.files && data.files.length > 0) {
-                            // Populate file selector
                             data.files.forEach(filename => {
                                 const opt = document.createElement('option');
                                 opt.value = filename;
@@ -5745,25 +6116,21 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                                 fileSelector.appendChild(opt);
                             });
 
-                            // Auto-load first file
                             const firstFile = data.files[0];
-                            const fileResp = await fetch(_api(`/api/repo/load/${firstFile}`);
+                            const fileResp = await fetch(_api(`/api/repo/load/${firstFile}`));
                             if (fileResp.ok) {
                                 const arrayBuffer = await fileResp.arrayBuffer();
                                 const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
                                 let fileData = [];
                                 workbook.SheetNames.forEach(sheetName => {
                                     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                                    rows.forEach(row => row.Module = sheetName);
+                                    rows.forEach(row => { if (!(row.Module || row.module)) row.Module = sheetName; });
                                     fileData.push(...rows);
                                 });
-                                
-                                // Debug: Log column names from first row
                                 if (fileData.length > 0) {
                                     console.log('Excel columns found:', Object.keys(fileData[0]));
                                     console.log('Sample row:', fileData[0]);
                                 }
-                                
                                 this.allRepoData[firstFile] = fileData;
                                 this.currentRepoFile = firstFile;
                                 fileSelector.value = firstFile;
@@ -5773,9 +6140,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                                 throw new Error('Failed to load repository file');
                             }
                         } else {
-                            // No files found - show empty state
                             if (tableBody) {
-                                tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:48px 20px;color:var(--text-muted);">
+                                tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:48px 20px;color:var(--text-muted);">
                                     <i class="fas fa-folder-open" style="font-size:36px;display:block;margin-bottom:14px;opacity:0.25;"></i>
                                     <span style="font-size:15px;font-weight:500;">No repositories found.</span><br>
                                     <span style="font-size:13px;">Click <strong>Import .xlsx</strong> to upload a testcase file.</span>
@@ -5791,7 +6157,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     console.error('Error auto-loading repo files:', err);
                     const tableBody = document.getElementById('repoTableBody');
                     if (tableBody) {
-                        tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#ef4444;">
+                        tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:#ef4444;">
                             <i class="fas fa-exclamation-triangle" style="font-size:28px;display:block;margin-bottom:12px;"></i>
                             Error loading repositories: ${err.message}
                         </td></tr>`;
@@ -6160,26 +6526,61 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
             async viewDocument(fileId) {
                 try {
-                    const response = await fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`);
+                    const [metaRes, contentRes] = await Promise.all([
+                        fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`)),
+                        fetch(_api(`/api/documents/${fileId}/content?session_id=${this.sessionId}`))
+                    ]);
+                    if (!metaRes.ok) throw new Error('Failed to get document details');
+                    const meta = await metaRes.json();
+                    const doc = meta.document;
+                    const ext = (doc.extension || '').toLowerCase();
+                    const isImage = ['.jpg','.jpeg','.png','.gif','.bmp','.webp'].includes(ext);
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        const doc = data.document;
-
-                        // Switch to chat and show document info
-                        this.switchView('chat');
-
-                        const message = `**Document Details:**\n\n**Filename:** ${doc.filename}\n**Type:** ${doc.type}\n**Size:** ${doc.stats ? doc.stats.size_mb + ' MB' : 'Unknown'}\n**Uploaded:** ${new Date(doc.upload_time * 1000).toLocaleString()}\n**Status:** ${doc.analyzed ? 'Analyzed' : 'Not analyzed'}\n**File exists:** ${doc.exists ? 'Yes' : 'No'}`;
-
-                        this.addMessage('ai', message, true);
+                    this.switchView('chat');
+                    let viewHtml = '';
+                    if (isImage) {
+                        const imgUrl = _api(`/api/documents/${fileId}/content?session_id=${this.sessionId}`);
+                        viewHtml = `<div class="document-view-modal" style="max-width:90%;margin:12px 0;"><img src="${imgUrl}" alt="${doc.filename}" style="max-width:100%;max-height:400px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);"/></div>`;
+                    } else if (contentRes.ok) {
+                        const cData = await contentRes.json();
+                        if (cData.type === 'text' && cData.content) {
+                            const escaped = (cData.content || '').slice(0, 8000).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                            viewHtml = `<div class="document-view-modal" style="max-height:400px;overflow:auto;background:#f8fafc;padding:16px;border-radius:8px;font-family:monospace;font-size:13px;white-space:pre-wrap;">${escaped}${(cData.content||'').length>8000?'\\n...[truncated]':''}</div>`;
+                        } else {
+                            viewHtml = `<p>${cData.message || 'Preview not available for this file type.'}</p>`;
+                        }
                     } else {
-                        throw new Error('Failed to get document details');
+                        viewHtml = `<p>Could not load file content.</p>`;
                     }
+                    const safeName = (doc.filename || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const reuseBtn = `<button class="btn btn-primary" style="margin-top:12px;" onclick="viseAI.reuseDocument('${fileId}', '${safeName}')"><i class="fas fa-plus"></i> Reuse in Chat</button>`;
+                    const details = `<strong>Filename:</strong> ${doc.filename} • <strong>Type:</strong> ${doc.type} • <strong>Status:</strong> ${doc.analyzed ? 'Analyzed' : 'Pending'}`;
+                    const fullHtml = `<p><strong>Document:</strong> ${doc.filename}</p><p>${details}</p>${viewHtml}<p>${reuseBtn}</p>`;
+                    this.addMessage('ai', fullHtml, true, true);
                 } catch (error) {
                     console.error('Error viewing document:', error);
                     this.switchView('chat');
                     this.addMessage('ai', `<i class="fas fa-times-circle"></i> Error viewing document: ${error.message}`, true);
                 }
+            }
+
+            async reuseDocument(fileId, filename) {
+                let fileInfo = this.uploadedFiles.find(f => f.fileId === fileId);
+                if (!fileInfo) {
+                    try {
+                        const r = await fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`));
+                        const data = await r.json();
+                        if (!data.document) throw new Error('Document not found');
+                        const d = data.document;
+                        fileInfo = { filename: d.filename, path: d.path, fileId: d.file_id || fileId, size: d.size || 0, type: d.type || 'unknown', extension: (d.extension || '').toLowerCase() };
+                    } catch (e) {
+                        this.addMessage('ai', `<i class="fas fa-times-circle"></i> Could not load document: ${e.message}`, true);
+                        return;
+                    }
+                }
+                if (!this.uploadedFiles.some(f => f.fileId === fileId)) this.uploadedFiles.push(fileInfo);
+                this._refreshAttachedStrip();
+                this.addMessage('ai', `<i class="fas fa-check-circle"></i> **${fileInfo.filename}** loaded into context. You can ask questions about it or use /analyze.`, true);
             }
 
             async analyzeDocument(fileId, filename) {
@@ -6248,7 +6649,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 const historyCount = document.getElementById('historyCount');
 
                 try {
-                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`);
+                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`));
                     if (response.ok) {
                         const data = await response.json();
                         const messages = data.conversation_history || [];
@@ -6389,6 +6790,18 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 const autoLoadRepo = document.getElementById('autoLoadRepoCheckbox');
                 if (autoLoadRepo) autoLoadRepo.checked = settings.autoLoadRepo !== false;
 
+                const useGoogleSheets = document.getElementById('useGoogleSheetsCheckbox');
+                const gsheetsUrlItem = document.getElementById('gsheetsUrlSettingItem');
+                const gsheetsUrlInput = document.getElementById('gsheetsUrlInput');
+                if (useGoogleSheets) {
+                    useGoogleSheets.checked = settings.useGoogleSheets || false;
+                    if (gsheetsUrlItem) gsheetsUrlItem.style.display = useGoogleSheets.checked ? 'block' : 'none';
+                    useGoogleSheets.onchange = () => {
+                        if (gsheetsUrlItem) gsheetsUrlItem.style.display = useGoogleSheets.checked ? 'block' : 'none';
+                    };
+                }
+                if (gsheetsUrlInput) gsheetsUrlInput.value = settings.gsheetsUrl || '';
+
                 const theme = settings.theme || 'purple';
                 const themeSelect = document.getElementById('themeSelect');
                 if (themeSelect) themeSelect.value = theme;
@@ -6445,6 +6858,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     autoAnalyze: document.getElementById('autoAnalyzeCheckbox')?.checked || false,
                     itemsPerPage: parseInt(document.getElementById('itemsPerPageInput')?.value || 25),
                     autoLoadRepo: document.getElementById('autoLoadRepoCheckbox')?.checked !== false,
+                    useGoogleSheets: document.getElementById('useGoogleSheetsCheckbox')?.checked || false,
+                    gsheetsUrl: document.getElementById('gsheetsUrlInput')?.value?.trim() || '',
                     theme: document.getElementById('themeSelect')?.value || 'purple'
                 };
 
@@ -6452,18 +6867,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 this.applyTheme(settings.theme);
                 this.repoItemsPerPage = settings.itemsPerPage;
 
-                // ── Push provider to backend live ──────────────────────
-                try {
-                    const res = await fetch(_api('/api/settings/provider'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ provider: settings.aiProvider })
-                    });
-                    const d = await res.json();
-                    if (d.success) this._updateProviderUI(settings.aiProvider);
-                } catch(e) { console.warn('Provider update failed:', e); }
-
-                alert('Settings saved. Theme: ' + (settings.theme || 'purple') + ', AI provider: ' + settings.aiProvider.toUpperCase());
+                alert('Settings saved. Theme: ' + (settings.theme || 'purple'));
             }
 
             resetSettings() {
