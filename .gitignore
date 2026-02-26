@@ -100,6 +100,8 @@ yarn.lock
 # ================================
 # Project Specific
 # ================================
+config/users.json
+
 uploads/
 templates/
 outputs/

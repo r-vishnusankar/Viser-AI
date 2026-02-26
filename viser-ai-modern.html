@@ -124,7 +124,7 @@
 
         .sidebar.collapsed .sidebar-label,
         .sidebar.collapsed .logo-text,
-        .sidebar.collapsed .sidebar-chat-section {
+        .sidebar.collapsed .chat-submenu {
             display: none !important;
         }
 
@@ -140,13 +140,14 @@
             min-width: 48px;
         }
 
-        .sidebar.collapsed .sidebar-chat-history {
-            display: none;
-        }
-
         .sidebar.collapsed .sidebar-nav {
             padding: 0 4px;
             align-items: center;
+        }
+
+        .sidebar.collapsed .chat-nav-group {
+            align-items: center;
+            margin-bottom: 4px;
         }
 
         .sidebar.collapsed .sidebar-profile {
@@ -198,10 +199,43 @@
             color: #333333;
         }
 
-        .sidebar-chat-section {
-            padding: 0 12px 12px;
-            border-bottom: 1px solid rgba(0,0,0,0.06);
+        .chat-nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
             margin-bottom: 12px;
+        }
+
+        .chat-submenu {
+            padding: 10px 12px 14px 14px;
+            padding-left: 44px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            margin-left: 10px;
+            margin-top: 6px;
+            border-left: 2px solid rgba(107, 76, 113, 0.35);
+            border-radius: 0 0 0 8px;
+            background: linear-gradient(135deg, rgba(107, 76, 113, 0.04) 0%, rgba(107, 76, 113, 0.01) 100%);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .chat-nav-group.expanded .chat-submenu {
+            display: flex;
+            animation: chatSubmenuFadeIn 0.25s ease;
+        }
+
+        @keyframes chatSubmenuFadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-submenu .sidebar-new-chat-btn {
+            margin-bottom: 0;
+        }
+
+        .chat-submenu .sidebar-chat-history {
+            margin-top: 0;
         }
 
         .sidebar-new-chat-btn {
@@ -210,46 +244,76 @@
             gap: 10px;
             width: 100%;
             padding: 10px 14px;
-            border: 1px dashed rgba(0,0,0,0.2);
+            border: 1px dashed rgba(107, 76, 113, 0.25);
             border-radius: 10px;
-            background: transparent;
+            background: rgba(255, 255, 255, 0.5);
             color: #333;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
 
         .sidebar-new-chat-btn:hover {
-            background: rgba(235, 234, 225, 0.6);
+            background: rgba(107, 76, 113, 0.08);
             border-color: var(--accent);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(107, 76, 113, 0.15);
+        }
+
+        .sidebar-new-chat-btn i {
+            color: var(--accent);
+            transition: transform 0.2s ease;
+        }
+
+        .sidebar-new-chat-btn:hover i {
+            transform: scale(1.1);
         }
 
         .sidebar-chat-history {
             max-height: 200px;
             overflow-y: auto;
-            margin-top: 8px;
+            margin-top: 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(107, 76, 113, 0.3) transparent;
+        }
+
+        .sidebar-chat-history::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .sidebar-chat-history::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar-chat-history::-webkit-scrollbar-thumb {
+            background: rgba(107, 76, 113, 0.25);
+            border-radius: 10px;
         }
 
         .sidebar-chat-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 10px;
-            border-radius: 8px;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
             cursor: pointer;
             margin-bottom: 4px;
-            transition: background 0.2s;
+            transition: all 0.2s ease;
             position: relative;
+            border: 1px solid transparent;
         }
 
         .sidebar-chat-item:hover {
-            background: rgba(235, 234, 225, 0.5);
+            background: rgba(107, 76, 113, 0.06);
+            border-color: rgba(107, 76, 113, 0.1);
         }
 
         .sidebar-chat-item.active {
-            background: rgba(107, 76, 113, 0.12);
+            background: linear-gradient(135deg, rgba(107, 76, 113, 0.12) 0%, rgba(107, 76, 113, 0.06) 100%);
             color: var(--accent);
+            border-color: rgba(107, 76, 113, 0.2);
         }
 
         .sidebar-chat-item-content {
@@ -263,11 +327,13 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            letter-spacing: 0.01em;
         }
 
         .sidebar-chat-item-time {
             font-size: 11px;
             color: var(--text-muted);
+            opacity: 0.9;
         }
 
         .sidebar-chat-item-delete {
@@ -278,15 +344,18 @@
             cursor: pointer;
             padding: 4px;
             font-size: 12px;
-            transition: opacity 0.2s;
+            transition: all 0.2s ease;
+            border-radius: 6px;
         }
 
         .sidebar-chat-item:hover .sidebar-chat-item-delete {
-            opacity: 1;
+            opacity: 0.7;
         }
 
         .sidebar-chat-item-delete:hover {
             color: #ef4444;
+            opacity: 1;
+            background: rgba(239, 68, 68, 0.08);
         }
 
         .msg-action-btn {
@@ -344,7 +413,10 @@
         .sidebar-profile {
             padding: 16px 12px 0;
             border-top: 1px solid rgba(0,0,0,0.06);
+            display: flex;
+            align-items: center;
         }
+        .logout-btn:hover { color: #4a5568; }
 
         .sidebar-profile-avatar {
             width: 40px;
@@ -3066,58 +3138,121 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
+        /* Login Page */
+        #loginPage {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--main-bg);
+            padding: 24px;
+        }
+        #loginPage.hidden { display: none !important; }
+        .login-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-logo {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .login-logo i { font-size: 36px; color: var(--accent); }
+        .login-logo h1 { font-size: 24px; font-weight: 700; margin-top: 8px; }
+        .login-field { margin-bottom: 20px; }
+        .login-field label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        .login-field input, .login-field select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+        }
+        .login-field input:focus, .login-field select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .login-btn:hover { opacity: 0.95; }
+        .login-error {
+            color: #dc2626;
+            font-size: 13px;
+            margin-top: 12px;
+            display: none;
+        }
+        .login-error.visible { display: block; }
+        #appContainer.hidden { display: none !important; }
     </style>
 </head>
 
 <body data-theme="purple">
-    <div class="app-container">
+    <!-- Login Page -->
+    <div id="loginPage">
+        <div class="login-card">
+            <div class="login-logo">
+                <i class="fas fa-bolt"></i>
+                <h1>Nexora</h1>
+            </div>
+            <form id="loginForm">
+                <div class="login-field">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="login-field">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="Password" required>
+                </div>
+                <div class="login-field">
+                    <label>Workspace</label>
+                    <select id="loginWorkspace">
+                        <option value="qa">QA Lab</option>
+                        <option value="hr">HR Suite</option>
+                        <option value="ba">BA Studio</option>
+                    </select>
+                </div>
+                <button type="submit" class="login-btn" id="loginBtn">Login</button>
+                <div class="login-error" id="loginError">Invalid email or password.</div>
+            </form>
+        </div>
+    </div>
+
+    <div id="appContainer" class="app-container hidden">
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Collapse/Expand">
-                    <i class="fas fa-bars"></i>
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Collapse sidebar">
+                    <i class="fas fa-angles-left"></i>
                 </button>
                 <div class="logo" id="sidebarLogo">
                     <i class="fas fa-bolt"></i>
                     <span class="logo-text">Nexora</span>
                 </div>
             </div>
-            <div class="sidebar-chat-section" id="sidebarChatSection">
-                <button type="button" class="sidebar-new-chat-btn" id="newChatBtn" title="New Chat">
-                    <i class="fas fa-plus"></i>
-                    <span class="sidebar-label">New Chat</span>
-                </button>
-                <div class="sidebar-chat-history" id="sidebarChatHistory"></div>
-            </div>
-            <nav class="sidebar-nav">
-                <a href="#" class="nav-item active" data-view="chat" title="Nexora Chat">
-                    <i class="fas fa-comments"></i>
-                    <span class="sidebar-label">Chat</span>
-                </a>
-                <a href="#" class="nav-item" data-view="testcases" title="Testcase Repository">
-                    <i class="fas fa-folder-open"></i>
-                    <span class="sidebar-label">Testcases</span>
-                </a>
-                <a href="#" class="nav-item" data-view="automation" title="AI Automation">
-                    <i class="fas fa-robot"></i>
-                    <span class="sidebar-label">Automation</span>
-                </a>
-                <a href="#" class="nav-item" data-view="documents" title="Documents">
-                    <i class="fas fa-file-alt"></i>
-                    <span class="sidebar-label">Documents</span>
-                </a>
-                <a href="#" class="nav-item" data-view="settings" title="Settings">
-                    <i class="fas fa-cog"></i>
-                    <span class="sidebar-label">Settings</span>
-                </a>
-                <a href="#" class="nav-item" data-view="history" title="History">
-                    <i class="fas fa-history"></i>
-                    <span class="sidebar-label">History</span>
-                </a>
+            <nav class="sidebar-nav" id="sidebarNav">
+                <!-- Populated by loadWorkspaceSidebar() - Chat group includes New Chat + history under Chat icon -->
             </nav>
-            <div class="sidebar-profile">
+            <div class="sidebar-profile" id="sidebarProfile">
                 <div class="sidebar-profile-avatar" title="User">
                     <i class="fas fa-user"></i>
+                </div>
+                <div class="sidebar-profile-info" style="flex:1;min-width:0;margin-left:10px;">
+                    <span class="sidebar-label" id="sidebarUserName" style="display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Guest</span>
+                    <button type="button" id="logoutBtn" class="logout-btn" title="Logout" style="display:none;background:none;border:none;color:#718096;font-size:12px;cursor:pointer;padding:2px 0;margin-top:2px;">Logout</button>
                 </div>
             </div>
         </div>
@@ -3649,6 +3784,80 @@
                 </div>
             </div>
 
+            <!-- Placeholder views for workspace modules (Coming soon) -->
+            <div id="qa-analyticsView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">QA Analytics</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-chart-bar"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">QA Analytics dashboard is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='/analyze'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+            <div id="resume-analyzerView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">Resume Analyzer</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-file-alt"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Resume Analyzer is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Analyze my resume'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+            <div id="candidate-screeningView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">Candidate Screening</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-user-check"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Candidate Screening is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Help me screen candidates'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+            <div id="mail-automationView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">Mail Automation</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-envelope"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Mail Automation is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Help me automate emails'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+            <div id="employee-documentsView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">Employee Documents</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-users"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Employee Documents is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Help with employee documents'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+            <div id="requirement-analyzerView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">Requirement Analyzer</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-search"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Requirement Analyzer is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Analyze these requirements'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+            <div id="user-story-generatorView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">User Story Generator</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-book"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">User Story Generator is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Generate user stories from requirements'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+            <div id="flow-diagramView" class="view-container" style="display: none;">
+                <div class="chat-header"><h1 class="chat-title">Flow Diagram Builder</h1></div>
+                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
+                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-project-diagram"></i></div>
+                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
+                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Flow Diagram Builder is under development.</p>
+                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Create a flow diagram'; viseAI.messageInput.focus();">Open in Chat</button>
+                </div>
+            </div>
+
             <!-- History View -->
             <div id="historyView" class="view-container" style="display: none;">
                 <div class="chat-header">
@@ -3723,6 +3932,9 @@
                 this.setupSidebarToggle();
                 this.setupChatHistory();
                 this.restoreOrCreateSession();
+                // Chat is default view on load - show submenu
+                const chatGroup = document.querySelector('.chat-nav-group');
+                if (chatGroup) chatGroup.classList.add('expanded');
 
                 // Repository Logic Initialization
                 this.allRepoData = {};
@@ -3765,10 +3977,20 @@
                 const btn = document.getElementById('sidebarToggleBtn');
                 const collapsed = localStorage.getItem(this.SIDEBAR_COLLAPSED_KEY) === 'true';
                 if (collapsed && sidebar) sidebar.classList.add('collapsed');
+                const updateShrinkIcon = () => {
+                    if (!btn || !sidebar) return;
+                    const icon = btn.querySelector('i');
+                    if (icon) {
+                        icon.className = sidebar.classList.contains('collapsed') ? 'fas fa-angles-right' : 'fas fa-angles-left';
+                    }
+                    btn.title = sidebar.classList.contains('collapsed') ? 'Expand sidebar' : 'Collapse sidebar';
+                };
+                updateShrinkIcon();
                 if (btn && sidebar) {
                     btn.onclick = () => {
                         sidebar.classList.toggle('collapsed');
-                        localStorage.setItem(this.SIDEBAR_COLLAPSED_KEY, sidebar.classList.contains('collapsed'));
+                        try { localStorage.setItem(this.SIDEBAR_COLLAPSED_KEY, sidebar.classList.contains('collapsed')); } catch (e) {}
+                        updateShrinkIcon();
                     };
                 }
             }
@@ -3819,6 +4041,7 @@
             }
 
             startNewChat() {
+                this.switchView('chat'); // Ensure chat view is shown (also expands sidebar if collapsed)
                 this.sessionId = this.generateSessionId();
                 this.sessions.unshift({
                     session_id: this.sessionId,
@@ -3953,14 +4176,18 @@
                     }
                 });
 
-                // Sidebar navigation
-                document.querySelectorAll('.nav-item').forEach(item => {
-                    item.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const view = item.getAttribute('data-view');
-                        this.switchView(view);
+                // Sidebar navigation (event delegation - works even when nav is re-populated)
+                const sidebarNav = document.getElementById('sidebarNav');
+                if (sidebarNav) {
+                    sidebarNav.addEventListener('click', (e) => {
+                        const item = e.target.closest('.nav-item');
+                        if (item) {
+                            e.preventDefault();
+                            const view = item.getAttribute('data-view');
+                            if (view) this.switchView(view);
+                        }
                     });
-                });
+                }
 
             }
 
@@ -5513,6 +5740,19 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
             // View Management
             switchView(viewName) {
+                // When tapping Chat icon: expand sidebar so New Chat + chat history are visible
+                if (viewName === 'chat') {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar && sidebar.classList.contains('collapsed')) {
+                        sidebar.classList.remove('collapsed');
+                        try { localStorage.setItem(this.SIDEBAR_COLLAPSED_KEY, 'false'); } catch (e) {}
+                        const shrinkBtn = document.getElementById('sidebarToggleBtn');
+                        const icon = shrinkBtn && shrinkBtn.querySelector('i');
+                        if (icon) { icon.className = 'fas fa-angles-left'; }
+                        if (shrinkBtn) shrinkBtn.title = 'Collapse sidebar';
+                    }
+                }
+
                 // Hide all views
                 document.querySelectorAll('.view-container').forEach(view => {
                     view.style.display = 'none';
@@ -5533,6 +5773,16 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 const activeNavItem = document.querySelector(`[data-view="${viewName}"]`);
                 if (activeNavItem) {
                     activeNavItem.classList.add('active');
+                }
+
+                // Show chat submenu only when Chat view is active
+                const chatGroup = document.querySelector('.chat-nav-group');
+                if (chatGroup) {
+                    if (viewName === 'chat') {
+                        chatGroup.classList.add('expanded');
+                    } else {
+                        chatGroup.classList.remove('expanded');
+                    }
                 }
 
                 // Load data for specific views
@@ -6924,8 +7174,174 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
         // Initialize the chat when the page loads
         let viseAI; // Global reference for onclick handlers
 
-        document.addEventListener('DOMContentLoaded', () => {
-            viseAI = new ViseAIChat();
+        const NEXORA_USER_KEY = 'nexora_user';
+
+        const WORKSPACE_NAV = {
+            qa: [
+                { view: 'chat', label: 'Chat', icon: 'fa-comments' },
+                { view: 'testcases', label: 'Testcases', icon: 'fa-folder-open' },
+                { view: 'automation', label: 'Automation', icon: 'fa-robot' },
+                { view: 'qa-analytics', label: 'QA Analytics', icon: 'fa-chart-bar' },
+                { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
+                { view: 'history', label: 'History', icon: 'fa-history' },
+                { view: 'settings', label: 'Settings', icon: 'fa-cog' }
+            ],
+            hr: [
+                { view: 'chat', label: 'Chat', icon: 'fa-comments' },
+                { view: 'resume-analyzer', label: 'Resume Analyzer', icon: 'fa-file-alt' },
+                { view: 'candidate-screening', label: 'Candidate Screening', icon: 'fa-user-check' },
+                { view: 'mail-automation', label: 'Mail Automation', icon: 'fa-envelope' },
+                { view: 'employee-documents', label: 'Employee Documents', icon: 'fa-users' },
+                { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
+                { view: 'history', label: 'History', icon: 'fa-history' },
+                { view: 'settings', label: 'Settings', icon: 'fa-cog' }
+            ],
+            ba: [
+                { view: 'chat', label: 'Chat', icon: 'fa-comments' },
+                { view: 'requirement-analyzer', label: 'Requirement Analyzer', icon: 'fa-search' },
+                { view: 'user-story-generator', label: 'User Story Generator', icon: 'fa-book' },
+                { view: 'flow-diagram', label: 'Flow Diagram Builder', icon: 'fa-project-diagram' },
+                { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
+                { view: 'history', label: 'History', icon: 'fa-history' },
+                { view: 'settings', label: 'Settings', icon: 'fa-cog' }
+            ]
+        };
+
+        function loadWorkspaceSidebar(workspace) {
+            const nav = document.getElementById('sidebarNav');
+            if (!nav) return;
+            const items = WORKSPACE_NAV[workspace] || WORKSPACE_NAV.qa;
+            const parts = [];
+            items.forEach((item, i) => {
+                const active = i === 0 ? ' active' : '';
+                if (item.view === 'chat') {
+                    parts.push(`<div class="chat-nav-group">
+                        <a href="#" class="nav-item${active}" data-view="chat" title="Chat">
+                            <i class="fas ${item.icon}"></i>
+                            <span class="sidebar-label">${item.label}</span>
+                        </a>
+                        <div class="chat-submenu">
+                            <button type="button" class="sidebar-new-chat-btn" id="newChatBtn" title="New Chat">
+                                <i class="fas fa-plus"></i>
+                                <span class="sidebar-label">New Chat</span>
+                            </button>
+                            <div class="sidebar-chat-history" id="sidebarChatHistory"></div>
+                        </div>
+                    </div>`);
+                } else {
+                    parts.push(`<a href="#" class="nav-item${active}" data-view="${item.view}" title="${item.label}">
+                        <i class="fas ${item.icon}"></i>
+                        <span class="sidebar-label">${item.label}</span>
+                    </a>`);
+                }
+            });
+            nav.innerHTML = parts.join('');
+        }
+
+        function showLogin() {
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('appContainer').classList.add('hidden');
+        }
+        function showApp() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            updateProfileDisplay();
+        }
+        function updateProfileDisplay() {
+            const nameEl = document.getElementById('sidebarUserName');
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (!nameEl || !logoutBtn) return;
+            const stored = sessionStorage.getItem(NEXORA_USER_KEY);
+            if (stored) {
+                try {
+                    const user = JSON.parse(stored);
+                    nameEl.textContent = user.name || 'User';
+                    logoutBtn.style.display = 'block';
+                } catch (e) {
+                    nameEl.textContent = 'Guest';
+                    logoutBtn.style.display = 'none';
+                }
+            } else {
+                nameEl.textContent = 'Guest';
+                logoutBtn.style.display = 'none';
+            }
+        }
+        function doLogout() {
+            sessionStorage.removeItem(NEXORA_USER_KEY);
+            showLogin();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loginPage = document.getElementById('loginPage');
+            const appContainer = document.getElementById('appContainer');
+            const loginForm = document.getElementById('loginForm');
+            const loginError = document.getElementById('loginError');
+            const loginBtn = document.getElementById('loginBtn');
+
+            // Check if auth is configured
+            let authConfigured = false;
+            try {
+                const r = await fetch(_api('/api/auth/verify'));
+                const data = await r.json();
+                authConfigured = !!data.configured;
+            } catch (e) { /* assume not configured */ }
+
+            const storedUser = sessionStorage.getItem(NEXORA_USER_KEY);
+
+            if (!authConfigured) {
+                // No auth config: show app directly with QA sidebar
+                loadWorkspaceSidebar('qa');
+                showApp();
+                viseAI = new ViseAIChat();
+            } else if (storedUser) {
+                // Logged in: show app with workspace sidebar
+                const user = JSON.parse(storedUser);
+                loadWorkspaceSidebar(user.workspace);
+                showApp();
+                viseAI = new ViseAIChat();
+            } else {
+                // Not logged in: show login
+                showLogin();
+            }
+
+            // Logout button
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
+
+            // Login form submit
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    loginError.classList.remove('visible');
+                    loginError.textContent = '';
+                    loginBtn.disabled = true;
+                    try {
+                        const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+                        const password = document.getElementById('loginPassword').value;
+                        const workspace = document.getElementById('loginWorkspace').value;
+                        const res = await fetch(_api('/api/auth/login'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, password, workspace })
+                        });
+                        const data = await res.json();
+                        if (data.success && data.user) {
+                            sessionStorage.setItem(NEXORA_USER_KEY, JSON.stringify(data.user));
+                            loadWorkspaceSidebar(data.user.workspace);
+                            showApp();
+                            viseAI = new ViseAIChat();
+                        } else {
+                            loginError.textContent = data.error || 'Invalid email or password.';
+                            loginError.classList.add('visible');
+                        }
+                    } catch (err) {
+                        loginError.textContent = 'Login failed. Please try again.';
+                        loginError.classList.add('visible');
+                    } finally {
+                        loginBtn.disabled = false;
+                    }
+                });
+            }
             // Optional: fetch Unsplash background when UNSPLASH_ACCESS_KEY is set
             fetch(_api('/api/unsplash/random?query=gradient+abstract+purple'))
                 .then(r => r.json())
