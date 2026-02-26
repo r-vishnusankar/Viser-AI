@@ -1628,6 +1628,67 @@ def serve_static(filename):
         print(f"❌ Static file error: {e}")
         return "Error serving file", 500
 
+
+def _load_users_config():
+    """Load users config from config/users.json, fallback to config/users.example.json"""
+    for name in ("users.json", "users.example.json"):
+        path = _PROJECT_ROOT / "config" / name
+        if path.exists():
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"⚠️ Auth config load error ({path}): {e}")
+    return None
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    """Validate credentials against config/users.json. Returns user info on success."""
+    try:
+        cfg = _load_users_config()
+        if not cfg:
+            return jsonify({"success": False, "error": "Auth not configured. Add config/users.json"}), 503
+        data = request.get_json() or {}
+        email = (data.get("email") or "").strip().lower()
+        password = (data.get("password") or "").strip()
+        workspace = (data.get("workspace") or "qa").strip().lower()
+        if not email or not password:
+            return jsonify({"success": False, "error": "Email and password required"}), 400
+        pwd = cfg.get("password", "")
+        users = cfg.get("users", [])
+        user = None
+        for u in users:
+            if (u.get("email") or "").strip().lower() == email:
+                user = u
+                break
+        if not user or password != pwd:
+            return jsonify({"success": False, "error": "Invalid email or password"}), 401
+        user_ws = (user.get("workspace") or "qa").strip().lower()
+        if workspace not in ("qa", "hr", "ba"):
+            workspace = user_ws
+        if workspace != user_ws:
+            return jsonify({"success": False, "error": f"User not authorized for {workspace} workspace"}), 403
+        return jsonify({
+            "success": True,
+            "user": {
+                "name": user.get("name", email),
+                "email": user.get("email", email),
+                "workspace": workspace
+            }
+        })
+    except Exception as e:
+        print(f"❌ Auth login error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/auth/verify', methods=['GET'])
+def auth_verify():
+    """Check if auth is configured (for frontend to know whether to show login)."""
+    cfg = _load_users_config()
+    return jsonify({"configured": cfg is not None})
+
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
