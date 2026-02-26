@@ -1745,6 +1745,17 @@ def auth_verify():
 
 # ─── HR Module APIs ───────────────────────────────────────────────────────────
 
+VALORIZ_SIGNATURE = """
+
+Best regards,
+Team HR
+| teamhr@valoriz.com | www.valoriz.com
+
+Valoriz Digital Pvt. Ltd. | CIN: U72900KL2014PTC037415,
+L-2, -1 Floor, Thejaswini Building, Technopark, Trivandrum, Kerala, India
+Disclaimer: The information in this email is confidential and is intended solely for the addressee. Access to this mail by anyone else is unauthorized."""
+
+
 def _hr_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
     """Call LLM (Groq or OpenAI) for HR analysis."""
     provider = get_ai_provider()
@@ -2052,16 +2063,7 @@ Return ONLY the email body (no subject line, no extra text). Use the variables w
             if body == prev:
                 break
         # Append Valoriz signature to all generated emails
-        signature = """
-
-Best regards,
-Team HR
-| teamhr@valoriz.com | www.valoriz.com
-
-Valoriz Digital Pvt. Ltd. | CIN: U72900KL2014PTC037415,
-L-2, -1 Floor, Thejaswini Building, Technopark, Trivandrum, Kerala, India
-Disclaimer: The information in this email is confidential and is intended solely for the addressee. Access to this mail by anyone else is unauthorized."""
-        body = body + signature
+        body = body + VALORIZ_SIGNATURE
         subject_prompts = {
             "interview_invite": "Subject line for interview invitation",
             "rejection": "Subject line for rejection email",
@@ -2078,7 +2080,7 @@ Disclaimer: The information in this email is confidential and is intended solely
 
 @app.route('/api/hr/send-mail', methods=['POST'])
 def hr_send_mail():
-    """Send HR email with subject, body, and recipient."""
+    """Send HR email with subject, body, and recipient. Valoriz signature is always appended."""
     try:
         data = request.get_json() or {}
         subject = (data.get("subject") or "").strip()
@@ -2090,6 +2092,9 @@ def hr_send_mail():
             return jsonify({"success": False, "error": "Subject required"}), 400
         if not body:
             return jsonify({"success": False, "error": "Email body required"}), 400
+        # Always append Valoriz signature if not already present
+        if "teamhr@valoriz.com" not in body:
+            body = body.rstrip() + VALORIZ_SIGNATURE
         success, msg = send_email(recipient, subject, body)
         if success:
             return jsonify({"success": True, "message": f"Email sent to {recipient}"})
