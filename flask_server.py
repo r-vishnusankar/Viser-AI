@@ -1630,7 +1630,15 @@ def serve_static(filename):
 
 
 def _load_users_config():
-    """Load users config from config/users.json, fallback to config/users.example.json"""
+    """Load users config from: 1) USERS_CONFIG_JSON env, 2) config/users.json, 3) config/users.example.json"""
+    # 1) Env var (for Render/Heroku - no file needed)
+    env_json = os.environ.get("USERS_CONFIG_JSON")
+    if env_json:
+        try:
+            return json.loads(env_json)
+        except Exception as e:
+            print(f"⚠️ Auth config env parse error: {e}")
+    # 2) Files
     for name in ("users.json", "users.example.json"):
         path = _PROJECT_ROOT / "config" / name
         if path.exists():
