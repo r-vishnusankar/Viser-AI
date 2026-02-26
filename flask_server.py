@@ -19,35 +19,13 @@ import json
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load environment variables from .env file (if present)
-load_dotenv()
-
-def _load_viser_config():
-    """
-    Fall back to ~/.viser_ai/config.json (written by setup_api_keys.py / settings.py)
-    for any API keys that were not already set by .env or the OS environment.
-    This keeps a single source-of-truth for keys across the whole project.
-    """
-    for config_dir in (Path.home() / ".viser_ai", Path.home() / ".spec2"):
-        cfg_file = config_dir / "config.json"
-        if not cfg_file.exists():
-            continue
-        try:
-            with open(cfg_file, "r") as f:
-                cfg = json.load(f)
-            mapping = {
-                "groq_api_key":   "GROQ_API_KEY",
-                "gemini_api_key": "GEMINI_API_KEY",
-                "openai_api_key": "OPENAI_API_KEY",
-            }
-            for cfg_key, env_key in mapping.items():
-                if cfg.get(cfg_key) and not os.environ.get(env_key):
-                    os.environ[env_key] = cfg[cfg_key]
-            break  # use the first config file found
-        except Exception as e:
-            print(f"Warning: could not read {cfg_file}: {e}")
-
-_load_viser_config()
+# Single source of truth: .env only. No config file override for API keys.
+_PROJECT_ROOT = Path(__file__).parent
+_env_path = _PROJECT_ROOT / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
+else:
+    load_dotenv()  # fallback to cwd
 import uuid
 import time
 import requests
@@ -97,6 +75,14 @@ try:
 except ImportError:
     DOCX_AVAILABLE = False
 
+# Google Sheets integration (live testcase sync)
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    GOOGLE_SHEETS_AVAILABLE = True
+except ImportError:
+    GOOGLE_SHEETS_AVAILABLE = False
+
 # Core Engine 2.0 integration
 CORE_ENGINE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Core Engine 2.0")
 sys.path.insert(0, os.path.join(CORE_ENGINE_DIR, "src"))
@@ -118,6 +104,22 @@ try:
 except ImportError:
     TOON_AVAILABLE = False
     toon_encode = None
+
+
+def tonnify_preprocess(user_prompt: str) -> str:
+    """
+    TonniFy-style preprocessing: clean and structure user prompt before sending to LLM.
+    Reduces junk, normalizes whitespace, keeps only relevant content to lower token usage.
+    """
+    if not user_prompt or not isinstance(user_prompt, str):
+        return user_prompt or ""
+    import re
+    t = user_prompt.strip()
+    t = re.sub(r'\s+', ' ', t)
+    t = re.sub(r'^\s*(please|kindly|could you|can you|would you|i want|i need|i would like)\s+', '', t, flags=re.I)
+    t = re.sub(r'\s*(please|thanks|thank you|thx)\s*$', '', t, flags=re.I)
+    t = t.strip()
+    return t if t else user_prompt.strip()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'viser-ai-secret-key'
@@ -293,6 +295,8 @@ def handle_execute_task(data):
     url = data.get('url', '').strip()
     prompt = data.get('prompt', '').strip()
     provider = data.get('provider', 'groq')
+    if provider == 'gemini':
+        provider = 'groq'
     
     if not url or not prompt:
         emit('error', {'message': 'URL and Objective are required'})
@@ -328,13 +332,14 @@ def run_core_engine_task(url, prompt, provider):
             intent = infer_intent(prompt)
             ui_logger.log('INFO', f'📋 Detected intent: {intent}')
             
-            # Plan the task
+            # Plan the task (fallback to Groq if OpenAI returns 429)
             ui_logger.log('INFO', '🗂️ Planning objectives...')
             planner = AIPlanner(provider)
-            
-            # Use browser-use planning for all supported providers
             plan = planner.plan_for_browser_use(prompt, target_url=url)
-                
+            if plan.get('error') and ('429' in str(plan.get('error', '')) or 'insufficient_quota' in str(plan.get('error', '')).lower()) and provider == 'openai' and os.getenv('GROQ_API_KEY'):
+                ui_logger.log('INFO', '⚠️ OpenAI quota exceeded, retrying with Groq...')
+                planner = AIPlanner('groq')
+                plan = planner.plan_for_browser_use(prompt, target_url=url)
             if plan.get('error'):
                 ui_logger.log('ERROR', f'❌ Planning failed: {plan["error"]}')
                 socketio.emit('error', {'message': f'Planning failed: {plan["error"]}'})
@@ -395,6 +400,8 @@ def handle_plan_task(data):
     prompt   = (data or {}).get('prompt',   '').strip()
     url      = (data or {}).get('url',      '').strip()
     provider = (data or {}).get('provider', 'groq')
+    if provider == 'gemini':
+        provider = 'groq'
 
     if not prompt:
         emit('error', {'message': 'Please provide a task prompt'})
@@ -427,7 +434,10 @@ def _plan_task_bg(prompt: str, url: str, provider: str) -> None:
 
         planner = AIPlanner(provider)
         plan = planner.plan(prompt, url)
-
+        if plan.get('error') and ('429' in str(plan.get('error', '')) or 'insufficient_quota' in str(plan.get('error', '')).lower()) and provider == 'openai' and os.getenv('GROQ_API_KEY'):
+            ui_logger.log('INFO', '⚠️ OpenAI quota exceeded, retrying with Groq...')
+            planner = AIPlanner('groq')
+            plan = planner.plan(prompt, url)
         if plan.get('error'):
             ui_logger.log('ERROR', f'❌ Planning failed: {plan["error"]}')
             socketio.emit('error', {'message': f'Planning failed: {plan["error"]}'})
@@ -473,6 +483,8 @@ def handle_enhance_plan(data):
     raw      = (data or {}).get('raw',      '').strip()
     filename = (data or {}).get('filename', 'uploaded_plan.txt')
     provider = (data or {}).get('provider', 'groq')
+    if provider == 'gemini':
+        provider = 'groq'
     url      = (data or {}).get('url',      '').strip()
 
     if not raw:
@@ -498,7 +510,10 @@ def _enhance_plan_bg(raw: str, filename: str, provider: str, url: str) -> None:
             f"return detailed JSON with a steps list.\n\nFile: {filename}\n\nContent:\n\n{raw}"
         )
         plan = planner.plan(prompt, url)
-
+        if plan.get('error') and ('429' in str(plan.get('error', '')) or 'insufficient_quota' in str(plan.get('error', '')).lower()) and provider == 'openai' and os.getenv('GROQ_API_KEY'):
+            ui_logger.log('INFO', '⚠️ OpenAI quota exceeded, retrying with Groq...')
+            planner = AIPlanner('groq')
+            plan = planner.plan(prompt, url)
         if plan.get('error'):
             ui_logger.log('ERROR', f'❌ Enhancement failed: {plan["error"]}')
             socketio.emit('error', {'message': f'Enhancement failed: {plan["error"]}'})
@@ -540,6 +555,76 @@ def load_repo_file(filename):
         return send_from_directory(repo_dir, filename)
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
+
+def _extract_sheet_id(url_or_id):
+    """Extract spreadsheet ID from URL or return as-is if already an ID."""
+    s = (url_or_id or '').strip()
+    if not s:
+        return None
+    # URL format: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit...
+    if 'spreadsheets/d/' in s:
+        start = s.find('spreadsheets/d/') + len('spreadsheets/d/')
+        end = len(s)
+        for i in range(start, len(s)):
+            if s[i] in '/?':
+                end = i
+                break
+        return s[start:end].strip()
+    # Assume it's already an ID (alphanumeric, dashes)
+    return s
+
+
+@app.route('/api/repo/gsheets', methods=['GET'])
+def repo_gsheets():
+    """Fetch testcase data from Google Sheets. Requires GOOGLE_SHEETS_CREDENTIALS_JSON env var."""
+    if not GOOGLE_SHEETS_AVAILABLE:
+        return jsonify({"success": False, "error": "Google Sheets API not available. Install google-auth and google-api-python-client."}), 503
+    sheet_id = request.args.get('sheet_id') or request.args.get('url')
+    if not sheet_id:
+        return jsonify({"success": False, "error": "Missing sheet_id or url parameter"}), 400
+    spreadsheet_id = _extract_sheet_id(sheet_id)
+    if not spreadsheet_id:
+        return jsonify({"success": False, "error": "Invalid sheet URL or ID"}), 400
+    creds_json = os.environ.get('GOOGLE_SHEETS_CREDENTIALS_JSON')
+    if not creds_json:
+        return jsonify({"success": False, "error": "GOOGLE_SHEETS_CREDENTIALS_JSON not configured"}), 503
+    try:
+        creds_dict = json.loads(creds_json)
+    except json.JSONDecodeError:
+        try:
+            creds_dict = json.loads(base64.b64decode(creds_json).decode('utf-8'))
+        except Exception:
+            return jsonify({"success": False, "error": "Invalid GOOGLE_SHEETS_CREDENTIALS_JSON"}), 500
+    try:
+        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        service = build('sheets', 'v4', credentials=credentials)
+        spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheet_names = [s['properties']['title'] for s in spreadsheet.get('sheets', [])]
+        all_rows = []
+        for sheet_name in sheet_names:
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=f"'{sheet_name}'!A:Z"
+            ).execute()
+            values = result.get('values', [])
+            if not values:
+                continue
+            headers = values[0]
+            for row in values[1:]:
+                obj = {}
+                for i, h in enumerate(headers):
+                    obj[h] = row[i] if i < len(row) else ''
+                all_rows.append(obj)
+        return jsonify({
+            "success": True,
+            "data": all_rows,
+            "source": "gsheets",
+            "sheets": sheet_names
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/unsplash/random', methods=['GET'])
@@ -631,64 +716,35 @@ def extract_image_content(file_path):
         print(f"❌ Image extraction error: {str(e)}")
         return None
 
-def analyze_image_with_gemini(file_path, prompt="Analyze this image and describe what you see"):
-    """Analyze image using Gemini Vision API"""
+def analyze_image_with_vision(file_path, prompt="Analyze this image and describe what you see"):
+    """Analyze image using OpenAI Vision API (Gemini removed)"""
     try:
-        # Extract image content
+        import base64
         image_content = extract_image_content(file_path)
         if not image_content:
             return "❌ Failed to extract image content"
-        
-        # Prepare Gemini Vision API request
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-        
-        headers = {
-            'Content-Type': 'application/json',
-        }
-        
-        payload = {
-            "contents": [{
-                "parts": [
-                    {"text": prompt},
-                    {
-                        "inline_data": {
-                            "mime_type": image_content["mime_type"],
-                            "data": image_content["base64_data"]
-                        }
-                    }
+        openai_key = CONFIG.get("OPENAI_API_KEY")
+        if not openai_key:
+            return "❌ OpenAI API key not configured for image analysis"
+        import openai as _oai
+        client = _oai.OpenAI(api_key=openai_key)
+        with open(file_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        mime = image_content.get("mime_type", "image/jpeg")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
                 ]
-            }]
-        }
-        
-        print(f"🔍 Sending image analysis request to Gemini...")
-        print(f"📊 Image size: {image_content['file_size']} bytes")
-        print(f"📄 MIME type: {image_content['mime_type']}")
-        
-        response = requests.post(
-            f"{api_url}?key={CONFIG['GEMINI_API_KEY']}", 
-            headers=headers, 
-            json=payload, 
-            timeout=30
+            }],
+            max_tokens=1024
         )
-        
-        if response.status_code == 200:
-            result = response.json()
-            if 'candidates' in result and len(result['candidates']) > 0:
-                content = result['candidates'][0]['content']['parts'][0]['text']
-                print(f"✅ Image analysis completed: {len(content)} characters")
-                return content
-            else:
-                return "❌ No analysis result from Gemini API"
-        else:
-            error_msg = f"Gemini API error: {response.status_code}"
-            try:
-                error_detail = response.json()
-                error_msg += f" - {error_detail}"
-            except:
-                pass
-            print(f"❌ {error_msg}")
-            return f"❌ {error_msg}"
-            
+        content = response.choices[0].message.content
+        print(f"✅ Image analysis completed: {len(content)} characters")
+        return content
     except Exception as e:
         error_msg = f"Image analysis error: {str(e)}"
         print(f"❌ {error_msg}")
@@ -1141,6 +1197,7 @@ CONFIG = {
     # Which LLM answers chat and analysis: "groq" | "openai" | "gemini" | "fallback"
     "AI_PROVIDER": os.getenv("AI_PROVIDER", "groq"),
     "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+    "OPENAI_MODEL": os.getenv("OPENAI_MODEL", "o4-mini-2025-04-16"),
     "GROQ_API_KEY": os.getenv("GROQ_API_KEY", ""),
     "GROQ_MODEL": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
     "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
@@ -1160,10 +1217,15 @@ CONFIG = {
 
 def get_ai_provider():
     """
-    Return current LLM provider: groq, openai, gemini, or fallback.
-    Reads from os.environ directly so live switching (via /api/settings/provider) works.
+    Return current LLM provider: groq or openai only. Gemini removed.
+    Uses Groq by default; falls back to OpenAI if Groq key missing.
     """
-    return os.environ.get("AI_PROVIDER", CONFIG.get("AI_PROVIDER", "groq")).strip().lower()
+    p = os.environ.get("AI_PROVIDER", CONFIG.get("AI_PROVIDER", "groq")).strip().lower()
+    if p == "gemini":
+        p = "groq"
+    if p not in ("groq", "openai"):
+        p = "groq" if CONFIG.get("GROQ_API_KEY") else "openai"
+    return p
 
 
 # ─── SQLite Chat Persistence ───────────────────────────────────────────────────
@@ -1213,6 +1275,16 @@ def db_load_session(session_id: str, limit: int = 60):
     except Exception as e:
         print(f"⚠️ DB load error: {e}")
         return []
+
+def db_clear_session(session_id: str):
+    """Clear all messages for a session from DB."""
+    try:
+        conn = _get_db()
+        conn.execute("DELETE FROM chat_messages WHERE session_id=?", (session_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ DB clear error: {e}")
 
 def db_clear_session(session_id: str):
     try:
@@ -1265,16 +1337,11 @@ def _summarize_old_messages(old_messages: list) -> str:
             import openai as _oai
             _client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
             r = _client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16"),
                 messages=[{"role":"user","content":prompt}],
                 max_tokens=300, temperature=0.3
             )
             return r.choices[0].message.content.strip()
-        elif provider == "gemini":
-            import google.generativeai as _genai
-            _genai.configure(api_key=CONFIG["GEMINI_API_KEY"])
-            m = _genai.GenerativeModel(CONFIG.get("GEMINI_MODEL","gemini-2.0-flash"))
-            return m.generate_content(prompt).text.strip()
         else:  # groq (default)
             r = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
@@ -1576,8 +1643,9 @@ def chat():
             print("❌ No message provided")
             return jsonify({"error": "No message provided"}), 400
 
-        # Add user message to conversation history
-        ContextManager.add_message(session_id, "user", user_message)
+        # Add user message to conversation history (TonniFy preprocessed for token efficiency)
+        cleaned = tonnify_preprocess(user_message)
+        ContextManager.add_message(session_id, "user", cleaned if cleaned else user_message)
         
         # Clean up old sessions periodically
         if len(user_sessions) > 100:
@@ -1656,7 +1724,7 @@ def chat():
                 "Content-Type": "application/json"
             }
             api_url = "https://api.openai.com/v1/chat/completions"
-            model = "gpt-3.5-turbo"
+            model = CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16")
             
             payload = {
                 "model": model,
@@ -1675,36 +1743,6 @@ def chat():
                 last_openai_call = time.time()  # Update throttling timestamp
             else:
                 raise Exception(f"OpenAI API Error {response.status_code}: {response.text}")
-                
-        elif get_ai_provider() == 'gemini':
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-            headers = {
-                "Content-Type": "application/json"
-            }
-            
-            # Convert messages to Gemini format
-            gemini_messages = convert_messages_for_gemini(messages)
-            
-            payload = {
-                "contents": gemini_messages,
-                "generationConfig": {
-                    "temperature": 0.6,
-                    "maxOutputTokens": 8192,
-                    "topP": 0.8,
-                    "topK": 10
-                }
-            }
-            
-            print(f"🔄 Making Gemini API call to {api_url}...")
-            response = requests.post(f"{api_url}?key={CONFIG['GEMINI_API_KEY']}", 
-                                   headers=headers, json=payload, timeout=CONFIG.get('API_TIMEOUT', 120))
-            print(f"📊 Gemini API Response Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                ai_response = result["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                raise Exception(f"Gemini API Error {response.status_code}: {response.text}")
                 
         else:  # Default to Groq
             headers = {
@@ -1754,23 +1792,11 @@ def chat():
                 active_provider = get_ai_provider()
                 retry_response = None
 
-                if active_provider == 'gemini':
-                    gemini_messages = convert_messages_for_gemini(messages)
-                    retry_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-                    retry_response = requests.post(
-                        f"{retry_api_url}?key={CONFIG['GEMINI_API_KEY']}",
-                        headers={"Content-Type": "application/json"},
-                        json={"contents": gemini_messages},
-                        timeout=CONFIG.get('API_TIMEOUT', 120)
-                    )
-                    if retry_response.status_code == 200:
-                        ai_response = retry_response.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-                elif active_provider == 'openai':
+                if active_provider == 'openai':
                     retry_response = requests.post(
                         "https://api.openai.com/v1/chat/completions",
                         headers={"Authorization": f"Bearer {CONFIG['OPENAI_API_KEY']}", "Content-Type": "application/json"},
-                        json={"model": "gpt-3.5-turbo", "messages": messages, "temperature": 0.3, "max_tokens": 4096},
+                        json={"model": CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16"), "messages": messages, "temperature": 0.3, "max_tokens": 4096},
                         timeout=CONFIG.get('API_TIMEOUT', 120)
                     )
                     if retry_response.status_code == 200:
@@ -1958,7 +1984,7 @@ def analyze():
                 if file_type == 'image':
                     print("🖼️ Analyzing image with Gemini Vision...")
                     # For images, analyze directly with Gemini Vision API
-                    analysis = analyze_image_with_gemini(file_path, "Analyze this image in detail and describe what you see")
+                    analysis = analyze_image_with_vision(file_path, "Analyze this image in detail and describe what you see")
                     
                     # Mark file as analyzed in context
                     ContextManager.mark_file_analyzed(session_id, filename)
@@ -2120,7 +2146,7 @@ Begin your detailed analysis now:
                 "Content-Type": "application/json"
             }
             api_url = "https://api.openai.com/v1/chat/completions"
-            model = "gpt-3.5-turbo"
+            model = CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16")
             
             payload = {
                 "model": model,
@@ -2138,36 +2164,6 @@ Begin your detailed analysis now:
                 ai_response = result["choices"][0]["message"]["content"]
             else:
                 raise Exception(f"OpenAI Analysis API Error {response.status_code}: {response.text}")
-                
-        elif get_ai_provider() == 'gemini':
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-            headers = {
-                "Content-Type": "application/json"
-            }
-            
-            # Convert messages to Gemini format
-            gemini_messages = convert_messages_for_gemini(analysis_messages)
-            
-            payload = {
-                "contents": gemini_messages,
-                "generationConfig": {
-                    "temperature": 0.3,
-                    "maxOutputTokens": 8000,  # Increased from 2000 to allow more detailed responses
-                    "topP": 0.8,
-                    "topK": 10
-                }
-            }
-            
-            print(f"🔄 Making Gemini analysis API call...")
-            response = requests.post(f"{api_url}?key={CONFIG['GEMINI_API_KEY']}", 
-                                   headers=headers, json=payload, timeout=CONFIG.get('API_TIMEOUT', 120))
-            print(f"📊 Gemini Analysis API Response Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                ai_response = result["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                raise Exception(f"Gemini Analysis API Error {response.status_code}: {response.text}")
                 
         else:  # Default to Groq
             headers = {
@@ -2255,14 +2251,42 @@ def get_context():
         print(f"❌ Context retrieval error: {str(e)}")
         return jsonify({"error": f"Context retrieval failed: {str(e)}"}), 500
 
+
+@app.route('/api/context/sync', methods=['POST'])
+def sync_context():
+    """Sync messages from frontend to backend session (for chat persistence)"""
+    try:
+        data = request.get_json() or {}
+        session_id = data.get('session_id', 'default_session')
+        messages = data.get('messages', [])
+        if not isinstance(messages, list):
+            return jsonify({"error": "messages must be an array"}), 400
+        db_clear_session(session_id)
+        session = ContextManager.get_session(session_id)
+        session["conversation_history"] = [
+            m for m in session["conversation_history"]
+            if m.get("role") == "system"
+        ]
+        for m in messages:
+            role = m.get("role")
+            content = m.get("content", "")
+            if role in ("user", "assistant") and content:
+                ContextManager.add_message(session_id, role, content)
+        return jsonify({"success": True, "session_id": session_id})
+    except Exception as e:
+        print(f"❌ Context sync error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/settings/provider', methods=['POST', 'GET'])
 def settings_provider():
-    """GET: return active provider. POST {provider}: switch it live."""
+    """GET: return active provider. POST {provider}: switch (groq/openai only)."""
     if request.method == 'GET':
         return jsonify({"provider": get_ai_provider()})
     data = request.get_json() or {}
     new_provider = data.get("provider", "").strip().lower()
-    valid = {"groq", "gemini", "openai", "fallback"}
+    if new_provider == "gemini":
+        new_provider = "groq"
+    valid = {"groq", "openai"}
     if new_provider not in valid:
         return jsonify({"error": f"Invalid provider. Choose from: {', '.join(sorted(valid))}"}), 400
     os.environ["AI_PROVIDER"] = new_provider
@@ -2370,7 +2394,32 @@ def chat_stream():
     if not user_msg:
         return jsonify({"error": "No message provided"}), 400
 
-    # Handle email send commands before hitting AI
+    # Check email flow FIRST - when in recipient_needed, plain email is the recipient, NOT a generic send command
+    email_flow = _get_email_flow(session_id)
+    if email_flow.get("step") == "recipient_needed" and "@" in user_msg and "." in user_msg:
+        import re
+        if re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', user_msg):
+            recipient = user_msg.strip()
+            content = email_flow.get("email_content") or _extract_email_draft_from_history(session_id) or ""
+            if not content or EMAIL_RECIPIENT_NEEDED_MARKER in content or "What email address should this be sent to" in content:
+                content = "No content"
+            body = create_simple_email_body(content, session_id)
+            success, msg = send_email(recipient, "Message from Vise-AI", body)
+            email_flow["active"] = False
+            email_flow["step"] = None
+            ContextManager.add_message(session_id, "user", user_msg)
+            result_msg = f"Email sent successfully to {recipient}!" if success else f"Failed to send: {msg}"
+            ContextManager.add_message(session_id, "assistant", result_msg)
+            def _email_sent_stream():
+                yield f"data: {json.dumps({'chunk': result_msg})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            return Response(
+                stream_with_context(_email_sent_stream()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+
+    # Handle other email send commands (e.g. "send X to user@mail.com") before hitting AI
     email_command = detect_email_command(user_msg)
     if email_command['is_email_command']:
         if email_command.get('send_previous_response'):
@@ -2531,31 +2580,9 @@ def chat_stream():
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
         )
 
-    # Email recipient provided (user typed email address after recipient_needed)
-    if email_flow.get("step") == "recipient_needed" and "@" in user_msg and "." in user_msg:
-        import re
-        if re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', user_msg):
-            recipient = user_msg.strip()
-            content = _extract_email_draft_from_history(session_id) or email_flow.get("email_content") or "No content"
-            body = create_simple_email_body(content, session_id)
-            success, msg = send_email(recipient, "Message from Vise-AI", body)
-            email_flow["active"] = False
-            email_flow["step"] = None
-            ContextManager.add_message(session_id, "user", user_msg)
-            result_msg = f"Email sent successfully to {recipient}!" if success else f"Failed to send: {msg}"
-            ContextManager.add_message(session_id, "assistant", result_msg)
-
-            def _email_sent_stream():
-                yield f"data: {json.dumps({'chunk': result_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
-            return Response(
-                stream_with_context(_email_sent_stream()),
-                mimetype="text/event-stream",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
-            )
-
     if email_flow.get("step") != "generating":
-        ContextManager.add_message(session_id, "user", user_msg)
+        cleaned = tonnify_preprocess(user_msg)
+        ContextManager.add_message(session_id, "user", cleaned if cleaned else user_msg)
 
     # Case 1: User asked to write a story (first time) -> show choice, no AI call
     if _is_story_write_request(user_msg) and not is_story_selection:
@@ -2623,31 +2650,11 @@ def chat_stream():
                 import openai as _oai
                 _oai_client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
                 stream = _oai_client.chat.completions.create(
-                    model=CONFIG.get("OPENAI_MODEL", "gpt-4o-mini"),
+                    model=CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16"),
                     messages=messages, temperature=0.6, max_tokens=8192, stream=True
                 )
                 for chunk in stream:
                     delta = chunk.choices[0].delta.content or ""
-                    if delta:
-                        full_response.append(delta)
-                        yield f"data: {json.dumps({'chunk': delta})}\n\n"
-
-            elif provider == "gemini":
-                import google.generativeai as _genai
-                _genai.configure(api_key=CONFIG["GEMINI_API_KEY"])
-                model_name = CONFIG.get("GEMINI_MODEL", "gemini-2.0-flash")
-                gmodel = _genai.GenerativeModel(model_name)
-                gemini_msgs = convert_messages_for_gemini(messages)
-                # Build a chat-history object for multi-turn Gemini streaming
-                history  = gemini_msgs[:-1] if len(gemini_msgs) > 1 else []
-                last_msg = gemini_msgs[-1]["parts"][0]["text"] if gemini_msgs else ""
-                chat = gmodel.start_chat(history=history)
-                stream = chat.send_message(last_msg, stream=True)
-                for chunk in stream:
-                    try:
-                        delta = chunk.text or ""
-                    except Exception:
-                        delta = ""
                     if delta:
                         full_response.append(delta)
                         yield f"data: {json.dumps({'chunk': delta})}\n\n"
@@ -2763,12 +2770,10 @@ def get_key_status():
         return f"{key[:8]}…{key[-4:]}" if key and len(key) > 12 else ""
 
     groq_key   = CONFIG.get("GROQ_API_KEY", "")
-    gemini_key = CONFIG.get("GEMINI_API_KEY", "")
     openai_key = CONFIG.get("OPENAI_API_KEY", "")
 
     return jsonify({
         "groq":   {"set": bool(groq_key),   "preview": _masked(groq_key)},
-        "gemini": {"set": bool(gemini_key), "preview": _masked(gemini_key)},
         "openai": {"set": bool(openai_key), "preview": _masked(openai_key)},
         "active_provider": get_ai_provider(),
     })
@@ -3155,6 +3160,43 @@ def get_document_details(file_id):
         print(f"❌ Document details error: {str(e)}")
         return jsonify({"error": f"Failed to get document details: {str(e)}"}), 500
 
+@app.route('/api/documents/<file_id>/content', methods=['GET'])
+def get_document_content(file_id):
+    """Get file content for viewing (text) or serve file (images/binary)"""
+    from flask import send_file
+    try:
+        session_id = request.args.get('session_id', 'default_session')
+        session = ContextManager.get_session(session_id)
+        document = None
+        for f in session["uploaded_files"]:
+            if f.get("fileId") == file_id:
+                document = f
+                break
+        if not document:
+            return jsonify({"error": "Document not found"}), 404
+        path = document.get("path")
+        if not path or not os.path.exists(path):
+            return jsonify({"error": "File not found on disk"}), 404
+        ext = (document.get("extension") or "").lower()
+        if ext in ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'):
+            mime = {'jpg':'jpeg','jpeg':'jpeg','png':'png','gif':'gif','bmp':'bmp','webp':'webp'}.get(ext[1:], 'jpeg')
+            return send_file(path, mimetype=f'image/{mime}')
+        if ext in ('.txt', '.md', '.csv'):
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            return jsonify({"content": content, "type": "text", "filename": document.get("filename")})
+        if ext in ('.pdf', '.docx'):
+            return jsonify({"type": "binary", "filename": document.get("filename"), "message": "Use Download or Analyze for this file type"})
+        try:
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            return jsonify({"content": content, "type": "text", "filename": document.get("filename")})
+        except Exception:
+            return jsonify({"type": "binary", "filename": document.get("filename"), "message": "Binary file - use Analyze"})
+    except Exception as e:
+        print(f"❌ Document content error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/documents/<file_id>/delete', methods=['DELETE'])
 def delete_document(file_id):
     """Delete a specific document"""
@@ -3474,10 +3516,11 @@ def send_calendar_event_now(event_id):
 if __name__ == '__main__':
     print("Starting Vise-AI Flask Server...")
     p = get_ai_provider()
-    names = {"groq": "Groq", "openai": "OpenAI", "gemini": "Google Gemini", "fallback": "Fallback"}
+    names = {"groq": "Groq", "openai": "OpenAI"}
     print(f"AI Provider: {names.get(p, p)}")
-    if p == 'gemini':
-        print(f"Using Gemini model: {CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}")
+    if p == 'openai':
+        key = CONFIG.get("OPENAI_API_KEY", "")
+        print(f"OpenAI model: {CONFIG.get('OPENAI_MODEL', 'o4-mini-2025-04-16')}, key: ...{key[-4:] if key and len(key) > 4 else 'NOT SET'}")
     
     # Start calendar scheduler
     run_scheduler()
