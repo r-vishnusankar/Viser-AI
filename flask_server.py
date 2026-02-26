@@ -149,6 +149,36 @@ last_openai_call = 0.0
 user_sessions = {}
 uploaded_files_context = {}
 
+
+def get_request_user_id():
+    """Get user_id (email) from request for data isolation. Documents, Chat, History are per-user."""
+    uid = request.headers.get("X-User-Id") or request.args.get("user_id")
+    if not uid and request.is_json:
+        try:
+            uid = (request.get_json() or {}).get("user_id")
+        except Exception:
+            pass
+    if not uid and request.form:
+        uid = request.form.get("user_id")
+    return (uid or "").strip().lower() or None
+
+
+def get_effective_session_id(session_id, user_id=None):
+    """Scope session_id by user so Documents, Chat, History are isolated per user."""
+    if not user_id:
+        return (session_id or "default_session").strip()
+    sid = (session_id or "default_session").strip()
+    return f"{user_id}:{sid}"
+
+
+def strip_user_prefix(session_id, user_id=None):
+    """Return short session_id for frontend (without user prefix)."""
+    if not user_id or not session_id:
+        return session_id
+    prefix = f"{user_id}:"
+    return session_id[len(prefix):] if session_id.startswith(prefix) else session_id
+
+
 class ContextManager:
     """Manages conversation and file context for users"""
     
@@ -1295,10 +1325,26 @@ def db_clear_session(session_id: str):
     except Exception as e:
         print(f"⚠️ DB clear error: {e}")
 
-def db_all_sessions():
-    """Return list of {session_id, count, last_ts} for the history view."""
+def db_all_sessions(user_id=None):
+    """Return list of {session_id, count, last_ts} for the history view. Filter by user_id for isolation."""
     try:
         conn = _get_db()
+        if user_id:
+            prefix = f"{user_id}:"
+            like_pattern = prefix + "%"
+            rows = conn.execute("""
+                SELECT session_id, COUNT(*) as cnt, MAX(ts) as last_ts
+                FROM chat_messages WHERE session_id LIKE ?
+                GROUP BY session_id ORDER BY last_ts DESC LIMIT 50
+            """, (like_pattern,)).fetchall()
+            # Return short session_id (without user prefix) for frontend
+            result = []
+            for r in rows:
+                sid = r["session_id"]
+                short_sid = sid[len(prefix):] if sid.startswith(prefix) else sid
+                result.append({"session_id": short_sid, "count": r["cnt"], "last_ts": r["last_ts"]})
+            conn.close()
+            return result
         rows = conn.execute("""
             SELECT session_id, COUNT(*) as cnt, MAX(ts) as last_ts
             FROM chat_messages GROUP BY session_id ORDER BY last_ts DESC LIMIT 50
@@ -1697,13 +1743,370 @@ def auth_verify():
     return jsonify({"configured": cfg is not None})
 
 
+# ─── HR Module APIs ───────────────────────────────────────────────────────────
+
+def _hr_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM (Groq or OpenAI) for HR analysis."""
+    provider = get_ai_provider()
+    try:
+        if provider == "openai":
+            import openai as _oai
+            client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
+            r = client.chat.completions.create(
+                model=CONFIG.get("OPENAI_MODEL", "gpt-4o-mini"),
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=0.3
+            )
+            return r.choices[0].message.content.strip()
+        else:
+            r = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {CONFIG['GROQ_API_KEY']}", "Content-Type": "application/json"},
+                json={
+                    "model": CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": 0.3
+                },
+                timeout=60
+            )
+            return r.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        raise RuntimeError(f"LLM error: {e}")
+
+
+def _analyze_single_resume(file, tmp_path, ext):
+    """Analyze one resume file, return profile dict."""
+    if ext == '.pdf':
+        content = extract_pdf_content(tmp_path)
+    elif ext == '.docx':
+        content = extract_docx_content(tmp_path)
+    else:
+        with open(tmp_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+    if not content or 'Error' in content[:50]:
+        return None
+    prompt = f"""Analyze this resume and return ONLY valid JSON (no markdown, no extra text) with these exact keys:
+{{
+  "name": "Full name",
+  "email": "email if found else empty string",
+  "phone": "phone if found else empty string",
+  "skills": ["skill1", "skill2", ...],
+  "experience": [{{"role": "Job Title", "company": "Company", "years": "X", "summary": "brief"}}],
+  "education": [{{"degree": "Degree", "institution": "Institution", "year": "year"}}],
+  "summary": "2-3 sentence professional summary",
+  "strengths": ["strength1", "strength2", "strength3", ...]
+}}
+
+For "strengths": List 3-6 key strengths of this candidate based on the resume (e.g. "5+ years Python experience", "Strong communication skills", "Relevant domain expertise", "Leadership experience"). Be specific and actionable.
+
+Resume content:
+{content[:12000]}
+"""
+    result = _hr_llm_completion(prompt, max_tokens=1500)
+    result = result.strip()
+    if result.startswith("```"):
+        result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+    if result.endswith("```"):
+        result = result.rsplit("```", 1)[0].strip()
+    return json.loads(result)
+
+
+@app.route('/api/hr/resume-analyze-by-id', methods=['POST'])
+def hr_resume_analyze_by_id():
+    """Analyze a resume from session context by file_id (isolated per user)."""
+    try:
+        data = request.get_json() or {}
+        file_id = (data.get("file_id") or "").strip()
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id") or "default_session", user_id)
+        if not file_id:
+            return jsonify({"success": False, "error": "file_id required"}), 400
+        session = ContextManager.get_session(session_id)
+        doc = None
+        for f in session.get("uploaded_files", []):
+            if f.get("fileId") == file_id:
+                doc = f
+                break
+        if not doc:
+            return jsonify({"success": False, "error": "File not found in session"}), 404
+        path = doc.get("path")
+        if not path or not os.path.exists(path):
+            return jsonify({"success": False, "error": "File not found on disk"}), 404
+        ext = (doc.get("extension") or "").lower()
+        if ext not in ('.pdf', '.docx', '.txt'):
+            return jsonify({"success": False, "error": "Only PDF, DOCX, TXT supported"}), 400
+        filename = doc.get("filename", "resume") + ext
+        data = _analyze_single_resume(None, path, ext)
+        if not data:
+            return jsonify({"success": False, "error": "Could not extract text"}), 400
+        data["filename"] = filename
+        return jsonify({"success": True, "profiles": [data]})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/resume-analyze', methods=['POST'])
+def hr_resume_analyze():
+    """Extract resume text and return structured analysis. Supports single or multiple files (up to 20).
+    Files are also saved to Documents (per user) when session_id is provided."""
+    try:
+        files = request.files.getlist('file') or request.files.getlist('files[]')
+        if not files or (len(files) == 1 and (not files[0] or files[0].filename == '')):
+            single = request.files.get('file')
+            if single and single.filename:
+                files = [single]
+            else:
+                return jsonify({"success": False, "error": "No file(s) provided"}), 400
+        files = [f for f in files if f and f.filename]
+        if not files:
+            return jsonify({"success": False, "error": "No valid files"}), 400
+        if len(files) > 20:
+            return jsonify({"success": False, "error": "Maximum 20 resumes per batch"}), 400
+
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.form.get('session_id', 'default_session'), user_id)
+        upload_dir = "uploads/documents"
+        os.makedirs(upload_dir, exist_ok=True)
+        profiles = []
+        for file in files:
+            ext = (os.path.splitext(file.filename)[1] or '').lower()
+            if ext not in ('.pdf', '.docx', '.txt'):
+                profiles.append({"filename": file.filename, "error": "Unsupported format"})
+                continue
+            file_id = str(uuid.uuid4())
+            unique_filename = f"{file_id}{ext}"
+            file_path = os.path.join(upload_dir, unique_filename)
+            file_data = file.read()
+            with open(file_path, 'wb') as f:
+                f.write(file_data)
+            try:
+                data = _analyze_single_resume(file, file_path, ext)
+                if data:
+                    data["filename"] = file.filename
+                    profiles.append(data)
+                else:
+                    profiles.append({"filename": file.filename, "error": "Could not extract text"})
+            except Exception as e:
+                profiles.append({"filename": file.filename, "error": str(e)})
+            if session_id and session_id != "default_session":
+                file_info = {
+                    "filename": file.filename,
+                    "path": file_path,
+                    "size": len(file_data),
+                    "fileId": file_id,
+                    "type": "document",
+                    "extension": ext
+                }
+                ContextManager.add_file_context(session_id, file_info)
+        return jsonify({"success": True, "profiles": profiles})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/jd-keywords', methods=['POST'])
+def hr_jd_keywords():
+    """Extract key skills/keywords from job description."""
+    try:
+        data = request.get_json() or {}
+        jd = (data.get("job_description") or "").strip()
+        if not jd:
+            return jsonify({"success": False, "error": "Job description required"}), 400
+        prompt = f"""Extract the key skills, technologies, and qualifications required from this job description. Return ONLY a JSON array of strings, no other text. Example: ["Python", "SQL", "5 years experience", "B.Tech"].
+
+Job Description:
+{jd[:3000]}
+"""
+        result = _hr_llm_completion(prompt, max_tokens=500)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        keywords = json.loads(result)
+        if not isinstance(keywords, list):
+            keywords = [str(keywords)]
+        return jsonify({"success": True, "keywords": keywords})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/screen', methods=['POST'])
+def hr_screen():
+    """Match candidates to job description. Returns ranked list with match %, skill_match (color indication), and notes."""
+    try:
+        data = request.get_json() or {}
+        job_description = (data.get("job_description") or "").strip()
+        job_role = (data.get("job_role") or "").strip()  # designation from JD for email
+        candidates = data.get("candidates") or []
+        if not job_description:
+            return jsonify({"success": False, "error": "Job description required"}), 400
+        if not candidates:
+            return jsonify({"success": False, "error": "At least one candidate required"}), 400
+
+        prompt = f"""You are an HR screening expert. Given the job description and candidate profiles, rank each candidate. For each candidate, also provide "skill_match": array of {{"skill": "skill name", "matched": true/false}} for key JD skills - true if candidate has it, false if missing.
+
+Return ONLY valid JSON (no markdown):
+{{
+  "job_role": "extract the job title/designation from the JD",
+  "keywords": ["key skill 1", "key skill 2", ...],
+  "ranked": [
+    {{
+      "index": 1,
+      "name": "candidate name",
+      "email": "email if known",
+      "match_percent": 85,
+      "skill_match": [{{"skill": "Python", "matched": true}}, {{"skill": "AWS", "matched": false}}],
+      "strengths": ["strength1"],
+      "gaps": ["gap1"],
+      "recommendation": "Shortlist" or "Maybe" or "Reject"
+    }}
+  ]
+}}
+
+Job Description:
+{job_description[:4000]}
+
+Candidates:
+{json.dumps(candidates[:20], ensure_ascii=False)[:8000]}
+"""
+        result = _hr_llm_completion(prompt, max_tokens=3500)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        ranked = out.get("ranked", out) if isinstance(out.get("ranked"), list) else []
+        # Merge email from input candidates when LLM doesn't return it
+        cand_by_name = {}
+        for c in candidates:
+            if isinstance(c, dict) and c.get("email"):
+                n = (c.get("name") or "").strip().lower()
+                if n:
+                    cand_by_name[n] = c.get("email", "")
+        for r in ranked:
+            if isinstance(r, dict) and not r.get("email"):
+                n = (r.get("name") or "").strip().lower()
+                if n and n in cand_by_name:
+                    r["email"] = cand_by_name[n]
+        job_role = out.get("job_role") or job_role
+        keywords = out.get("keywords", [])
+        return jsonify({"success": True, "ranked": ranked, "job_role": job_role, "keywords": keywords})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/mail-draft', methods=['POST'])
+def hr_mail_draft():
+    """Draft HR email from template and variables."""
+    try:
+        data = request.get_json() or {}
+        template = (data.get("template") or "interview_invite").strip()
+        variables = data.get("variables") or {}
+        templates = {
+            "interview_invite": "Draft a professional interview invitation email. Include: greeting, role, date, time, location/meeting link, what to bring, contact for questions.",
+            "rejection": "Draft a polite rejection email after interview. Be respectful and wish them well.",
+            "follow_up": "Draft a follow-up email to a candidate after interview, asking for any updates or next steps.",
+            "offer": "Draft a job offer email. Include: position, start date, compensation if provided, next steps.",
+        }
+        instruction = templates.get(template, templates["interview_invite"])
+        vars_str = "\n".join(f"- {k}: {v}" for k, v in variables.items())
+        prompt = f"""Generate an HR email. {instruction}
+
+Variables provided:
+{vars_str or '(none)'}
+
+Return ONLY the email body (no subject line, no extra text). Use the variables where relevant. Professional tone. Do NOT add any signature, sign-off, "Best regards", "Sincerely", "[Your Name]", or closing - we add it automatically."""
+        body = _hr_llm_completion(prompt, max_tokens=800)
+        # Strip any sign-off the LLM may have added (Best regards, Sincerely, [Your Name], etc.)
+        import re
+        body = (body or "").strip()
+        # Exact string removal first (common LLM output) - case insensitive
+        body_lower = body.lower()
+        for s in ['\n[your name]', '\nbest regards,\n[your name]', '\nbest regards,\n\n[your name]',
+                  '\nregards,\n[your name]', '\nsincerely,\n[your name]']:
+            if body_lower.endswith(s):
+                body = body[:len(body)-len(s)].rstrip()
+                body_lower = body.lower()
+        # Regex for variations
+        signoff_patterns = [
+            r'\n\s*Best\s+regards\s*,\s*\n\s*\[Your\s+Name\]\s*$',
+            r'\n\s*\[Your\s+Name\]\s*$',
+            r'\n\s*\[[^\]]*[Nn]ame[^\]]*\]\s*$',
+            r'\n\s*Best\s+regards\s*,?\s*$',
+            r'\n\s*(?:Regards|Sincerely|Thank you|Thanks|Warm regards)\s*,?\s*(?:\n\s*\[[^\]]*\])?\s*$',
+        ]
+        for _ in range(5):
+            prev = body
+            for p in signoff_patterns:
+                body = re.sub(p, '', body, flags=re.IGNORECASE)
+            body = body.strip()
+            if body == prev:
+                break
+        # Append Valoriz signature to all generated emails
+        signature = """
+
+Best regards,
+Team HR
+| teamhr@valoriz.com | www.valoriz.com
+
+Valoriz Digital Pvt. Ltd. | CIN: U72900KL2014PTC037415,
+L-2, -1 Floor, Thejaswini Building, Technopark, Trivandrum, Kerala, India
+Disclaimer: The information in this email is confidential and is intended solely for the addressee. Access to this mail by anyone else is unauthorized."""
+        body = body + signature
+        subject_prompts = {
+            "interview_invite": "Subject line for interview invitation",
+            "rejection": "Subject line for rejection email",
+            "follow_up": "Subject line for follow-up",
+            "offer": "Subject line for job offer",
+        }
+        sub_prompt = f"Generate a short subject line for: {subject_prompts.get(template, 'HR email')}. Variables: {variables}. Reply with ONLY the subject, no quotes."
+        subject = _hr_llm_completion(sub_prompt, max_tokens=50)
+        return jsonify({"success": True, "subject": subject.strip(), "body": body.strip()})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/send-mail', methods=['POST'])
+def hr_send_mail():
+    """Send HR email with subject, body, and recipient."""
+    try:
+        data = request.get_json() or {}
+        subject = (data.get("subject") or "").strip()
+        body = (data.get("body") or "").strip()
+        recipient = (data.get("recipient") or "").strip()
+        if not recipient or "@" not in recipient:
+            return jsonify({"success": False, "error": "Valid recipient email required"}), 400
+        if not subject:
+            return jsonify({"success": False, "error": "Subject required"}), 400
+        if not body:
+            return jsonify({"success": False, "error": "Email body required"}), 400
+        success, msg = send_email(recipient, subject, body)
+        if success:
+            return jsonify({"success": True, "message": f"Email sent to {recipient}"})
+        return jsonify({"success": False, "error": msg}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
         print("📨 Received chat request")
         data = request.get_json()
         user_message = data.get("message", "")
-        session_id = data.get("session_id", "default_session")
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
         print(f"💬 User message: {user_message[:100]}...")
         print(f"🔑 Session ID: {session_id}")
@@ -1763,9 +2166,10 @@ def chat():
                 ai_response = f"❌ Failed to send email: {message}"
             
             ContextManager.add_message(session_id, "assistant", ai_response)
+            short_sid = data.get("session_id", "default_session")
             return jsonify({
                 "response": ai_response,
-                "session_id": session_id,
+                "session_id": short_sid,
                 "email_sent": success
             })
 
@@ -1924,9 +2328,10 @@ def chat():
         # Add AI response to conversation history
         ContextManager.add_message(session_id, "assistant", ai_response)
         
+        short_sid = data.get("session_id", "default_session")
         return jsonify({
             "response": ai_response,
-            "session_id": session_id
+            "session_id": short_sid
         })
 
     except requests.exceptions.RequestException as e:
@@ -1960,8 +2365,8 @@ def upload():
     try:
         print("📤 Received upload request")
         
-        # Get session ID from form data or default
-        session_id = request.form.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.form.get('session_id', 'default_session'), user_id)
         print(f"🔑 Session ID: {session_id}")
         
         if 'file' not in request.files:
@@ -2014,6 +2419,7 @@ def upload():
         ContextManager.add_file_context(session_id, file_info)
         print(f"📚 Added file to context for session: {session_id}")
         
+        short_sid = request.form.get("session_id", "default_session")
         return jsonify({
             "success": True,
             "message": f"File uploaded successfully: {file.filename}",
@@ -2023,7 +2429,7 @@ def upload():
             "path": file_path,
             "type": file_type,
             "extension": file_extension.lower(),
-            "session_id": session_id
+            "session_id": short_sid
         })
         
     except Exception as e:
@@ -2035,10 +2441,11 @@ def upload():
 def analyze():
     try:
         print("🔍 Received analysis request")
-        data = request.get_json()
+        data = request.get_json() or {}
         filename = data.get("filename")
         file_path = data.get("file_path")
-        session_id = data.get("session_id", "default_session")
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
         print(f"📄 Analyzing: {filename}")
         print(f"📂 File path: {file_path}")
@@ -2301,15 +2708,16 @@ Begin your detailed analysis now:
 
 @app.route('/api/context', methods=['GET'])
 def get_context():
-    """Get conversation context and file history"""
+    """Get conversation context and file history (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Expose last 20 non-system messages for frontend restore
         visible = [m for m in session["conversation_history"] if m.get("role") != "system"][-20:]
         return jsonify({
-            "session_id": session_id,
+            "session_id": strip_user_prefix(session_id, user_id) or request.args.get("session_id", "default_session"),
             "conversation_history": visible,
             "uploaded_files": session["uploaded_files"],
             "total_messages": len(session["conversation_history"]),
@@ -2323,10 +2731,11 @@ def get_context():
 
 @app.route('/api/context/sync', methods=['POST'])
 def sync_context():
-    """Sync messages from frontend to backend session (for chat persistence)"""
+    """Sync messages from frontend to backend session (for chat persistence, isolated per user)"""
     try:
         data = request.get_json() or {}
-        session_id = data.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get('session_id', 'default_session'), user_id)
         messages = data.get('messages', [])
         if not isinstance(messages, list):
             return jsonify({"error": "messages must be an array"}), 400
@@ -2341,7 +2750,8 @@ def sync_context():
             content = m.get("content", "")
             if role in ("user", "assistant") and content:
                 ContextManager.add_message(session_id, role, content)
-        return jsonify({"success": True, "session_id": session_id})
+        short_sid = data.get("session_id", "default_session")  # Return original for frontend
+        return jsonify({"success": True, "session_id": short_sid})
     except Exception as e:
         print(f"❌ Context sync error: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -2458,7 +2868,9 @@ def chat_stream():
 
     data      = request.get_json() or {}
     user_msg  = data.get("message", "").strip()
-    session_id= data.get("session_id", "default_session")
+    user_id   = get_request_user_id()
+    session_id= get_effective_session_id(data.get("session_id", "default_session"), user_id)
+    short_sid = data.get("session_id", "default_session")
 
     if not user_msg:
         return jsonify({"error": "No message provided"}), 400
@@ -2481,7 +2893,7 @@ def chat_stream():
             ContextManager.add_message(session_id, "assistant", result_msg)
             def _email_sent_stream():
                 yield f"data: {json.dumps({'chunk': result_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_sent_stream()),
                 mimetype="text/event-stream",
@@ -2513,7 +2925,7 @@ def chat_stream():
 
         def _email_done_stream():
             yield f"data: {json.dumps({'chunk': ai_response})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_done_stream()),
             mimetype="text/event-stream",
@@ -2535,7 +2947,7 @@ def chat_stream():
 
         def _email_choice_stream():
             yield f"data: {json.dumps({'email_generate_choice': True, 'message': choice_msg, 'options': EMAIL_GENERATE_OPTIONS})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_choice_stream()),
             mimetype="text/event-stream",
@@ -2553,7 +2965,7 @@ def chat_stream():
 
             def _email_content_prompt_stream():
                 yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_content_prompt_stream()),
                 mimetype="text/event-stream",
@@ -2567,7 +2979,7 @@ def chat_stream():
 
             def _email_rephrase_stream():
                 yield f"data: {json.dumps({'email_rephrase_choice': True, 'message': choice_msg, 'options': EMAIL_REPHRASE_OPTIONS})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_rephrase_stream()),
                 mimetype="text/event-stream",
@@ -2584,7 +2996,7 @@ def chat_stream():
 
         def _email_wait_stream():
             yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_wait_stream()),
             mimetype="text/event-stream",
@@ -2604,7 +3016,7 @@ def chat_stream():
 
             def _email_recipient_stream():
                 yield f"data: {json.dumps({'email_recipient_needed': True, 'message': prompt_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_recipient_stream()),
                 mimetype="text/event-stream",
@@ -2617,7 +3029,7 @@ def chat_stream():
             ContextManager.add_message(session_id, "assistant", stored_msg)
             def _email_cancel_stream():
                 yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_cancel_stream()),
                 mimetype="text/event-stream",
@@ -2642,7 +3054,7 @@ def chat_stream():
 
         def _email_confirm_stream():
             yield f"data: {json.dumps({'email_send_confirm': True, 'message': confirm_msg, 'options': EMAIL_SEND_CONFIRM_OPTIONS})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_confirm_stream()),
             mimetype="text/event-stream",
@@ -2661,7 +3073,7 @@ def chat_stream():
 
         def _story_choice_stream():
             yield f"data: {json.dumps({'story_type_choice': True, 'message': choice_msg, 'options': STORY_TYPE_OPTIONS})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
 
         return Response(
             stream_with_context(_story_choice_stream()),
@@ -2758,7 +3170,7 @@ def chat_stream():
             else:
                 ContextManager.add_message(session_id, "assistant", ai_response)
 
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
 
         except Exception as e:
             print(f"❌ Streaming error: {e}")
@@ -2778,24 +3190,28 @@ def chat_stream():
 
 @app.route('/api/chat/history', methods=['GET'])
 def chat_history_list():
-    """Return all persisted sessions with message counts for the History view."""
-    sessions = db_all_sessions()
+    """Return all persisted sessions with message counts for the History view (isolated per user)."""
+    user_id = get_request_user_id()
+    sessions = db_all_sessions(user_id)
     return jsonify({"sessions": sessions, "total": len(sessions)})
 
 
 @app.route('/api/chat/history/<session_id>', methods=['GET'])
 def chat_history_session(session_id):
-    """Return full message history for one session from DB."""
+    """Return full message history for one session from DB (isolated per user)."""
+    user_id = get_request_user_id()
+    effective_sid = get_effective_session_id(session_id, user_id)
     limit = int(request.args.get("limit", 100))
-    messages = db_load_session(session_id, limit=limit)
+    messages = db_load_session(effective_sid, limit=limit)
     return jsonify({"session_id": session_id, "messages": messages, "total": len(messages)})
 
 
 @app.route('/api/summarize-files', methods=['POST'])
 def summarize_files():
-    """Summarise all uploaded files in a session so the AI has multi-file context."""
+    """Summarise all uploaded files in a session so the AI has multi-file context (isolated per user)."""
     data       = request.get_json() or {}
-    session_id = data.get("session_id", "default_session")
+    user_id    = get_request_user_id()
+    session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
     session    = ContextManager.get_session(session_id)
     files      = session.get("uploaded_files", [])
 
@@ -2850,10 +3266,11 @@ def get_key_status():
 
 @app.route('/api/clear-context', methods=['POST'])
 def clear_context():
-    """Clear conversation context for a session"""
+    """Clear conversation context for a session (isolated per user)"""
     try:
-        data = request.get_json()
-        session_id = data.get("session_id", "default_session")
+        data = request.get_json() or {}
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
         if session_id in user_sessions:
             del user_sessions[session_id]
@@ -3118,9 +3535,10 @@ def download_file(file_id):
 
 @app.route('/api/documents', methods=['GET'])
 def get_documents():
-    """Get all uploaded documents for a session"""
+    """Get all uploaded documents for a session (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Get uploaded files with additional details
@@ -3160,9 +3578,10 @@ def get_documents():
         # Sort by upload time (newest first)
         documents.sort(key=lambda x: x["upload_time"], reverse=True)
         
+        short_sid = strip_user_prefix(session_id, user_id) or request.args.get("session_id", "default_session")
         return jsonify({
             "success": True,
-            "session_id": session_id,
+            "session_id": short_sid,
             "documents": documents,
             "total_count": len(documents),
             "analyzed_count": sum(1 for doc in documents if doc["analyzed"]),
@@ -3175,9 +3594,10 @@ def get_documents():
 
 @app.route('/api/documents/<file_id>', methods=['GET'])
 def get_document_details(file_id):
-    """Get detailed information about a specific document"""
+    """Get detailed information about a specific document (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Find the document
@@ -3231,10 +3651,11 @@ def get_document_details(file_id):
 
 @app.route('/api/documents/<file_id>/content', methods=['GET'])
 def get_document_content(file_id):
-    """Get file content for viewing (text) or serve file (images/binary)"""
+    """Get file content for viewing (text) or serve file (images/binary) (isolated per user)"""
     from flask import send_file
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         document = None
         for f in session["uploaded_files"]:
@@ -3268,9 +3689,10 @@ def get_document_content(file_id):
 
 @app.route('/api/documents/<file_id>/delete', methods=['DELETE'])
 def delete_document(file_id):
-    """Delete a specific document"""
+    """Delete a specific document (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Find and remove the document from session
@@ -3295,11 +3717,12 @@ def delete_document(file_id):
             except Exception as e:
                 print(f"❌ Failed to delete file {file_path}: {str(e)}")
         
+        short_sid = strip_user_prefix(session_id, user_id) or request.args.get("session_id", "default_session")
         return jsonify({
             "success": True,
             "message": f"Document '{document['filename']}' deleted successfully",
             "file_deleted": file_deleted,
-            "session_id": session_id
+            "session_id": short_sid
         })
         
     except Exception as e:
