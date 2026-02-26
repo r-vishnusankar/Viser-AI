@@ -514,6 +514,44 @@
             letter-spacing: -0.02em;
         }
 
+        .page-info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(107, 76, 113, 0.15);
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+            transition: background 0.2s;
+        }
+        .page-info-icon:hover {
+            background: rgba(107, 76, 113, 0.3);
+        }
+        .page-info-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 9998;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .page-info-modal.visible { display: flex; }
+        .page-info-content {
+            background: #fff;
+            border-radius: 12px;
+            max-width: 480px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .page-info-content h3 { margin: 0 0 12px; color: var(--accent); }
+        .page-info-content p { margin: 0; font-size: 14px; line-height: 1.6; color: #4a5568; }
+
         /* Attached files strip above the chat */
         .attached-files-strip {
             display: flex;
@@ -3263,7 +3301,10 @@
             <div id="chatView" class="view-container">
                 <!-- Chat Header -->
                 <div class="chat-header">
-                    <h1 class="chat-title">Nexora Assistant</h1>
+                    <div style="display:flex;align-items:center;">
+                        <h1 class="chat-title">Nexora Assistant</h1>
+                        <span class="page-info-icon" data-page-id="chat" title="Page info"><i class="fas fa-info-circle"></i></span>
+                    </div>
                     <div class="chat-header-meta">
                         <div class="status-indicator"><span>Online</span></div>
                     </div>
@@ -3331,7 +3372,7 @@
             <!-- Testcase Repository View -->
             <div id="testcasesView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <h1 class="chat-title">Testcase Repository</h1>
+                    <div style="display:flex;align-items:center;"><h1 class="chat-title">Testcase Repository</h1><span class="page-info-icon" data-page-id="testcases" title="Page info"><i class="fas fa-info-circle"></i></span></div>
                     <div class="status-indicator">
                         <span id="testcaseStats">0 TC Loaded</span>
                     </div>
@@ -3451,7 +3492,7 @@
             <!-- AI Automation View -->
             <div id="automationView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <h1 class="chat-title">AI Automation Workbench</h1>
+                    <div style="display:flex;align-items:center;"><h1 class="chat-title">AI Automation Workbench</h1><span class="page-info-icon" data-page-id="automation" title="Page info"><i class="fas fa-info-circle"></i></span></div>
                     <div class="status-indicator">
                         <span id="automationStatus">Ready</span>
                     </div>
@@ -3568,7 +3609,7 @@
             <!-- Documents View -->
             <div id="documentsView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <h1 class="chat-title">My Documents</h1>
+                    <div style="display:flex;align-items:center;"><h1 class="chat-title">My Documents</h1><span class="page-info-icon" data-page-id="documents" title="Page info"><i class="fas fa-info-circle"></i></span></div>
                     <div class="status-indicator">
                         <span id="documentsCount">0 files</span>
                     </div>
@@ -3598,7 +3639,7 @@
             <!-- Settings View -->
             <div id="settingsView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <h1 class="chat-title">Settings</h1>
+                    <div style="display:flex;align-items:center;"><h1 class="chat-title">Settings</h1><span class="page-info-icon" data-page-id="settings" title="Page info"><i class="fas fa-info-circle"></i></span></div>
                     <div class="status-indicator">
                         <span>Configuration</span>
                     </div>
@@ -3786,7 +3827,7 @@
 
             <!-- Placeholder views for workspace modules (Coming soon) -->
             <div id="qa-analyticsView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">QA Analytics</h1></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">QA Analytics</h1><span class="page-info-icon" data-page-id="qa-analytics" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
                     <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-chart-bar"></i></div>
                     <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
@@ -3795,34 +3836,87 @@
                 </div>
             </div>
             <div id="resume-analyzerView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">Resume Analyzer</h1></div>
-                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
-                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-file-alt"></i></div>
-                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
-                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Resume Analyzer is under development.</p>
-                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Analyze my resume'; viseAI.messageInput.focus();">Open in Chat</button>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Resume Analyzer</h1><span class="page-info-icon" data-page-id="resume-analyzer" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <div class="hr-upload-zone" id="resumeUploadZone" style="border:2px dashed rgba(107,76,113,0.3);border-radius:12px;padding:32px;text-align:center;background:rgba(107,76,113,0.04);margin-bottom:24px;">
+                        <input type="file" id="resumeFileInput" accept=".pdf,.docx,.txt" multiple style="display:none;">
+                        <p style="font-size:15px;color:#5C5258;margin-bottom:12px;"><i class="fas fa-file-alt" style="font-size:32px;color:var(--accent);"></i></p>
+                        <p style="font-size:16px;font-weight:600;color:#2d3748;margin-bottom:8px;">Upload Resumes (PDF, DOCX, or TXT)</p>
+                        <p style="font-size:13px;color:#718096;margin-bottom:16px;">Select multiple files (min 1, max 20). Drag & drop or click to select.</p>
+                        <button type="button" class="btn btn-primary" id="resumeUploadBtn"><i class="fas fa-upload"></i> Choose Files</button>
+                        <p id="resumeFileCount" style="font-size:12px;color:#718096;margin-top:12px;"></p>
+                    </div>
+                    <div id="resumeAnalyzeResult" style="display:none;"></div>
+                    <div id="resumeAnalyzeLoading" style="display:none;text-align:center;padding:32px;"><div class="loading-spinner" style="margin:0 auto 16px;"></div><p id="resumeLoadingText">Analyzing resumes...</p></div>
                 </div>
             </div>
             <div id="candidate-screeningView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">Candidate Screening</h1></div>
-                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
-                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-user-check"></i></div>
-                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
-                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Candidate Screening is under development.</p>
-                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Help me screen candidates'; viseAI.messageInput.focus();">Open in Chat</button>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Candidate Screening</h1><span class="page-info-icon" data-page-id="candidate-screening" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <div style="max-width:900px;">
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Job Description</label>
+                            <textarea id="screenJD" rows="6" placeholder="Paste the full job description here..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Upload Resumes (or use analyzed profiles from Resume Analyzer)</label>
+                            <div style="border:2px dashed rgba(107,76,113,0.3);border-radius:8px;padding:16px;background:rgba(107,76,113,0.04);">
+                                <input type="file" id="screenResumeFiles" accept=".pdf,.docx,.txt" multiple style="display:none;">
+                                <button type="button" class="btn btn-secondary" id="screenUploadResumesBtn"><i class="fas fa-upload"></i> Upload Resumes</button>
+                                <span id="screenResumeCount" style="margin-left:12px;font-size:13px;color:#718096;"></span>
+                                <div id="screenUploadProgress" style="display:none;margin-top:12px;">
+                                    <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                                        <div id="screenProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#8b5cf6);transition:width 0.3s;"></div>
+                                    </div>
+                                    <p id="screenProgressText" style="font-size:12px;color:#718096;margin-top:4px;">Uploading...</p>
+                                </div>
+                            </div>
+                            <p style="font-size:12px;color:#718096;margin-top:8px;">Or paste candidate profiles (JSON array) below</p>
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <textarea id="screenCandidates" rows="4" placeholder='[{"name":"John","email":"john@x.com","skills":["Python","SQL"]},...]' style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="screenCandidatesBtn"><i class="fas fa-user-check"></i> Screen Candidates</button>
+                        <div id="screenKeywords" style="margin-top:20px;display:none;"></div>
+                        <div id="screenResult" style="margin-top:24px;"></div>
+                    </div>
                 </div>
             </div>
             <div id="mail-automationView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">Mail Automation</h1></div>
-                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
-                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-envelope"></i></div>
-                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
-                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Mail Automation is under development.</p>
-                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Help me automate emails'; viseAI.messageInput.focus();">Open in Chat</button>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Mail Automation</h1><span class="page-info-icon" data-page-id="mail-automation" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <div style="max-width:700px;">
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Template</label>
+                            <select id="mailTemplate" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                <option value="interview_invite">Interview Invite</option>
+                                <option value="rejection">Rejection</option>
+                                <option value="follow_up">Follow-up</option>
+                                <option value="offer">Job Offer</option>
+                            </select>
+                        </div>
+                        <div id="mailVariableFields" style="margin-bottom:20px;display:grid;gap:12px;">
+                            <div><label style="display:block;font-weight:600;margin-bottom:4px;">Candidate Name</label><input type="text" id="mailVarName" placeholder="e.g. John Doe" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;"></div>
+                            <div><label style="display:block;font-weight:600;margin-bottom:4px;">Designation / Role</label><input type="text" id="mailVarRole" placeholder="e.g. Software Engineer" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;"></div>
+                            <div><label style="display:block;font-weight:600;margin-bottom:4px;">Date</label><input type="text" id="mailVarDate" placeholder="e.g. March 15, 2025" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;"></div>
+                            <div><label style="display:block;font-weight:600;margin-bottom:4px;">Time</label><input type="text" id="mailVarTime" placeholder="e.g. 10:00 AM" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;"></div>
+                            <div><label style="display:block;font-weight:600;margin-bottom:4px;">Location / Meeting Link</label><input type="text" id="mailVarLocation" placeholder="e.g. Zoom / Office address" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;"></div>
+                        </div>
+                        <div id="mailScreeningConfirmation" style="display:none;margin-bottom:20px;padding:16px;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;">
+                            <p style="font-weight:600;margin:0 0 8px;color:#92400e;">Recipients from Screening (names & emails):</p>
+                            <ul id="mailScreeningRecipientsList" style="margin:0;padding-left:20px;font-size:14px;color:#78350f;"></ul>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="mailDraftBtn"><i class="fas fa-magic"></i> Generate Email</button>
+                        <div id="mailDraftResult" style="margin-top:24px;"></div>
+                        <div id="mailSendSection" style="margin-top:20px;display:none;">
+                            <div style="margin-bottom:12px;"><label style="display:block;font-weight:600;margin-bottom:4px;">Recipient Email</label><input type="text" id="mailRecipient" placeholder="candidate@example.com or email1@x.com, email2@y.com" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;"><p id="mailSendToAllHint" style="display:none;font-size:12px;color:#718096;margin-top:4px;">Will send to all recipients listed above from screening.</p></div>
+                            <button type="button" class="btn btn-primary" id="mailSendBtn"><i class="fas fa-paper-plane"></i> Send Email</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="employee-documentsView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">Employee Documents</h1></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Employee Documents</h1><span class="page-info-icon" data-page-id="employee-documents" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
                     <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-users"></i></div>
                     <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
@@ -3831,7 +3925,7 @@
                 </div>
             </div>
             <div id="requirement-analyzerView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">Requirement Analyzer</h1></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Requirement Analyzer</h1><span class="page-info-icon" data-page-id="requirement-analyzer" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
                     <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-search"></i></div>
                     <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
@@ -3840,7 +3934,7 @@
                 </div>
             </div>
             <div id="user-story-generatorView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">User Story Generator</h1></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">User Story Generator</h1><span class="page-info-icon" data-page-id="user-story-generator" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
                     <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-book"></i></div>
                     <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
@@ -3849,7 +3943,7 @@
                 </div>
             </div>
             <div id="flow-diagramView" class="view-container" style="display: none;">
-                <div class="chat-header"><h1 class="chat-title">Flow Diagram Builder</h1></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Flow Diagram Builder</h1><span class="page-info-icon" data-page-id="flow-diagram" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
                     <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-project-diagram"></i></div>
                     <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
@@ -3858,10 +3952,16 @@
                 </div>
             </div>
 
+            <!-- Help View -->
+            <div id="helpView" class="view-container" style="display: none;">
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Help</h1><span class="page-info-icon" data-page-id="help" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div id="helpContent" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);max-width:800px;margin:0 auto;"></div>
+            </div>
+
             <!-- History View -->
             <div id="historyView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <h1 class="chat-title">Conversation History</h1>
+                    <div style="display:flex;align-items:center;"><h1 class="chat-title">Conversation History</h1><span class="page-info-icon" data-page-id="history" title="Page info"><i class="fas fa-info-circle"></i></span></div>
                     <div class="status-indicator">
                         <span id="historyCount">0 messages</span>
                     </div>
@@ -3901,12 +4001,84 @@
         </div>
     </div>
 
+    <!-- Page Info Modal -->
+    <div id="pageInfoModal" class="page-info-modal" onclick="if(event.target===this) this.classList.remove('visible')">
+        <div class="page-info-content">
+            <h3 id="pageInfoTitle"></h3>
+            <p id="pageInfoDesc"></p>
+            <button type="button" class="btn btn-secondary" style="margin-top:16px;" onclick="document.getElementById('pageInfoModal').classList.remove('visible')">Close</button>
+        </div>
+    </div>
+
     <script>
+        // Page descriptions for info icon
+        const PAGE_INFO = {
+            chat: { title: 'Chat', desc: 'Ask Nexora anything. Attach files with the paperclip, use /help for commands. You can analyze documents, summarize conversations, and access HR features like resume analysis and candidate screening via chat commands.' },
+            testcases: { title: 'Testcase Repository', desc: 'Import and manage test cases from Excel files. Filter by platform, search, and export to CSV or Excel. Use Google Sheets for live sync.' },
+            automation: { title: 'AI Automation Workbench', desc: 'Describe a task and AI generates a browser automation plan. Upload or enhance plans, then run them with Playwright.' },
+            documents: { title: 'My Documents', desc: 'View and manage uploaded documents. Reuse documents in chat, analyze, or delete. Files are stored per user—only you can see your documents.' },
+            settings: { title: 'Settings', desc: 'Configure API keys (Groq/OpenAI), repository settings, and theme. Keys are stored locally.' },
+            'qa-analytics': { title: 'QA Analytics', desc: 'Analytics dashboard for QA metrics. (Coming soon)' },
+            'resume-analyzer': { title: 'Resume Analyzer', desc: 'Upload multiple resumes (PDF, DOCX, TXT). AI extracts name, email, skills, experience, education, and strengths. Use /resume in chat with an attached file for same analysis.' },
+            'candidate-screening': { title: 'Candidate Screening', desc: 'Paste job description, upload resumes or paste profiles. AI ranks candidates with match %, skill color coding (green=has, red=missing). Select candidates and use Bulk Accept/Reject for emails. Use /screen in chat to open.' },
+            'mail-automation': { title: 'Mail Automation', desc: 'Generate HR emails from templates (Interview Invite, Rejection, Follow-up, Offer). Fill in name, role, date, time. Use /mail in chat to open.' },
+            'employee-documents': { title: 'Employee Documents', desc: 'Manage employee documents. (On hold)' },
+            'requirement-analyzer': { title: 'Requirement Analyzer', desc: 'Analyze requirements documents. (Coming soon)' },
+            'user-story-generator': { title: 'User Story Generator', desc: 'Generate user stories from requirements. (Coming soon)' },
+            'flow-diagram': { title: 'Flow Diagram Builder', desc: 'Create flow diagrams. (Coming soon)' },
+            history: { title: 'Conversation History', desc: 'Browse past conversations. Search and filter messages.' },
+            help: { title: 'Help', desc: 'Overview of all Nexora features and how to use them.' }
+        };
+
+        const HELP_BY_WORKSPACE = {
+            qa: {
+                commands: [
+                    { cmd: '/help', desc: 'Show commands or open Help page' },
+                    { cmd: '/analyze', desc: 'Analyze most recently uploaded file' },
+                    { cmd: '/clear', desc: 'Clear conversation' },
+                    { cmd: '/files', desc: 'Load all uploaded files into AI context' },
+                    { cmd: '/email', desc: 'Write and send an email' }
+                ],
+                pages: ['chat', 'testcases', 'automation', 'documents', 'qa-analytics', 'history', 'help', 'settings']
+            },
+            hr: {
+                commands: [
+                    { cmd: '/help', desc: 'Show commands or open Help page' },
+                    { cmd: '/resume', desc: 'Analyze attached resume (PDF/DOCX/TXT) or open Resume Analyzer' },
+                    { cmd: '/screen', desc: 'Open Candidate Screening' },
+                    { cmd: '/mail', desc: 'Open Mail Automation' },
+                    { cmd: '/analyze', desc: 'Analyze most recently uploaded file' },
+                    { cmd: '/clear', desc: 'Clear conversation' },
+                    { cmd: '/files', desc: 'Load all uploaded files into AI context' },
+                    { cmd: '/email', desc: 'Write and send an email' }
+                ],
+                pages: ['chat', 'resume-analyzer', 'candidate-screening', 'mail-automation', 'employee-documents', 'documents', 'history', 'help', 'settings']
+            },
+            ba: {
+                commands: [
+                    { cmd: '/help', desc: 'Show commands or open Help page' },
+                    { cmd: '/analyze', desc: 'Analyze most recently uploaded file' },
+                    { cmd: '/clear', desc: 'Clear conversation' },
+                    { cmd: '/files', desc: 'Load all uploaded files into AI context' },
+                    { cmd: '/email', desc: 'Write and send an email' }
+                ],
+                pages: ['chat', 'requirement-analyzer', 'user-story-generator', 'flow-diagram', 'documents', 'history', 'help', 'settings']
+            }
+        };
+
         // When on Netlify, point API/Socket.IO to your Render backend
         window.API_BASE = (window.location.hostname.includes('netlify.app') || window.location.hostname.includes('netlify.com'))
             ? 'https://viser-ai.onrender.com'
             : '';
         const _api = (path) => (window.API_BASE || '') + path;
+        function _apiHeaders(extra = {}) {
+            const h = { ...extra };
+            try {
+                const u = JSON.parse(sessionStorage.getItem('nexora_user') || 'null');
+                if (u && u.email) h['X-User-Id'] = u.email;
+            } catch (e) {}
+            return h;
+        }
 
         class ViseAIChat {
             constructor() {
@@ -3919,8 +4091,13 @@
                 // Store uploaded files for analysis
                 this.uploadedFiles = [];
 
-                // Chat session persistence
-                this.STORAGE_KEY = 'nexora_chat_sessions';
+                // Chat session persistence (per-user when logged in)
+                this.STORAGE_KEY = (() => {
+                    try {
+                        const u = JSON.parse(sessionStorage.getItem('nexora_user') || 'null');
+                        return (u && u.email) ? 'nexora_chat_sessions_' + String(u.email).replace(/[^a-zA-Z0-9.-]/g, '_') : 'nexora_chat_sessions';
+                    } catch (e) { return 'nexora_chat_sessions'; }
+                })();
                 this.SIDEBAR_COLLAPSED_KEY = 'nexora_sidebar_collapsed';
                 this.sessionId = null;
                 this.aiResponses = new Map();
@@ -3931,6 +4108,7 @@
                 this.setupAutoResize();
                 this.setupSidebarToggle();
                 this.setupChatHistory();
+                this.setupHRModules();
                 this.restoreOrCreateSession();
                 // Chat is default view on load - show submenu
                 const chatGroup = document.querySelector('.chat-nav-group');
@@ -4001,6 +4179,372 @@
                 this.renderChatHistory();
             }
 
+            setupHRModules() {
+                this.hrAnalyzedProfiles = [];
+                this.hrScreeningData = null;
+                this.mailRecipientsFromScreening = [];  // [{name, email}] for bulk reject confirmation
+                const resumeUploadBtn = document.getElementById('resumeUploadBtn');
+                const resumeFileInput = document.getElementById('resumeFileInput');
+                const resumeUploadZone = document.getElementById('resumeUploadZone');
+                if (resumeUploadBtn && resumeFileInput) {
+                    resumeUploadBtn.onclick = () => resumeFileInput.click();
+                    resumeUploadZone && (resumeUploadZone.onclick = (e) => { if (!e.target.closest('button')) resumeFileInput.click(); });
+                    resumeUploadZone && (resumeUploadZone.ondragover = (e) => { e.preventDefault(); resumeUploadZone.style.borderColor = 'var(--accent)'; });
+                    resumeUploadZone && (resumeUploadZone.ondragleave = () => { resumeUploadZone.style.borderColor = ''; });
+                    resumeUploadZone && (resumeUploadZone.ondrop = (e) => { e.preventDefault(); resumeUploadZone.style.borderColor = ''; if (e.dataTransfer.files.length) this._analyzeResumeFiles(Array.from(e.dataTransfer.files)); });
+                    resumeFileInput.onchange = () => { if (resumeFileInput.files.length) { this._analyzeResumeFiles(Array.from(resumeFileInput.files)); resumeFileInput.value = ''; } };
+                }
+                const screenUploadBtn = document.getElementById('screenUploadResumesBtn');
+                const screenResumeInput = document.getElementById('screenResumeFiles');
+                if (screenUploadBtn && screenResumeInput) {
+                    screenUploadBtn.onclick = () => screenResumeInput.click();
+                    screenResumeInput.onchange = () => { if (screenResumeInput.files.length) this._screenUploadResumes(Array.from(screenResumeInput.files)); };
+                }
+                const screenBtn = document.getElementById('screenCandidatesBtn');
+                if (screenBtn) screenBtn.onclick = () => this._runCandidateScreening();
+                const mailDraftBtn = document.getElementById('mailDraftBtn');
+                if (mailDraftBtn) mailDraftBtn.onclick = () => this._draftHRMail();
+                const mailSendBtn = document.getElementById('mailSendBtn');
+                if (mailSendBtn) mailSendBtn.onclick = () => this._sendHRMail();
+            }
+
+            _openMailWithVars(template, variables) {
+                this.mailRecipientsFromScreening = [];
+                this.switchView('mail-automation');
+                const t = document.getElementById('mailTemplate');
+                if (t) t.value = template;
+                const fields = { name: 'mailVarName', role: 'mailVarRole', designation: 'mailVarRole', date: 'mailVarDate', time: 'mailVarTime', location: 'mailVarLocation' };
+                Object.entries(variables || {}).forEach(([k, v]) => {
+                    const id = fields[k] || fields[k.toLowerCase()];
+                    if (id) { const el = document.getElementById(id); if (el) el.value = v || ''; }
+                });
+                const email = variables?.email || variables?.Email || '';
+                const recEl = document.getElementById('mailRecipient');
+                if (recEl && email) { recEl.value = email; }
+                const confDiv = document.getElementById('mailScreeningConfirmation');
+                if (confDiv) confDiv.style.display = 'none';
+            }
+
+            async _bulkMail(selectedCheckboxes, template) {
+                const jobRole = this.hrScreeningData?.job_role || '';
+                const items = selectedCheckboxes.map(cb => ({
+                    name: cb.dataset.name || '',
+                    role: cb.dataset.role || jobRole,
+                    email: cb.dataset.email || ''
+                }));
+                this.mailRecipientsFromScreening = items.filter(i => i.name || i.email);
+                this.switchView('mail-automation');
+                const t = document.getElementById('mailTemplate');
+                if (t) t.value = template;
+                const nameEl = document.getElementById('mailVarName');
+                if (nameEl && items.length) nameEl.value = items[0].name;
+                const roleEl = document.getElementById('mailVarRole');
+                if (roleEl) roleEl.value = jobRole;
+                const confDiv = document.getElementById('mailScreeningConfirmation');
+                const listEl = document.getElementById('mailScreeningRecipientsList');
+                if (confDiv && listEl && items.length) {
+                    listEl.innerHTML = items.map(i => {
+                        const disp = i.email ? `${(i.name||'Unknown').replace(/</g,'&lt;')} (${(i.email||'').replace(/</g,'&lt;')})` : (i.name||'Unknown').replace(/</g,'&lt;');
+                        return `<li>${disp}</li>`;
+                    }).join('');
+                    confDiv.style.display = 'block';
+                }
+                const recEl = document.getElementById('mailRecipient');
+                if (recEl && items.length) {
+                    const emails = items.map(i => i.email).filter(e => e && e.includes('@'));
+                    recEl.value = emails.join(', ');
+                } else if (recEl) recEl.value = '';
+                document.getElementById('mailSendSection') && (document.getElementById('mailSendSection').style.display = 'none');
+                document.getElementById('mailDraftResult') && (document.getElementById('mailDraftResult').innerHTML = '');
+            }
+
+            async _analyzeResumeFiles(files) {
+                const valid = files.filter(f => ['pdf','docx','txt'].includes((f.name.split('.').pop()||'').toLowerCase()));
+                if (!valid.length) { alert('Only PDF, DOCX, or TXT supported'); return; }
+                const zone = document.getElementById('resumeUploadZone');
+                const result = document.getElementById('resumeAnalyzeResult');
+                const loading = document.getElementById('resumeAnalyzeLoading');
+                const loadingText = document.getElementById('resumeLoadingText');
+                const countEl = document.getElementById('resumeFileCount');
+                if (countEl) countEl.textContent = valid.length + ' file(s) selected';
+                if (zone) zone.style.display = 'none';
+                if (result) result.style.display = 'none';
+                if (loading) { loading.style.display = 'block'; if (loadingText) loadingText.textContent = `Analyzing ${valid.length} resume(s)...`; }
+                try {
+                    const fd = new FormData();
+                    valid.forEach(f => fd.append('file', f));
+                    if (this.sessionId) fd.append('session_id', this.sessionId);
+                    const r = await fetch(_api('/api/hr/resume-analyze'), { method: 'POST', headers: _apiHeaders(), body: fd });
+                    const data = await r.json();
+                    if (loading) loading.style.display = 'none';
+                    if (zone) zone.style.display = 'block';
+                    if (data.success && data.profiles && data.profiles.length) {
+                        this.hrAnalyzedProfiles = data.profiles.filter(p => !p.error);
+                        const cards = data.profiles.map((p, i) => {
+                            if (p.error) return `<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);color:#e53e3e;">${(p.filename||'File')}: ${(p.error||'').replace(/</g,'&lt;')}</div>`;
+                            const skills = Array.isArray(p.skills) ? p.skills.join(', ') : (p.skills || '-');
+                            const exp = Array.isArray(p.experience) ? p.experience.map(e => `${e.role||''} at ${e.company||''}`).join('; ') : '-';
+                            const strengths = Array.isArray(p.strengths) && p.strengths.length ? p.strengths.map(s => `<li>${(s||'').replace(/</g,'&lt;')}</li>`).join('') : '';
+                            return `<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                                <h4 style="margin:0 0 8px;color:var(--accent);">${(p.name||'Unknown').replace(/</g,'&lt;')}</h4>
+                                <p style="margin:4px 0;font-size:13px;"><strong>Email:</strong> ${(p.email||'-').replace(/</g,'&lt;')} | <strong>Skills:</strong> ${skills.replace(/</g,'&lt;')}</p>
+                                <p style="margin:4px 0;font-size:12px;color:#718096;">${exp.replace(/</g,'&lt;')}</p>
+                                ${strengths ? `<p style="margin:8px 0 4px;font-weight:600;font-size:13px;">Strengths:</p><ul style="margin:0 0 16px 20px;font-size:13px;color:#4a5568;">${strengths}</ul>` : ''}
+                            </div>`;
+                        }).join('');
+                        if (result) { result.innerHTML = `<p style="margin-bottom:16px;font-weight:600;">${data.profiles.length} resume(s) analyzed</p>${cards}<button type="button" class="btn btn-secondary" onclick="document.getElementById('resumeUploadZone').style.display='block';document.getElementById('resumeAnalyzeResult').style.display='none';document.getElementById('resumeAnalyzeResult').innerHTML='';" style="margin-top:16px;"><i class="fas fa-redo"></i> Analyze More</button>`; result.style.display = 'block'; }
+                    } else {
+                        alert(data.error || 'Analysis failed');
+                    }
+                } catch (e) {
+                    if (zone) zone.style.display = 'block';
+                    alert('Error: ' + e.message);
+                }
+            }
+
+            async _screenUploadResumes(files) {
+                const valid = files.filter(f => ['pdf','docx','txt'].includes((f.name.split('.').pop()||'').toLowerCase()));
+                if (!valid.length) return;
+                const countEl = document.getElementById('screenResumeCount');
+                const progressDiv = document.getElementById('screenUploadProgress');
+                const progressBar = document.getElementById('screenProgressBar');
+                const progressText = document.getElementById('screenProgressText');
+                if (countEl) countEl.textContent = '';
+                if (progressDiv) progressDiv.style.display = 'block';
+                if (progressBar) progressBar.style.width = '10%';
+                if (progressText) progressText.textContent = `Uploading ${valid.length} file(s)...`;
+                let progressInterval = setInterval(() => {
+                    const w = parseInt(progressBar?.style.width || '10', 10);
+                    if (w < 85) progressBar && (progressBar.style.width = Math.min(w + 8, 85) + '%');
+                }, 400);
+                try {
+                    const fd = new FormData();
+                    valid.forEach(f => fd.append('file', f));
+                    if (this.sessionId) fd.append('session_id', this.sessionId);
+                    const r = await fetch(_api('/api/hr/resume-analyze'), { method: 'POST', headers: _apiHeaders(), body: fd });
+                    clearInterval(progressInterval);
+                    if (progressBar) progressBar.style.width = '100%';
+                    if (progressText) progressText.textContent = 'Done';
+                    const data = await r.json();
+                    if (data.success && data.profiles) {
+                        const profiles = data.profiles.filter(p => !p.error);
+                        this.hrAnalyzedProfiles = profiles;
+                        const ta = document.getElementById('screenCandidates');
+                        if (ta) ta.value = JSON.stringify(profiles, null, 2);
+                        if (countEl) countEl.textContent = `${profiles.length} profile(s) loaded`;
+                    }
+                } catch (e) {
+                    if (countEl) countEl.textContent = 'Error';
+                }
+                setTimeout(() => {
+                    if (progressDiv) progressDiv.style.display = 'none';
+                    if (progressBar) progressBar.style.width = '0%';
+                }, 800);
+            }
+
+            async _runCandidateScreening() {
+                const jd = (document.getElementById('screenJD') || {}).value || '';
+                const candidatesRaw = (document.getElementById('screenCandidates') || {}).value || '';
+                if (!jd.trim()) { alert('Enter job description'); return; }
+                let candidates = this.hrAnalyzedProfiles && this.hrAnalyzedProfiles.length ? this.hrAnalyzedProfiles : [];
+                if (!candidates.length) {
+                    try { candidates = JSON.parse(candidatesRaw.trim() || '[]'); } catch (_) {
+                        const lines = candidatesRaw.split('\n').filter(l => l.trim());
+                        candidates = lines.map((l, i) => ({ name: `Candidate ${i+1}`, profile: l }));
+                    }
+                }
+                if (!candidates.length) { alert('Upload resumes or add candidate profiles'); return; }
+                const btn = document.getElementById('screenCandidatesBtn');
+                const out = document.getElementById('screenResult');
+                const kwDiv = document.getElementById('screenKeywords');
+                if (btn) btn.disabled = true;
+                if (out) out.innerHTML = '<div class="loading-spinner"></div><p>Screening...</p>';
+                if (kwDiv) kwDiv.style.display = 'none';
+                try {
+                    const r = await fetch(_api('/api/hr/screen'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ job_description: jd, candidates })
+                    });
+                    const data = await r.json();
+                    if (data.success && data.ranked && data.ranked.length) {
+                        this.hrScreeningData = { job_role: data.job_role || '', ranked: data.ranked };
+                        if (kwDiv && data.keywords && data.keywords.length) {
+                            kwDiv.innerHTML = '<p style="font-weight:600;margin-bottom:8px;">Key skills from JD:</p><div style="display:flex;flex-wrap:wrap;gap:8px;">' + data.keywords.map(k => `<span style="background:rgba(107,76,113,0.15);color:var(--accent);padding:4px 10px;border-radius:6px;font-size:13px;">${(k||'').replace(/</g,'&lt;')}</span>`).join('') + '</div>';
+                            kwDiv.style.display = 'block';
+                        }
+                        const jobRole = (data.job_role || '').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                        const bulkBar = `<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;padding:12px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="screenSelectAll" style="width:18px;height:18px;"> Select All</label>
+                            <button type="button" class="btn btn-primary" id="screenBulkAccept" style="padding:8px 16px;font-size:13px;"><i class="fas fa-check"></i> Bulk Accept</button>
+                            <button type="button" class="btn btn-secondary" id="screenBulkReject" style="padding:8px 16px;font-size:13px;background:#fecaca;color:#991b1b;border:none;"><i class="fas fa-times"></i> Bulk Reject</button>
+                            <span id="screenSelectedCount" style="font-size:13px;color:#718096;"></span>
+                        </div>`;
+                        out.innerHTML = bulkBar + data.ranked.map((c, i) => {
+                            const cName = (c.name || 'Unknown').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                            const cEmail = (c.email || '').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                            const skillTags = (Array.isArray(c.skill_match) ? c.skill_match : []).map(s => {
+                                const matched = s.matched !== false;
+                                return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;margin:2px;background:${matched?'#10b981':'#fecaca'};color:${matched?'#065f46':'#991b1b'}">${(s.skill||'').replace(/</g,'&lt;')}</span>`;
+                            }).join('');
+                            return `<div class="hr-card hr-screening-card" style="background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                                <div style="display:flex;align-items:flex-start;gap:12px;">
+                                    <label style="flex-shrink:0;cursor:pointer;margin-top:4px;"><input type="checkbox" class="screen-candidate-cb" data-index="${i}" data-name="${cName}" data-role="${jobRole}" data-email="${cEmail}" style="width:18px;height:18px;"></label>
+                                    <div style="flex:1;min-width:0;">
+                                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+                                            <div><strong>#${i+1} ${(c.name||'Unknown').replace(/</g,'&lt;')}</strong><span style="color:var(--accent);font-weight:700;margin-left:12px;">${c.match_percent||0}%</span>${cEmail ? `<span style="font-size:12px;color:#718096;margin-left:8px;">${(c.email||'').replace(/</g,'&lt;')}</span>` : ''}</div>
+                                            <div style="display:flex;gap:8px;">
+                                                <button type="button" class="btn btn-primary hr-accept-btn" style="padding:6px 12px;font-size:12px;" data-name="${cName}" data-role="${jobRole}" data-email="${cEmail}"><i class="fas fa-check"></i> Accept</button>
+                                                <button type="button" class="btn btn-secondary hr-reject-btn" style="padding:6px 12px;font-size:12px;background:#fecaca;color:#991b1b;border:none;" data-name="${cName}" data-role="${jobRole}" data-email="${cEmail}"><i class="fas fa-times"></i> Reject</button>
+                                            </div>
+                                        </div>
+                                        ${skillTags ? `<div style="margin:8px 0;">${skillTags}</div>` : ''}
+                                        <p style="margin:4px 0;font-size:13px;"><strong>Strengths:</strong> ${(Array.isArray(c.strengths)?c.strengths.join(', '):c.strengths||'-').replace(/</g,'&lt;')}</p>
+                                        <p style="margin:4px 0;font-size:13px;"><strong>Gaps:</strong> ${(Array.isArray(c.gaps)?c.gaps.join(', '):c.gaps||'-').replace(/</g,'&lt;')}</p>
+                                        <p style="margin:4px 0;font-size:12px;color:#718096;"><strong>Recommendation:</strong> ${(c.recommendation||'-').replace(/</g,'&lt;')}</p>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('');
+                        const updateCount = () => {
+                            const n = out.querySelectorAll('.screen-candidate-cb:checked').length;
+                            const el = document.getElementById('screenSelectedCount');
+                            if (el) el.textContent = n ? `${n} selected` : '';
+                        };
+                        out.querySelectorAll('.screen-candidate-cb').forEach(cb => {
+                            cb.onchange = updateCount;
+                        });
+                        const selectAll = document.getElementById('screenSelectAll');
+                        if (selectAll) selectAll.onchange = () => {
+                            out.querySelectorAll('.screen-candidate-cb').forEach(c => { c.checked = selectAll.checked; });
+                            updateCount();
+                        };
+                        document.getElementById('screenBulkAccept')?.addEventListener('click', () => {
+                            const sel = out.querySelectorAll('.screen-candidate-cb:checked');
+                            if (!sel.length) { alert('Select at least one candidate'); return; }
+                            this._bulkMail(Array.from(sel), 'interview_invite');
+                        });
+                        document.getElementById('screenBulkReject')?.addEventListener('click', () => {
+                            const sel = out.querySelectorAll('.screen-candidate-cb:checked');
+                            if (!sel.length) { alert('Select at least one candidate'); return; }
+                            this._bulkMail(Array.from(sel), 'rejection');
+                        });
+                        out.querySelectorAll('.hr-accept-btn').forEach(btn => {
+                            btn.onclick = () => this._openMailWithVars('interview_invite', { name: btn.dataset.name || '', role: btn.dataset.role || '', email: btn.dataset.email || '' });
+                        });
+                        out.querySelectorAll('.hr-reject-btn').forEach(btn => {
+                            btn.onclick = () => this._openMailWithVars('rejection', { name: btn.dataset.name || '', role: btn.dataset.role || '', email: btn.dataset.email || '' });
+                        });
+                    } else {
+                        out.innerHTML = '<p style="color:#e53e3e;">' + (data.error || 'Screening failed') + '</p>';
+                    }
+                } catch (e) {
+                    out.innerHTML = '<p style="color:#e53e3e;">Error: ' + e.message + '</p>';
+                }
+                if (btn) btn.disabled = false;
+            }
+
+            async _draftHRMail() {
+                const template = (document.getElementById('mailTemplate') || {}).value || 'interview_invite';
+                const variables = {
+                    name: (document.getElementById('mailVarName') || {}).value || '',
+                    role: (document.getElementById('mailVarRole') || {}).value || '',
+                    designation: (document.getElementById('mailVarRole') || {}).value || '',
+                    date: (document.getElementById('mailVarDate') || {}).value || '',
+                    time: (document.getElementById('mailVarTime') || {}).value || '',
+                    location: (document.getElementById('mailVarLocation') || {}).value || ''
+                };
+                Object.keys(variables).forEach(k => { if (!variables[k]) delete variables[k]; });
+                const btn = document.getElementById('mailDraftBtn');
+                const out = document.getElementById('mailDraftResult');
+                if (btn) btn.disabled = true;
+                if (out) out.innerHTML = '<div class="loading-spinner"></div><p>Drafting...</p>';
+                try {
+                    const r = await fetch(_api('/api/hr/mail-draft'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ template, variables })
+                    });
+                    const data = await r.json();
+                    if (data.success) {
+                        const subj = (data.subject||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+                        const bod = (data.body||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                        out.innerHTML = `<div style="margin-bottom:12px;"><label style="display:block;font-weight:600;margin-bottom:4px;">Subject (editable)</label><input type="text" id="mailDraftSubject" value="${subj}" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;"></div>
+                            <div><label style="display:block;font-weight:600;margin-bottom:4px;">Body (editable)</label><textarea id="mailDraftBody" rows="12" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;resize:vertical;">${bod}</textarea></div>
+                            <button type="button" class="btn btn-secondary" style="margin-top:8px;" onclick="navigator.clipboard.writeText(document.getElementById('mailDraftBody').value)"><i class="fas fa-copy"></i> Copy Body</button>`;
+                        const sendSection = document.getElementById('mailSendSection');
+                        if (sendSection) {
+                            sendSection.style.display = 'block';
+                            const hint = document.getElementById('mailSendToAllHint');
+                            if (hint && this.mailRecipientsFromScreening && this.mailRecipientsFromScreening.length > 1) {
+                                hint.style.display = 'block';
+                                const recEl = document.getElementById('mailRecipient');
+                                if (recEl) recEl.placeholder = 'Leave empty to send to all ' + this.mailRecipientsFromScreening.length + ' recipients above';
+                            } else if (hint) hint.style.display = 'none';
+                            sendSection.querySelector('#mailRecipient')?.focus();
+                        }
+                    } else {
+                        out.innerHTML = '<p style="color:#e53e3e;">' + (data.error || 'Draft failed') + '</p>';
+                        document.getElementById('mailSendSection') && (document.getElementById('mailSendSection').style.display = 'none');
+                    }
+                } catch (e) {
+                    out.innerHTML = '<p style="color:#e53e3e;">Error: ' + e.message + '</p>';
+                    document.getElementById('mailSendSection') && (document.getElementById('mailSendSection').style.display = 'none');
+                }
+                if (btn) btn.disabled = false;
+            }
+
+            async _sendHRMail() {
+                const subjectEl = document.getElementById('mailDraftSubject');
+                const bodyEl = document.getElementById('mailDraftBody');
+                const recipientEl = document.getElementById('mailRecipient');
+                const subject = (subjectEl?.value || '').trim();
+                const body = (bodyEl?.value || '').trim();
+                let recipients = [];
+                const fieldVal = (recipientEl?.value || '').trim();
+                const fromField = fieldVal ? fieldVal.split(/[,;]/).map(e => e.trim()).filter(e => e && e.includes('@')) : [];
+                if (this.mailRecipientsFromScreening && this.mailRecipientsFromScreening.length > 0) {
+                    if (fromField.length) {
+                        recipients = fromField;
+                    } else {
+                        recipients = this.mailRecipientsFromScreening.map(r => r.email).filter(e => e && e.includes('@'));
+                    }
+                } else {
+                    recipients = fromField;
+                }
+                if (!recipients.length) {
+                    if (this.mailRecipientsFromScreening?.length) alert('No valid emails in screening list. Enter recipient email manually.');
+                    else alert('Enter a valid recipient email');
+                    return;
+                }
+                if (!subject) { alert('Subject is required'); return; }
+                if (!body) { alert('Email body is required'); return; }
+                const btn = document.getElementById('mailSendBtn');
+                if (btn) btn.disabled = true;
+                try {
+                    let sent = 0, failed = [];
+                    for (const recipient of recipients) {
+                        const r = await fetch(_api('/api/hr/send-mail'), {
+                            method: 'POST',
+                            headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ subject, body, recipient })
+                        });
+                        const data = await r.json();
+                        if (data.success) sent++; else failed.push(recipient);
+                    }
+                    if (sent === recipients.length) {
+                        alert('Email sent successfully to ' + (recipients.length === 1 ? recipients[0] : recipients.length + ' recipients'));
+                    } else if (sent > 0) {
+                        alert('Sent to ' + sent + ' recipient(s). Failed: ' + (failed.join(', ') || 'unknown'));
+                    } else {
+                        alert(failed.length ? 'Failed to send: ' + failed.join(', ') : 'Failed to send email');
+                    }
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                }
+                if (btn) btn.disabled = false;
+            }
+
             renderChatHistory() {
                 const el = document.getElementById('sidebarChatHistory');
                 if (!el) return;
@@ -4063,7 +4607,7 @@
                 this.sessionId = sid;
                 this.chatMessages.innerHTML = '';
                 try {
-                    const res = await fetch(_api(`/api/context?session_id=${sid}`));
+                    const res = await fetch(_api(`/api/context?session_id=${sid}`), { headers: _apiHeaders() });
                     const ctx = res.ok ? await res.json() : null;
                     const msgs = (ctx && ctx.conversation_history && ctx.conversation_history.length) ? ctx.conversation_history : (s.messages || []);
                     msgs.forEach(m => {
@@ -4073,7 +4617,7 @@
                     if (s.messages && s.messages.length && (!ctx || !ctx.conversation_history.length)) {
                         await fetch(_api('/api/context/sync'), {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
                             body: JSON.stringify({ session_id: sid, messages: s.messages })
                         });
                     }
@@ -4265,7 +4809,7 @@
 
                 const response = await fetch(_api('/api/chat/stream'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, session_id: this.sessionId }),
                     signal: controller.signal
                 });
@@ -4520,7 +5064,10 @@
                 const arg     = parts.slice(1).join(' ');
 
                 const COMMANDS = {
-                    '/help':      'Show available commands',
+                    '/help':      'Show commands or open Help page',
+                    '/resume':   'Analyze attached resume or open Resume Analyzer',
+                    '/screen':   'Open Candidate Screening',
+                    '/mail':     'Open Mail Automation',
                     '/clear':     'Clear conversation history',
                     '/analyze':   'Analyze the most recently uploaded file',
                     '/summarize': 'Summarize the current conversation',
@@ -4530,10 +5077,55 @@
                 };
 
                 if (cmd === '/help') {
-                    const lines = Object.entries(COMMANDS)
-                        .map(([c, d]) => `**${c}** — ${d}`).join('\n');
                     this.addMessage('user', raw);
-                    this.addMessage('ai', `**Available commands:**\n\n${lines}`, true);
+                    this.switchView('help');
+                    return true;
+                }
+
+                if (cmd === '/resume') {
+                    this.addMessage('user', raw);
+                    const resumeFile = this.uploadedFiles.find(f => {
+                        const ext = (f.filename || '').split('.').pop()?.toLowerCase();
+                        return ['pdf','docx','txt'].includes(ext);
+                    });
+                    if (resumeFile) {
+                        this.addMessage('ai', '<i class="fas fa-spinner fa-spin"></i> Analyzing resume...', true);
+                        try {
+                            const r = await fetch(_api('/api/hr/resume-analyze-by-id'), {
+                                method: 'POST',
+                                headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ file_id: resumeFile.fileId, session_id: this.sessionId })
+                            });
+                            const data = await r.json();
+                            if (data.success && data.profiles && data.profiles[0] && !data.profiles[0].error) {
+                                const p = data.profiles[0];
+                                const skills = Array.isArray(p.skills) ? p.skills.join(', ') : (p.skills || '-');
+                                const strengths = Array.isArray(p.strengths) && p.strengths.length ? '<br><strong>Strengths:</strong> ' + p.strengths.map(s => `• ${s}`).join('<br>') : '';
+                                this.addMessage('ai', `<strong>${(p.name||'Unknown').replace(/</g,'&lt;')}</strong><br>Email: ${(p.email||'-').replace(/</g,'&lt;')}<br>Skills: ${skills.replace(/</g,'&lt;')}${strengths}`, true);
+                            } else {
+                                this.addMessage('ai', '<i class="fas fa-exclamation-triangle"></i> Could not analyze resume. Try the Resume Analyzer page.', true);
+                            }
+                        } catch (e) {
+                            this.addMessage('ai', '<i class="fas fa-exclamation-triangle"></i> ' + e.message, true);
+                        }
+                    } else {
+                        this.switchView('resume-analyzer');
+                        this.addMessage('ai', '<i class="fas fa-info-circle"></i> Open Resume Analyzer. Or attach a PDF/DOCX/TXT file and type <code>/resume</code> to analyze in chat.', true);
+                    }
+                    return true;
+                }
+
+                if (cmd === '/screen') {
+                    this.addMessage('user', raw);
+                    this.switchView('candidate-screening');
+                    this.addMessage('ai', '<i class="fas fa-info-circle"></i> Opened Candidate Screening. Paste job description, upload resumes, and click Screen.', true);
+                    return true;
+                }
+
+                if (cmd === '/mail') {
+                    this.addMessage('user', raw);
+                    this.switchView('mail-automation');
+                    this.addMessage('ai', '<i class="fas fa-info-circle"></i> Opened Mail Automation. Choose template and fill variables.', true);
                     return true;
                 }
 
@@ -4541,7 +5133,7 @@
                     this.addMessage('user', raw);
                     await fetch(_api('/api/clear-context'), {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
                         body: JSON.stringify({ session_id: this.sessionId })
                     });
                     this.chatMessages.innerHTML = '';
@@ -4583,6 +5175,7 @@
                     try {
                         const res = await fetch(_api('/api/summarize-files'), {
                             method: 'POST',
+                            headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ session_id: this.sessionId })
                         });
@@ -4612,6 +5205,9 @@
                 if (!box) return;
                 const COMMANDS = [
                     { cmd: '/help',      desc: 'Show all commands' },
+                    { cmd: '/resume',   desc: 'Analyze attached resume or open Resume Analyzer' },
+                    { cmd: '/screen',   desc: 'Open Candidate Screening' },
+                    { cmd: '/mail',     desc: 'Open Mail Automation' },
                     { cmd: '/clear',     desc: 'Clear conversation' },
                     { cmd: '/analyze',   desc: 'Analyze uploaded file' },
                     { cmd: '/summarize', desc: 'Summarize conversation' },
@@ -4645,7 +5241,7 @@
 
             async loadConversationContext() {
                 try {
-                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`));
+                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`), { headers: _apiHeaders() });
                     if (response.ok) {
                         const context = await response.json();
                         console.log('📚 Loaded context:', context);
@@ -4697,6 +5293,7 @@
                 const timeoutId  = setTimeout(() => controller.abort(), 120000);
                 const response   = await fetch(_api('/api/chat'), {
                     method: 'POST',
+                    headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, session_id: this.sessionId }),
                     signal: controller.signal
@@ -5163,6 +5760,7 @@
                     const response = await Promise.race([
                         fetch(_api('/api/analyze'), {
                             method: 'POST',
+                            headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
                             headers: {
                                 'Content-Type': 'application/json',
                             },
@@ -5233,6 +5831,7 @@
 
                     const response = await fetch(_api('/api/upload'), {
                         method: 'POST',
+                        headers: _apiHeaders(),
                         body: formData
                     });
 
@@ -5789,12 +6388,13 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 if (viewName === 'documents') {
                     this.loadDocuments();
                 } else if (viewName === 'testcases') {
-                    // Auto-load repository data when testcase view is opened
                     this.loadRepositoryData();
                 } else if (viewName === 'history') {
                     this.loadHistory();
                 } else if (viewName === 'settings') {
                     this.loadSettings();
+                } else if (viewName === 'help') {
+                    this.loadHelp();
                 }
             }
 
@@ -5818,7 +6418,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 emptyState.style.display = 'none';
 
                 try {
-                    const response = await fetch(_api(`/api/documents?session_id=${this.sessionId}`));
+                    const response = await fetch(_api(`/api/documents?session_id=${this.sessionId}`), { headers: _apiHeaders() });
 
                     if (response.ok) {
                         const data = await response.json();
@@ -6777,8 +7377,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
             async viewDocument(fileId) {
                 try {
                     const [metaRes, contentRes] = await Promise.all([
-                        fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`)),
-                        fetch(_api(`/api/documents/${fileId}/content?session_id=${this.sessionId}`))
+                        fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`), { headers: _apiHeaders() }),
+                        fetch(_api(`/api/documents/${fileId}/content?session_id=${this.sessionId}`), { headers: _apiHeaders() })
                     ]);
                     if (!metaRes.ok) throw new Error('Failed to get document details');
                     const meta = await metaRes.json();
@@ -6818,7 +7418,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 let fileInfo = this.uploadedFiles.find(f => f.fileId === fileId);
                 if (!fileInfo) {
                     try {
-                        const r = await fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`));
+                        const r = await fetch(_api(`/api/documents/${fileId}?session_id=${this.sessionId}`), { headers: _apiHeaders() });
                         const data = await r.json();
                         if (!data.document) throw new Error('Document not found');
                         const d = data.document;
@@ -6869,7 +7469,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
 
                 try {
                     const response = await fetch(_api(`/api/documents/${fileId}/delete?session_id=${this.sessionId}`), {
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        headers: _apiHeaders()
                     });
 
                     if (response.ok) {
@@ -6899,7 +7500,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 const historyCount = document.getElementById('historyCount');
 
                 try {
-                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`));
+                    const response = await fetch(_api(`/api/context?session_id=${this.sessionId}`), { headers: _apiHeaders() });
                     if (response.ok) {
                         const data = await response.json();
                         const messages = data.conversation_history || [];
@@ -6940,7 +7541,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 try {
                     const response = await fetch(_api('/api/clear-context'), {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
                         body: JSON.stringify({ session_id: this.sessionId })
                     });
 
@@ -7128,6 +7729,28 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 }
             }
 
+            loadHelp() {
+                const el = document.getElementById('helpContent');
+                if (!el) return;
+                let workspace = 'qa';
+                try {
+                    const u = JSON.parse(sessionStorage.getItem('nexora_user') || 'null');
+                    if (u && u.workspace) workspace = String(u.workspace).toLowerCase();
+                } catch (e) {}
+                const help = HELP_BY_WORKSPACE[workspace] || HELP_BY_WORKSPACE.qa;
+                const CHAT_CMDS = help.commands;
+                const pageIds = help.pages;
+                let html = `<h3 style="margin:0 0 20px;color:var(--accent);">${workspace.toUpperCase()} Workspace</h3>`;
+                html += '<h3 style="margin:0 0 20px;color:var(--accent);">Chat Commands</h3><div style="background:#fff;padding:16px;border-radius:12px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,0.06);"><table style="width:100%;font-size:14px;"><tr style="border-bottom:1px solid #e2e8f0;"><th style="text-align:left;padding:8px 0;">Command</th><th style="text-align:left;padding:8px 0;">Description</th></tr>';
+                CHAT_CMDS.forEach(c => { html += `<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 0;"><code>${c.cmd}</code></td><td style="padding:8px 0;">${c.desc}</td></tr>`; });
+                html += '</table></div><h3 style="margin:0 0 20px;color:var(--accent);">Page Overview</h3>';
+                pageIds.forEach(id => {
+                    const p = PAGE_INFO[id];
+                    if (p) html += `<div style="background:#fff;padding:16px;border-radius:12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);"><h4 style="margin:0 0 8px;">${p.title}</h4><p style="margin:0;font-size:14px;line-height:1.6;color:#4a5568;">${p.desc}</p></div>`;
+                });
+                el.innerHTML = html;
+            }
+
             async checkAPIKeyStatus() {
                 const map = {
                     openaiKeyStatus:  'openai',
@@ -7184,6 +7807,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'qa-analytics', label: 'QA Analytics', icon: 'fa-chart-bar' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
+                { view: 'help', label: 'Help', icon: 'fa-question-circle' },
                 { view: 'settings', label: 'Settings', icon: 'fa-cog' }
             ],
             hr: [
@@ -7194,6 +7818,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'employee-documents', label: 'Employee Documents', icon: 'fa-users' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
+                { view: 'help', label: 'Help', icon: 'fa-question-circle' },
                 { view: 'settings', label: 'Settings', icon: 'fa-cog' }
             ],
             ba: [
@@ -7203,6 +7828,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'flow-diagram', label: 'Flow Diagram Builder', icon: 'fa-project-diagram' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
+                { view: 'help', label: 'Help', icon: 'fa-question-circle' },
                 { view: 'settings', label: 'Settings', icon: 'fa-cog' }
             ]
         };
@@ -7303,6 +7929,20 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 // Not logged in: show login
                 showLogin();
             }
+
+            // Page info icon click
+            document.addEventListener('click', (e) => {
+                const icon = e.target.closest('.page-info-icon');
+                if (icon && typeof PAGE_INFO !== 'undefined') {
+                    const id = icon.dataset.pageId;
+                    const info = PAGE_INFO[id];
+                    if (info) {
+                        document.getElementById('pageInfoTitle').textContent = info.title;
+                        document.getElementById('pageInfoDesc').textContent = info.desc;
+                        document.getElementById('pageInfoModal').classList.add('visible');
+                    }
+                }
+            });
 
             // Logout button
             const logoutBtn = document.getElementById('logoutBtn');
