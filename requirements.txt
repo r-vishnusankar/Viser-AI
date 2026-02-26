@@ -14,6 +14,10 @@ google-generativeai>=0.8.0
 openai>=1.0.0
 pydantic>=2.0.0
 loguru>=0.7.0
+# Google Sheets integration (live testcase sync)
+google-auth>=2.0.0
+google-api-python-client>=2.0.0
+
 # Optional (document generation, etc.)
 reportlab>=4.0.0
 openpyxl>=3.1.0

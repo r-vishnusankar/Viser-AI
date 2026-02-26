@@ -29,30 +29,34 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             print(error_msg)
         return
     
-    # Check if OpenAI API key is available
-    openai_key = settings.openai_api_key
+    # OpenAI key from .env only
+    openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
-        error_msg = "⚠️ OpenAI API key not configured. Run 'python setup_api_keys.py' to configure."
+        error_msg = "⚠️ OPENAI_API_KEY not set. Add it to .env file."
         if ui_logger:
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
         return
     
+    openai_model = os.getenv('OPENAI_MODEL', 'o4-mini-2025-04-16')
+    
     try:
         if ui_logger:
             ui_logger.log('INFO', f'🌐 Opening browser to: {url}')
             ui_logger.log('INFO', f'🎯 Task: {task_description}')
+            ui_logger.log('INFO', f'🤖 Using OpenAI model: {openai_model} (key: ...{openai_key[-4:] if len(openai_key) > 4 else "****"})')
         else:
             print(f"🌐 Opening: {url}")
             print(f"🎯 Task: {task_description}")
+            print(f"🤖 Using OpenAI model: {openai_model}")
         
         # Set OpenAI API key for browser-use
         os.environ['OPENAI_API_KEY'] = openai_key
         
         # Initialize browser-use with proper LLM instance and a dedicated profile
         from browser_use.browser.profile import BrowserProfile  # type: ignore
-        llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_key)
+        llm = ChatOpenAI(model=openai_model, api_key=openai_key)
         profile_dir = str(Path.cwd() / "browser_use_profile")
         os.makedirs(profile_dir, exist_ok=True)
         browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=False)

@@ -17,7 +17,7 @@ from settings import settings
 # Use env-overridable model names
 GROQ_MODEL   = os.getenv("GROQ_MODEL",   "llama-3.3-70b-versatile")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "o4-mini-2025-04-16")
 
 SYSTEM_PROMPT = '''You are an AI objective planner. Break natural language into specific, actionable browser automation steps.
 
@@ -64,22 +64,22 @@ class AIPlanner:
     def __init__(self, provider: str = "groq"):
         self.provider = provider.lower()
         if self.provider == "groq":
-            key = settings.groq_api_key or os.getenv("GROQ_API_KEY")
+            key = os.getenv("GROQ_API_KEY")
             if not key:
-                raise RuntimeError("GROQ_API_KEY not set. Configure it in Settings or .env file.")
+                raise RuntimeError("GROQ_API_KEY not set. Add it to .env file.")
             self.client = Groq(api_key=key)
             self.model = GROQ_MODEL
         elif self.provider == "gemini":
-            key = settings.gemini_api_key or os.getenv("GEMINI_API_KEY")
+            key = os.getenv("GEMINI_API_KEY")
             if not key:
-                raise RuntimeError("GEMINI_API_KEY not set. Configure it in Settings or .env file.")
+                raise RuntimeError("GEMINI_API_KEY not set. Add it to .env file.")
             genai.configure(api_key=key)
             self.client = genai.GenerativeModel(GEMINI_MODEL)
             self.model = GEMINI_MODEL
         elif self.provider == "openai":
-            key = settings.openai_api_key or os.getenv("OPENAI_API_KEY")
+            key = os.getenv("OPENAI_API_KEY")
             if not key:
-                raise RuntimeError("OPENAI_API_KEY not set. Configure it in Settings or .env file.")
+                raise RuntimeError("OPENAI_API_KEY not set. Add it to .env file.")
             from openai import OpenAI
             self.client = OpenAI(api_key=key)
             self.model = OPENAI_MODEL
@@ -92,12 +92,12 @@ class AIPlanner:
             context_prompt += f"\n\nTarget URL: {target_url}\nUse this URL as the base for navigation steps."
 
         if self.provider in ("groq", "openai"):
-            resp = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "system", "content": context_prompt},
-                          {"role": "user",   "content": user_request}],
-                temperature=0.1, max_tokens=1500
-            )
+            kwargs = {"model": self.model, "messages": [{"role": "system", "content": context_prompt}, {"role": "user", "content": user_request}], "temperature": 0.1}
+            if "o4" in self.model.lower() or "o1" in self.model.lower():
+                kwargs["max_completion_tokens"] = 1500
+            else:
+                kwargs["max_tokens"] = 1500
+            resp = self.client.chat.completions.create(**kwargs)
             return resp.choices[0].message.content.strip()
         else:  # gemini
             prompt = f"{context_prompt}\nUser Request: {user_request}"
@@ -141,12 +141,12 @@ class AIPlanner:
                 context_prompt += f"\n\nTarget URL: {target_url}\nUse this URL as the base for all navigation and actions."
             
             if self.provider in ("groq", "openai"):
-                resp = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "system", "content": context_prompt},
-                              {"role": "user",   "content": user_request}],
-                    temperature=0.1, max_tokens=1000
-                )
+                kwargs = {"model": self.model, "messages": [{"role": "system", "content": context_prompt}, {"role": "user", "content": user_request}], "temperature": 0.1}
+                if "o4" in self.model.lower() or "o1" in self.model.lower():
+                    kwargs["max_completion_tokens"] = 1000
+                else:
+                    kwargs["max_tokens"] = 1000
+                resp = self.client.chat.completions.create(**kwargs)
                 raw = resp.choices[0].message.content.strip()
             else:  # gemini
                 prompt = f"{context_prompt}\nUser Request: {user_request}"
@@ -245,9 +245,8 @@ def compare(user_request: str, target_url: str = "") -> Dict[str, Dict[str, Any]
     results = {}
     # Only include providers that have keys configured
     candidates = []
-    if settings.groq_api_key   or os.getenv("GROQ_API_KEY"):   candidates.append("groq")
-    if settings.gemini_api_key or os.getenv("GEMINI_API_KEY"): candidates.append("gemini")
-    if settings.openai_api_key or os.getenv("OPENAI_API_KEY"): candidates.append("openai")
+    if os.getenv("GROQ_API_KEY"):   candidates.append("groq")
+    if os.getenv("OPENAI_API_KEY"): candidates.append("openai")
     if not candidates:
         candidates = ["groq"]  # fallback, will error gracefully
 
