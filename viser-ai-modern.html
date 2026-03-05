@@ -3236,6 +3236,105 @@
         }
         .login-error.visible { display: block; }
         #appContainer.hidden { display: none !important; }
+
+        /* ── QA Intelligence ─────────────────────────────────────────────── */
+        .qa-tool-card {
+            background: var(--card-bg, #fff);
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px 18px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: border-color .18s, box-shadow .18s;
+        }
+        .qa-tool-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 4px 16px rgba(107,76,113,.12);
+        }
+        .qa-tool-icon {
+            font-size: 24px;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+        .qa-tool-info h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 0 0 4px;
+        }
+        .qa-tool-info p {
+            font-size: 13px;
+            color: #718096;
+            margin: 0;
+            line-height: 1.4;
+        }
+        .qa-tool-btn {
+            align-self: flex-start;
+            margin-top: auto;
+            padding: 7px 18px;
+            background: var(--gradient-mixed, var(--accent));
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+        .qa-tool-btn:hover { opacity: .88; }
+        .qa-prompt-chip {
+            background: #f7fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #4a5568;
+            cursor: pointer;
+            text-align: left;
+            transition: border-color .15s, background .15s;
+        }
+        .qa-prompt-chip:hover {
+            background: #ebf8ff;
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .qa-upload-btn {
+            padding: 6px 12px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 12px;
+            color: #4a5568;
+            cursor: pointer;
+            transition: border-color .15s;
+        }
+        .qa-upload-btn:hover { border-color: var(--accent); }
+        .qa-upload-btn--active {
+            background: var(--gradient-mixed, var(--accent));
+            color: #fff;
+            border-color: transparent;
+        }
+        .qa-doc-link {
+            background: none;
+            border: none;
+            padding: 8px 4px;
+            font-size: 13px;
+            color: #4a5568;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: 6px;
+            transition: color .15s, background .15s;
+            width: 100%;
+        }
+        .qa-doc-link:hover { color: var(--accent); background: #f7fafc; }
+        .qa-doc-link i { width: 16px; text-align: center; color: var(--accent); }
+        @media (max-width: 768px) {
+            #qaAssistantPanel { display: none !important; }
+        }
     </style>
 </head>
 
@@ -3827,13 +3926,180 @@
             </div>
 
             <!-- Placeholder views for workspace modules (Coming soon) -->
-            <div id="qa-analyticsView" class="view-container" style="display: none;">
-                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">QA Analytics</h1><span class="page-info-icon" data-page-id="qa-analytics" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
-                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
-                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-chart-bar"></i></div>
-                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
-                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">QA Analytics dashboard is under development.</p>
-                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='/analyze'; viseAI.messageInput.focus();">Open in Chat</button>
+            <!-- ═══ QA INTELLIGENCE HUB ═══════════════════════════════════════ -->
+            <div id="qa-intelligenceView" class="view-container" style="display:none;flex-direction:column;">
+                <div class="chat-header">
+                    <div style="display:flex;align-items:center;">
+                        <h1 class="chat-title">QA Intelligence</h1>
+                        <span class="page-info-icon" data-page-id="qa-intelligence" title="Page info"><i class="fas fa-info-circle"></i></span>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex;overflow:hidden;background:var(--main-bg);">
+
+                    <!-- Tool Groups ──────────────────────────────────── -->
+                    <div style="flex:1;overflow-y:auto;padding:28px 24px;">
+
+                        <!-- Test Intelligence -->
+                        <div class="qa-intel-group" style="margin-bottom:36px;">
+                            <h2 style="font-size:15px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
+                                <i class="fas fa-vials" style="margin-right:8px;color:var(--accent);"></i>Test Intelligence
+                            </h2>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon"><i class="fas fa-list-check"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Test Case Generator</h3>
+                                        <p>Generate functional and edge test cases from a feature description.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('test-case-generate')">Generate</button>
+                                </div>
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon"><i class="fas fa-plug"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>API Test Generator</h3>
+                                        <p>Generate API testing scenarios for endpoints.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('api-test-generate')">Generate</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bug Intelligence -->
+                        <div class="qa-intel-group" style="margin-bottom:36px;">
+                            <h2 style="font-size:15px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
+                                <i class="fas fa-bug" style="margin-right:8px;color:#e53e3e;"></i>Bug Intelligence
+                            </h2>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#e53e3e;"><i class="fas fa-terminal"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Bug Log Analyzer</h3>
+                                        <p>Examine logs for errors, patterns and root causes.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('bug-log-analyze')">Analyze</button>
+                                </div>
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#d69e2e;"><i class="fas fa-image"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Screenshot Analyzer</h3>
+                                        <p>Identify UI issues from uploaded screenshots.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('screenshot-analyze')">Analyze</button>
+                                </div>
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#c53030;"><i class="fas fa-search-minus"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Root Cause Detector</h3>
+                                        <p>Detect the root cause of defects with fix suggestions.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('root-cause-detect')">Analyze</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- QA Strategy Intelligence -->
+                        <div class="qa-intel-group" style="margin-bottom:36px;">
+                            <h2 style="font-size:15px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
+                                <i class="fas fa-chess" style="margin-right:8px;color:#553c9a;"></i>QA Strategy Intelligence
+                            </h2>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#553c9a;"><i class="fas fa-code-branch"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Regression Impact Analyzer</h3>
+                                        <p>Identify areas of impact and suggest regression tests.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('regression-impact')">Analyze</button>
+                                </div>
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#2b6cb0;"><i class="fas fa-shield-alt"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Risk Advisor</h3>
+                                        <p>Prioritize test cases based on module risk analysis.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('risk-advisor')">Analyze</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- QA Assistant Panel ───────────────────────────── -->
+                    <div id="qaAssistantPanel" style="width:300px;min-width:280px;border-left:1px solid #e2e8f0;background:#fafafa;display:flex;flex-direction:column;overflow:hidden;">
+                        <div style="padding:18px 16px 12px;border-bottom:1px solid #e2e8f0;">
+                            <h3 style="font-size:15px;font-weight:700;color:#2d3748;margin:0 0 4px;">QA Assistant</h3>
+                            <p style="font-size:12px;color:#718096;margin:0;">Quick actions &amp; file analysis</p>
+                        </div>
+
+                        <!-- Suggested Prompts -->
+                        <div style="padding:14px 16px;border-bottom:1px solid #f0f0f0;">
+                            <p style="font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Suggested Prompts</p>
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('test-case-generate','Create test cases for Login')">Create test cases for Login</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('bug-log-analyze')">Analyze error log</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('regression-impact')">Generate regression scenarios</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('test-case-generate','Suggest exploratory tests for Checkout')">Suggest exploratory tests for Checkout</button>
+                            </div>
+                        </div>
+
+                        <!-- File Drop Zone -->
+                        <div style="padding:14px 16px;border-bottom:1px solid #f0f0f0;">
+                            <p style="font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Drop File</p>
+                            <div id="qaAssistantDropZone" style="border:2px dashed #e2e8f0;border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:border-color .2s;">
+                                <i class="fas fa-cloud-upload-alt" style="font-size:22px;color:#cbd5e0;margin-bottom:6px;display:block;"></i>
+                                <p style="font-size:12px;color:#a0aec0;margin:0 0 10px;">Drop screenshot, log, or text file</p>
+                                <div style="display:flex;gap:8px;justify-content:center;">
+                                    <button class="qa-upload-btn" onclick="document.getElementById('qaLogFileInput').click()"><i class="fas fa-terminal"></i> Upload Log</button>
+                                    <button class="qa-upload-btn qa-upload-btn--active" onclick="document.getElementById('qaImgFileInput').click()"><i class="fas fa-image"></i> Upload Image</button>
+                                </div>
+                                <input type="file" id="qaLogFileInput" accept=".txt,.log,.pdf,.docx,.csv" style="display:none;">
+                                <input type="file" id="qaImgFileInput" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" style="display:none;">
+                            </div>
+                        </div>
+
+                        <!-- Document Intelligence -->
+                        <div style="padding:14px 16px;flex:1;overflow-y:auto;">
+                            <p style="font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Document Intelligence</p>
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                                <button class="qa-doc-link" onclick="viseAI.openQATool('test-case-generate')"><i class="fas fa-file-code"></i> PRD Analyzer</button>
+                                <button class="qa-doc-link" onclick="viseAI.openQATool('test-case-generate')"><i class="fas fa-file-alt"></i> Requirement Analyzer</button>
+                                <button class="qa-doc-link" onclick="viseAI.openQATool('risk-advisor')"><i class="fas fa-shield-alt"></i> RES Assured Generator</button>
+                                <button class="qa-doc-link" onclick="viseAI.openQATool('regression-impact')"><i class="fas fa-sync-alt"></i> Regression Planner</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ QA TOOL MODAL ════════════════════════════════════════════ -->
+            <div id="qaToolModal" style="display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+                <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">
+                    <!-- Modal Header -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid #e2e8f0;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div id="qaModalIcon" style="width:38px;height:38px;border-radius:10px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;"></div>
+                            <div>
+                                <h2 id="qaModalTitle" style="font-size:17px;font-weight:700;color:#1a202c;margin:0;"></h2>
+                                <p id="qaModalSubtitle" style="font-size:12px;color:#718096;margin:0;"></p>
+                            </div>
+                        </div>
+                        <button onclick="viseAI.closeQATool()" style="background:none;border:none;cursor:pointer;color:#a0aec0;font-size:20px;padding:4px;border-radius:6px;" title="Close"><i class="fas fa-times"></i></button>
+                    </div>
+                    <!-- Modal Body -->
+                    <div style="flex:1;overflow-y:auto;padding:24px;" id="qaModalBody">
+                        <!-- Input area — populated by JS -->
+                        <div id="qaModalInputArea"></div>
+                        <!-- Run button -->
+                        <button id="qaModalRunBtn" class="btn btn-primary" style="margin-top:16px;width:100%;" onclick="viseAI.runQATool()">
+                            <i class="fas fa-play"></i> <span id="qaModalRunLabel">Run</span>
+                        </button>
+                        <!-- Loading -->
+                        <div id="qaModalLoading" style="display:none;text-align:center;padding:32px;">
+                            <div class="loading-spinner" style="margin:0 auto 16px;"></div>
+                            <p style="color:#718096;font-size:14px;">Analysing with AI…</p>
+                        </div>
+                        <!-- Result -->
+                        <div id="qaModalResult" style="display:none;margin-top:20px;"></div>
+                    </div>
                 </div>
             </div>
             <div id="resume-analyzerView" class="view-container" style="display: none;">
@@ -4150,6 +4416,7 @@
                 this.setupChatHistory();
                 this.setupHRModules();
                 this.setupBAModules();
+                this.setupQAIntelligence();
                 this.restoreOrCreateSession();
                 // Chat is default view on load - show submenu
                 const chatGroup = document.querySelector('.chat-nav-group');
@@ -4413,6 +4680,514 @@
                     result.style.display = 'block';
                 }
             }
+
+            // ═══════════════════════════════════════════════════════════════
+            // QA INTELLIGENCE MODULE
+            // ═══════════════════════════════════════════════════════════════
+
+            setupQAIntelligence() {
+                // Tool config map — defines each tool's modal appearance and input schema
+                this._qaTools = {
+                    'test-case-generate': {
+                        title: 'Test Case Generator',
+                        subtitle: 'Generate functional and edge test cases',
+                        icon: '<i class="fas fa-list-check"></i>',
+                        endpoint: '/api/qa/test-case-generate',
+                        runLabel: 'Generate Test Cases',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Feature / Requirement Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="qaInput_feature" rows="5" placeholder="Describe the feature or requirement to generate test cases for…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            <label style="display:block;font-weight:600;margin:14px 0 6px;">Additional Context <span style="color:#a0aec0;font-weight:400;">(optional)</span></label>
+                            <textarea id="qaInput_context" rows="2" placeholder="Technology stack, user roles, constraints…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;"></textarea>`,
+                        collectPayload: () => ({
+                            feature: (document.getElementById('qaInput_feature')?.value || '').trim(),
+                            context: (document.getElementById('qaInput_context')?.value || '').trim()
+                        }),
+                        validate: (p) => p.feature ? null : 'Feature description is required.',
+                        renderResult: (r) => this._renderTestCases(r)
+                    },
+                    'api-test-generate': {
+                        title: 'API Test Generator',
+                        subtitle: 'Generate API test scenarios for endpoints',
+                        icon: '<i class="fas fa-plug"></i>',
+                        endpoint: '/api/qa/api-test-generate',
+                        runLabel: 'Generate API Tests',
+                        buildInput: () => `
+                            <div style="display:grid;grid-template-columns:100px 1fr;gap:10px;margin-bottom:14px;">
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:6px;">Method</label>
+                                    <select id="qaInput_method" style="width:100%;padding:10px 8px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                        <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:6px;">Endpoint URL</label>
+                                    <input id="qaInput_endpoint" type="text" placeholder="/api/users/{id}" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                </div>
+                            </div>
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Description / OpenAPI snippet <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="qaInput_description" rows="5" placeholder="Describe the endpoint behaviour, request/response schema, or paste an OpenAPI snippet…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;"></textarea>`,
+                        collectPayload: () => ({
+                            method: document.getElementById('qaInput_method')?.value || 'GET',
+                            endpoint: (document.getElementById('qaInput_endpoint')?.value || '').trim(),
+                            description: (document.getElementById('qaInput_description')?.value || '').trim()
+                        }),
+                        validate: (p) => p.description ? null : 'Endpoint description is required.',
+                        renderResult: (r) => this._renderAPITests(r)
+                    },
+                    'bug-log-analyze': {
+                        title: 'Bug Log Analyzer',
+                        subtitle: 'Examine logs for errors, patterns and root causes',
+                        icon: '<i class="fas fa-terminal"></i>',
+                        endpoint: '/api/qa/bug-log-analyze',
+                        runLabel: 'Analyze Log',
+                        isFile: false,
+                        buildInput: () => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Paste Log Content <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="qaInput_log_text" rows="8" placeholder="Paste your application log, error stack trace or console output here…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:monospace;resize:vertical;"></textarea>
+                            <p style="font-size:12px;color:#a0aec0;margin-top:6px;">Or upload a log file:</p>
+                            <input type="file" id="qaInput_log_file" accept=".txt,.log,.pdf,.docx,.csv" style="margin-top:4px;">`,
+                        collectPayload: () => ({ log_text: (document.getElementById('qaInput_log_text')?.value || '').trim() }),
+                        getFile: () => document.getElementById('qaInput_log_file')?.files?.[0] || null,
+                        validate: (p, file) => (p.log_text || file) ? null : 'Paste log content or upload a file.',
+                        renderResult: (r) => this._renderBugLogResult(r)
+                    },
+                    'screenshot-analyze': {
+                        title: 'Screenshot Analyzer',
+                        subtitle: 'Identify UI issues from uploaded screenshots',
+                        icon: '<i class="fas fa-image"></i>',
+                        endpoint: '/api/qa/screenshot-analyze',
+                        runLabel: 'Analyze Screenshot',
+                        isFile: true,
+                        buildInput: () => `
+                            <label style="display:block;font-weight:600;margin-bottom:10px;">Upload UI Screenshot <span style="color:#e53e3e;">*</span></label>
+                            <div id="qaScreenshotPreviewWrap" style="margin-bottom:12px;display:none;">
+                                <img id="qaScreenshotPreview" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid #e2e8f0;" alt="Preview">
+                            </div>
+                            <input type="file" id="qaInput_screenshot" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp" style="display:none;">
+                            <button type="button" onclick="document.getElementById('qaInput_screenshot').click()" style="padding:10px 20px;border:2px dashed #e2e8f0;border-radius:8px;background:#f7fafc;cursor:pointer;font-size:14px;color:#4a5568;width:100%;">
+                                <i class="fas fa-cloud-upload-alt"></i> Choose Screenshot (JPG, PNG, WebP)
+                            </button>
+                            <p id="qaScreenshotName" style="font-size:12px;color:#718096;margin-top:8px;"></p>`,
+                        collectPayload: () => ({}),
+                        getFile: () => document.getElementById('qaInput_screenshot')?.files?.[0] || null,
+                        validate: (p, file) => file ? null : 'Please upload a screenshot image.',
+                        renderResult: (r) => this._renderScreenshotResult(r)
+                    },
+                    'root-cause-detect': {
+                        title: 'Root Cause Detector',
+                        subtitle: 'Detect root cause of defects with fix suggestions',
+                        icon: '<i class="fas fa-search-minus"></i>',
+                        endpoint: '/api/qa/root-cause-detect',
+                        runLabel: 'Detect Root Cause',
+                        buildInput: () => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Bug Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="qaInput_bug_description" rows="4" placeholder="Describe the bug: what happened, steps to reproduce, environment…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;"></textarea>
+                            <label style="display:block;font-weight:600;margin:14px 0 6px;">Log Snippet <span style="color:#a0aec0;font-weight:400;">(optional)</span></label>
+                            <textarea id="qaInput_log_snippet" rows="4" placeholder="Paste relevant log lines or stack trace…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:monospace;resize:vertical;"></textarea>`,
+                        collectPayload: () => ({
+                            bug_description: (document.getElementById('qaInput_bug_description')?.value || '').trim(),
+                            log_snippet: (document.getElementById('qaInput_log_snippet')?.value || '').trim()
+                        }),
+                        validate: (p) => p.bug_description ? null : 'Bug description is required.',
+                        renderResult: (r) => this._renderRCAResult(r)
+                    },
+                    'regression-impact': {
+                        title: 'Regression Impact Analyzer',
+                        subtitle: 'Identify impact areas and suggest regression tests',
+                        icon: '<i class="fas fa-code-branch"></i>',
+                        endpoint: '/api/qa/regression-impact',
+                        runLabel: 'Analyze Impact',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Change Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="qaInput_change_description" rows="5" placeholder="Describe the code or requirement change: what was modified, added, or removed…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            <label style="display:block;font-weight:600;margin:14px 0 6px;">Affected Modules <span style="color:#a0aec0;font-weight:400;">(optional)</span></label>
+                            <input id="qaInput_affected_modules" type="text" placeholder="e.g. Login, Checkout, Payment Gateway" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">`,
+                        collectPayload: () => ({
+                            change_description: (document.getElementById('qaInput_change_description')?.value || '').trim(),
+                            affected_modules: (document.getElementById('qaInput_affected_modules')?.value || '').trim()
+                        }),
+                        validate: (p) => p.change_description ? null : 'Change description is required.',
+                        renderResult: (r) => this._renderRegressionResult(r)
+                    },
+                    'risk-advisor': {
+                        title: 'Risk Advisor',
+                        subtitle: 'Risk-based test priority matrix for your feature',
+                        icon: '<i class="fas fa-shield-alt"></i>',
+                        endpoint: '/api/qa/risk-advisor',
+                        runLabel: 'Assess Risk',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Feature / Module Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="qaInput_feature_description" rows="6" placeholder="Describe the feature or module: its purpose, user interactions, integrations, data it handles…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>`,
+                        collectPayload: () => ({
+                            feature_description: (document.getElementById('qaInput_feature_description')?.value || '').trim()
+                        }),
+                        validate: (p) => p.feature_description ? null : 'Feature description is required.',
+                        renderResult: (r) => this._renderRiskResult(r)
+                    }
+                };
+
+                this._activeQATool = null;
+
+                // Wire up QA Assistant panel file inputs
+                const logInput = document.getElementById('qaLogFileInput');
+                const imgInput = document.getElementById('qaImgFileInput');
+                if (logInput) logInput.addEventListener('change', () => {
+                    if (logInput.files?.[0]) this._qaOpenFromAssistantFile(logInput.files[0], 'log');
+                });
+                if (imgInput) imgInput.addEventListener('change', () => {
+                    if (imgInput.files?.[0]) this._qaOpenFromAssistantFile(imgInput.files[0], 'image');
+                });
+
+                // Wire screenshot preview inside modal
+                document.addEventListener('change', (e) => {
+                    if (e.target && e.target.id === 'qaInput_screenshot') {
+                        const file = e.target.files?.[0];
+                        const preview = document.getElementById('qaScreenshotPreview');
+                        const wrap = document.getElementById('qaScreenshotPreviewWrap');
+                        const name = document.getElementById('qaScreenshotName');
+                        if (file && preview) {
+                            const url = URL.createObjectURL(file);
+                            preview.src = url;
+                            if (wrap) wrap.style.display = 'block';
+                            if (name) name.textContent = file.name;
+                        }
+                    }
+                });
+            }
+
+            _qaOpenFromAssistantFile(file, type) {
+                const toolId = type === 'image' ? 'screenshot-analyze' : 'bug-log-analyze';
+                this.openQATool(toolId);
+                // After modal opens, inject the file
+                setTimeout(() => {
+                    const inputId = type === 'image' ? 'qaInput_screenshot' : 'qaInput_log_file';
+                    const el = document.getElementById(inputId);
+                    if (!el) return;
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    el.files = dt.files;
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }, 100);
+            }
+
+            openQATool(toolId, prefill) {
+                const tool = this._qaTools?.[toolId];
+                if (!tool) return;
+                this._activeQATool = toolId;
+
+                const modal = document.getElementById('qaToolModal');
+                const icon = document.getElementById('qaModalIcon');
+                const title = document.getElementById('qaModalTitle');
+                const subtitle = document.getElementById('qaModalSubtitle');
+                const inputArea = document.getElementById('qaModalInputArea');
+                const runBtn = document.getElementById('qaModalRunBtn');
+                const runLabel = document.getElementById('qaModalRunLabel');
+                const result = document.getElementById('qaModalResult');
+                const loading = document.getElementById('qaModalLoading');
+
+                if (icon) icon.innerHTML = tool.icon;
+                if (title) title.textContent = tool.title;
+                if (subtitle) subtitle.textContent = tool.subtitle;
+                if (inputArea) inputArea.innerHTML = tool.buildInput(prefill || '');
+                if (runLabel) runLabel.textContent = tool.runLabel || 'Run';
+                if (result) { result.style.display = 'none'; result.innerHTML = ''; }
+                if (loading) loading.style.display = 'none';
+                if (runBtn) runBtn.style.display = 'block';
+
+                if (modal) {
+                    modal.style.display = 'flex';
+                    // Prevent body scroll when modal open
+                    document.body.style.overflow = 'hidden';
+                }
+
+                // Close on backdrop click
+                modal.onclick = (e) => { if (e.target === modal) this.closeQATool(); };
+            }
+
+            closeQATool() {
+                const modal = document.getElementById('qaToolModal');
+                if (modal) modal.style.display = 'none';
+                document.body.style.overflow = '';
+                this._activeQATool = null;
+            }
+
+            async runQATool() {
+                const toolId = this._activeQATool;
+                const tool = this._qaTools?.[toolId];
+                if (!tool) return;
+
+                const payload = tool.collectPayload();
+                const file = tool.getFile ? tool.getFile() : null;
+                const err = tool.validate ? tool.validate(payload, file) : null;
+                if (err) { alert(err); return; }
+
+                const runBtn = document.getElementById('qaModalRunBtn');
+                const loading = document.getElementById('qaModalLoading');
+                const result = document.getElementById('qaModalResult');
+
+                if (runBtn) runBtn.style.display = 'none';
+                if (loading) loading.style.display = 'block';
+                if (result) { result.style.display = 'none'; result.innerHTML = ''; }
+
+                try {
+                    let fetchOpts;
+                    if (tool.isFile || file) {
+                        const fd = new FormData();
+                        if (file) fd.append('file', file);
+                        Object.entries(payload).forEach(([k, v]) => { if (v) fd.append(k, v); });
+                        fetchOpts = { method: 'POST', headers: _apiHeaders(), body: fd };
+                    } else {
+                        fetchOpts = {
+                            method: 'POST',
+                            headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ...payload, session_id: this.sessionId })
+                        };
+                    }
+
+                    const resp = await fetch(_api(tool.endpoint), fetchOpts);
+                    const data = await resp.json();
+
+                    if (loading) loading.style.display = 'none';
+                    if (runBtn) runBtn.style.display = 'block';
+
+                    if (data.success && data.result) {
+                        if (result) {
+                            result.innerHTML = tool.renderResult(data.result);
+                            result.style.display = 'block';
+                        }
+                    } else {
+                        if (result) {
+                            result.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;padding:16px;color:#c53030;"><i class="fas fa-exclamation-triangle"></i> ${(data.error || 'Analysis failed').replace(/</g,'&lt;')}</div>`;
+                            result.style.display = 'block';
+                        }
+                    }
+                } catch (e) {
+                    if (loading) loading.style.display = 'none';
+                    if (runBtn) runBtn.style.display = 'block';
+                    if (result) {
+                        result.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;padding:16px;color:#c53030;"><i class="fas fa-exclamation-triangle"></i> Error: ${String(e.message).replace(/</g,'&lt;')}</div>`;
+                        result.style.display = 'block';
+                    }
+                }
+            }
+
+            // ── Result Renderers ─────────────────────────────────────────────
+
+            _qaRiskBadge(level) {
+                const colors = { Critical: '#c53030', High: '#c05621', Medium: '#b7791f', Low: '#276749' };
+                const bg = { Critical: '#fff5f5', High: '#fffaf0', Medium: '#fffff0', Low: '#f0fff4' };
+                const c = colors[level] || '#4a5568';
+                const b = bg[level] || '#f7fafc';
+                return `<span style="background:${b};color:${c};border:1px solid ${c};border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;">${level}</span>`;
+            }
+
+            _qaCard(content, extraStyle) {
+                return `<div style="background:#fff;border-radius:12px;padding:18px 20px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f0f0f0;${extraStyle || ''}">${content}</div>`;
+            }
+
+            _qaSection(title, items, icon) {
+                if (!Array.isArray(items) || !items.length) return '';
+                return `<div style="margin-bottom:14px;"><p style="font-size:12px;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">${icon ? `<i class="${icon}" style="margin-right:5px;"></i>` : ''}${title}</p><ul style="margin:0 0 0 18px;padding:0;">${items.map(x => `<li style="margin-bottom:3px;font-size:14px;">${String(x).replace(/</g,'&lt;')}</li>`).join('')}</ul></div>`;
+            }
+
+            _renderTestCases(r) {
+                const cases = r.test_cases || [];
+                const typePills = { Functional: '#3182ce', Edge: '#d69e2e', Negative: '#e53e3e', Performance: '#805ad5' };
+                const pCols = { High: '#c53030', Medium: '#c05621', Low: '#276749' };
+                let html = '';
+                if (r.summary) html += this._qaCard(`<p style="margin:0;color:#4a5568;">${r.summary.replace(/</g,'&lt;')}</p>`);
+                if (r.coverage_areas?.length) {
+                    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${r.coverage_areas.map(a => `<span style="background:#ebf8ff;color:#2b6cb0;border-radius:12px;padding:3px 10px;font-size:12px;">${a.replace(/</g,'&lt;')}</span>`).join('')}</div>`;
+                }
+                cases.forEach(tc => {
+                    const typeColor = typePills[tc.type] || '#718096';
+                    const pColor = pCols[tc.priority] || '#718096';
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                            <span style="font-weight:700;color:#1a202c;font-size:14px;">${(tc.id||'').replace(/</g,'&lt;')} — ${(tc.title||'').replace(/</g,'&lt;')}</span>
+                            <span style="background:${typeColor}20;color:${typeColor};border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;">${(tc.type||'').replace(/</g,'&lt;')}</span>
+                            <span style="background:#f7fafc;color:${pColor};border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700;">P: ${(tc.priority||'').replace(/</g,'&lt;')}</span>
+                        </div>
+                        ${tc.preconditions ? `<p style="font-size:13px;color:#718096;margin-bottom:8px;"><strong>Preconditions:</strong> ${tc.preconditions.replace(/</g,'&lt;')}</p>` : ''}
+                        ${Array.isArray(tc.steps) && tc.steps.length ? `<p style="font-size:13px;font-weight:600;margin-bottom:4px;">Steps:</p><ol style="margin:0 0 8px 18px;">${tc.steps.map(s => `<li style="font-size:13px;margin-bottom:2px;">${s.replace(/</g,'&lt;')}</li>`).join('')}</ol>` : ''}
+                        ${tc.expected_result ? `<p style="font-size:13px;color:#276749;margin-bottom:6px;"><strong>Expected:</strong> ${tc.expected_result.replace(/</g,'&lt;')}</p>` : ''}
+                        ${tc.test_data ? `<p style="font-size:12px;color:#718096;margin:0;"><strong>Test Data:</strong> ${tc.test_data.replace(/</g,'&lt;')}</p>` : ''}`);
+                });
+                return html || '<p style="color:#718096;">No test cases generated.</p>';
+            }
+
+            _renderAPITests(r) {
+                const scenarios = r.test_scenarios || [];
+                const typePills = { 'Happy Path': '#276749', Error: '#c53030', Auth: '#553c9a', Boundary: '#c05621', Performance: '#2b6cb0' };
+                let html = '';
+                if (r.endpoint) html += this._qaCard(`<p style="margin:0;font-weight:700;font-size:15px;font-family:monospace;">${r.endpoint.replace(/</g,'&lt;')}</p>`);
+                scenarios.forEach(s => {
+                    const typeColor = typePills[s.type] || '#718096';
+                    const statusColor = s.expected_status >= 400 ? '#c53030' : '#276749';
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                            <span style="font-weight:700;color:#1a202c;font-size:14px;">${(s.id||'').replace(/</g,'&lt;')} — ${(s.scenario||'').replace(/</g,'&lt;')}</span>
+                            <span style="background:${typeColor}20;color:${typeColor};border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;">${(s.type||'').replace(/</g,'&lt;')}</span>
+                            <code style="background:#f7fafc;padding:1px 6px;border-radius:4px;color:${statusColor};font-size:12px;">HTTP ${s.expected_status||'?'}</code>
+                        </div>
+                        <p style="font-size:13px;color:#4a5568;margin-bottom:6px;">${(s.expected_response||'').replace(/</g,'&lt;')}</p>
+                        ${Array.isArray(s.validation_points) && s.validation_points.length ? `<p style="font-size:12px;font-weight:600;margin-bottom:4px;">Validate:</p><ul style="margin:0 0 0 16px;">${s.validation_points.map(v=>`<li style="font-size:12px;">${v.replace(/</g,'&lt;')}</li>`).join('')}</ul>` : ''}`);
+                });
+                if (r.auth_tests?.length) html += this._qaSection('Auth Tests', r.auth_tests, 'fas fa-lock');
+                if (r.performance_notes) html += this._qaCard(`<p style="margin:0;font-size:13px;color:#718096;"><strong>Performance:</strong> ${r.performance_notes.replace(/</g,'&lt;')}</p>`);
+                return html || '<p style="color:#718096;">No API tests generated.</p>';
+            }
+
+            _renderBugLogResult(r) {
+                let html = '';
+                const sevBadge = this._qaRiskBadge(r.severity || 'Low');
+                html += this._qaCard(`
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <p style="margin:0;font-size:14px;color:#2d3748;">${(r.summary||'').replace(/</g,'&lt;')}</p>
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            ${sevBadge}
+                            <span style="font-size:13px;color:#e53e3e;font-weight:700;"><i class="fas fa-times-circle"></i> ${r.error_count||0} Errors</span>
+                            <span style="font-size:13px;color:#d69e2e;font-weight:700;"><i class="fas fa-exclamation-triangle"></i> ${r.warning_count||0} Warnings</span>
+                        </div>
+                    </div>`);
+                (r.error_patterns || []).forEach(p => {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            ${this._qaRiskBadge(p.severity)}
+                            <span style="font-weight:600;font-size:14px;">${(p.pattern||'').replace(/</g,'&lt;')}</span>
+                            ${p.occurrences ? `<span style="font-size:12px;color:#718096;">× ${p.occurrences}</span>` : ''}
+                        </div>
+                        ${p.message ? `<code style="font-size:12px;background:#f7fafc;display:block;padding:8px;border-radius:6px;color:#c53030;">${p.message.replace(/</g,'&lt;')}</code>` : ''}`);
+                });
+                html += this._qaSection('Root Causes', r.root_causes, 'fas fa-search');
+                html += this._qaSection('Affected Components', r.affected_components, 'fas fa-cubes');
+                html += this._qaSection('Recommendations', r.recommendations, 'fas fa-lightbulb');
+                return html || '<p>No patterns found.</p>';
+            }
+
+            _renderScreenshotResult(r) {
+                const colors = { Pass: '#276749', Fail: '#c53030', Warning: '#c05621' };
+                const c = colors[r.overall_assessment] || '#4a5568';
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:24px;color:${c};">${r.overall_assessment === 'Pass' ? '✅' : r.overall_assessment === 'Fail' ? '❌' : '⚠️'}</span>
+                        <div>
+                            <p style="font-weight:700;margin:0;color:${c};">${(r.overall_assessment||'').replace(/</g,'&lt;')}</p>
+                            <p style="margin:4px 0 0;font-size:13px;color:#4a5568;">${(r.summary||'').replace(/</g,'&lt;')}</p>
+                        </div>
+                    </div>`);
+                (r.ui_issues || []).forEach(issue => {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            ${this._qaRiskBadge(issue.severity)}
+                            <span style="font-weight:600;font-size:14px;">${(issue.issue||'').replace(/</g,'&lt;')}</span>
+                        </div>
+                        ${issue.location ? `<p style="font-size:12px;color:#718096;margin-bottom:4px;"><strong>Location:</strong> ${issue.location.replace(/</g,'&lt;')}</p>` : ''}
+                        ${issue.recommendation ? `<p style="font-size:13px;color:#276749;margin:0;"><strong>Fix:</strong> ${issue.recommendation.replace(/</g,'&lt;')}</p>` : ''}`);
+                });
+                html += this._qaSection('UX Concerns', r.ux_concerns, 'fas fa-user');
+                html += this._qaSection('Accessibility Issues', r.accessibility_issues, 'fas fa-universal-access');
+                if (r.positive_observations?.length) html += this._qaSection('Positive Observations', r.positive_observations, 'fas fa-check-circle');
+                return html || '<p>No issues found.</p>';
+            }
+
+            _renderRCAResult(r) {
+                const confColors = { High: '#276749', Medium: '#c05621', Low: '#c53030' };
+                const cc = confColors[r.confidence] || '#4a5568';
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:200px;">
+                            <p style="font-size:12px;font-weight:700;color:#a0aec0;text-transform:uppercase;margin-bottom:4px;">Root Cause</p>
+                            <p style="font-size:15px;font-weight:700;color:#1a202c;margin:0;">${(r.root_cause||'').replace(/</g,'&lt;')}</p>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+                            ${this._qaRiskBadge(r.category||'Code Bug')}
+                            <span style="font-size:12px;color:${cc};font-weight:600;">Confidence: ${(r.confidence||'').replace(/</g,'&lt;')}</span>
+                        </div>
+                    </div>`);
+                html += this._qaSection('Contributing Factors', r.contributing_factors, 'fas fa-layer-group');
+                html += this._qaSection('Affected Components', r.affected_components, 'fas fa-cubes');
+                (r.fix_suggestions || []).forEach(f => {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                            <span style="font-weight:600;font-size:14px;color:#276749;"><i class="fas fa-wrench"></i> ${(f.action||'').replace(/</g,'&lt;')}</span>
+                            <span style="font-size:11px;color:#718096;">Priority: ${(f.priority||'').replace(/</g,'&lt;')} · Effort: ${(f.effort||'').replace(/</g,'&lt;')}</span>
+                        </div>`);
+                });
+                html += this._qaSection('Prevention Measures', r.prevention_measures, 'fas fa-shield-alt');
+                html += this._qaSection('Other Areas at Risk', r.similar_risks, 'fas fa-exclamation-circle');
+                return html;
+            }
+
+            _renderRegressionResult(r) {
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <p style="margin:0;font-size:14px;color:#2d3748;flex:1;">${(r.impact_summary||'').replace(/</g,'&lt;')}</p>
+                        ${this._qaRiskBadge(r.risk_level||'Medium')}
+                    </div>`);
+                (r.directly_impacted_areas || []).forEach(a => {
+                    const typeColor = a.impact_type === 'Direct' ? '#c53030' : '#c05621';
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                            <span style="font-weight:600;font-size:14px;">${(a.area||'').replace(/</g,'&lt;')}</span>
+                            <span style="background:${typeColor}15;color:${typeColor};border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600;">${(a.impact_type||'').replace(/</g,'&lt;')}</span>
+                        </div>
+                        <p style="margin:0;font-size:13px;color:#718096;">${(a.reason||'').replace(/</g,'&lt;')}</p>`);
+                });
+                (r.regression_test_suites || []).forEach(s => {
+                    const pColors = { 'Must Run': '#c53030', 'Should Run': '#c05621', 'Nice to Have': '#276749' };
+                    const pc = pColors[s.priority] || '#4a5568';
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                            <span style="font-weight:700;font-size:14px;color:#1a202c;">${(s.suite||'').replace(/</g,'&lt;')}</span>
+                            <span style="font-size:11px;font-weight:700;color:${pc};">${(s.priority||'').replace(/</g,'&lt;')}</span>
+                            <span style="font-size:11px;color:#718096;">Effort: ${(s.estimated_effort||'').replace(/</g,'&lt;')}</span>
+                        </div>
+                        ${Array.isArray(s.test_types) ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${s.test_types.map(t=>`<span style="background:#ebf8ff;color:#2b6cb0;border-radius:8px;padding:2px 7px;font-size:11px;">${t.replace(/</g,'&lt;')}</span>`).join('')}</div>` : ''}`);
+                });
+                html += this._qaSection('Specific Scenarios', r.specific_test_scenarios, 'fas fa-tasks');
+                html += this._qaSection('Recommendations', r.recommendations, 'fas fa-lightbulb');
+                return html;
+            }
+
+            _renderRiskResult(r) {
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                        <p style="margin:0;font-size:14px;color:#2d3748;flex:1;">${(r.summary||'').replace(/</g,'&lt;')}</p>
+                        ${this._qaRiskBadge(r.overall_risk||'Medium')}
+                    </div>`);
+                (r.risk_areas || []).forEach(a => {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                            <span style="font-weight:700;font-size:14px;">${(a.area||'').replace(/</g,'&lt;')}</span>
+                            ${this._qaRiskBadge(a.risk_level)}
+                            <span style="font-size:11px;color:#718096;">Likelihood: ${(a.likelihood||'').replace(/</g,'&lt;')} · Impact: ${(a.impact||'').replace(/</g,'&lt;')}</span>
+                        </div>
+                        <p style="font-size:13px;color:#4a5568;margin-bottom:4px;">${(a.description||'').replace(/</g,'&lt;')}</p>
+                        ${a.mitigation ? `<p style="font-size:13px;color:#276749;margin:0;"><strong>Mitigation:</strong> ${a.mitigation.replace(/</g,'&lt;')}</p>` : ''}`);
+                });
+                (r.test_priorities || []).sort((a,b) => (a.priority||99)-(b.priority||99)).forEach(tp => {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <span style="background:var(--accent);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${tp.priority||'?'}</span>
+                            <span style="font-weight:700;font-size:14px;flex:1;">${(tp.test_area||'').replace(/</g,'&lt;')}</span>
+                            <span style="background:#ebf8ff;color:#2b6cb0;border-radius:8px;padding:2px 8px;font-size:11px;">${(tp.test_type||'').replace(/</g,'&lt;')}</span>
+                        </div>
+                        <p style="font-size:13px;color:#718096;margin:6px 0 0;">${(tp.rationale||'').replace(/</g,'&lt;')}</p>`);
+                });
+                html += this._qaSection('Must-Test Scenarios', r.must_test_scenarios, 'fas fa-exclamation-circle');
+                if (r.estimated_test_effort) {
+                    const ef = r.estimated_test_effort;
+                    html += this._qaCard(`<p style="font-weight:700;margin-bottom:8px;">Estimated Effort</p>
+                        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                            ${['smoke','functional','regression'].map(k => ef[k] ? `<div><span style="font-size:11px;color:#a0aec0;text-transform:uppercase;">${k}</span><p style="margin:2px 0 0;font-size:14px;font-weight:600;">${String(ef[k]).replace(/</g,'&lt;')}</p></div>` : '').join('')}
+                        </div>`);
+                }
+                return html;
+            }
+
+            // ── end QA Intelligence ──────────────────────────────────────────
 
             _openMailWithVars(template, variables) {
                 this.mailRecipientsFromScreening = [];
@@ -6604,6 +7379,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     this.loadSettings();
                 } else if (viewName === 'help') {
                     this.loadHelp();
+                } else if (viewName === 'qa-intelligence') {
+                    // Nothing to pre-load; the hub is fully static HTML
                 }
             }
 
@@ -8036,7 +8813,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'chat', label: 'Chat', icon: 'fa-comments' },
                 { view: 'testcases', label: 'Testcases', icon: 'fa-folder-open' },
                 { view: 'automation', label: 'Automation', icon: 'fa-robot' },
-                { view: 'qa-analytics', label: 'QA Analytics', icon: 'fa-chart-bar' },
+                { view: 'qa-intelligence', label: 'QA Intelligence', icon: 'fa-brain' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
                 { view: 'help', label: 'Help', icon: 'fa-question-circle' },

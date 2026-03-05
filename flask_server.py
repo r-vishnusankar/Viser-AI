@@ -2234,6 +2234,403 @@ Description:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ─── QA Intelligence Module ──────────────────────────────────────────────────
+
+def _qa_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM (Groq or OpenAI) for QA Intelligence analysis."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _qa_strip_json(raw: str) -> str:
+    """Strip markdown fences from LLM JSON response."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0].strip()
+    return raw.strip()
+
+
+def _qa_extract_text_file(file_storage) -> str:
+    """Extract plain text from an uploaded log / text file."""
+    ext = (os.path.splitext(file_storage.filename)[1] or "").lower()
+    upload_dir = "uploads/documents"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_id = str(uuid.uuid4())
+    tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+    file_storage.save(tmp_path)
+    try:
+        if ext == ".pdf":
+            return extract_pdf_content(tmp_path) or ""
+        if ext == ".docx":
+            return extract_docx_content(tmp_path) or ""
+        with open(tmp_path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+
+@app.route('/api/qa/test-case-generate', methods=['POST', 'OPTIONS'])
+def qa_test_case_generate():
+    """Generate functional and edge test cases from a feature/requirement description."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json() or {}
+        feature = (data.get("feature") or data.get("text") or "").strip()
+        context = (data.get("context") or "").strip()
+        if not feature:
+            return jsonify({"success": False, "error": "Feature or requirement description required"}), 400
+
+        prompt = f"""You are an expert QA engineer. Generate comprehensive test cases for the following feature.
+
+Feature: {feature[:6000]}
+{f'Additional context: {context[:2000]}' if context else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "summary": "Brief description of what is being tested",
+  "test_cases": [
+    {{
+      "id": "TC-001",
+      "title": "Test case title",
+      "type": "Functional|Edge|Negative|Performance",
+      "priority": "High|Medium|Low",
+      "preconditions": "What must be true before the test",
+      "steps": ["Step 1", "Step 2"],
+      "expected_result": "What should happen",
+      "test_data": "Sample data if applicable"
+    }}
+  ],
+  "coverage_areas": ["area1", "area2"]
+}}
+
+Generate at least 8-12 test cases covering: happy path, edge cases, negative cases, boundary values."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=3000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/api-test-generate', methods=['POST', 'OPTIONS'])
+def qa_api_test_generate():
+    """Generate API test scenarios from endpoint description or OpenAPI snippet."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json() or {}
+        endpoint = (data.get("endpoint") or "").strip()
+        method = (data.get("method") or "GET").strip().upper()
+        description = (data.get("description") or data.get("text") or "").strip()
+        if not description and not endpoint:
+            return jsonify({"success": False, "error": "Endpoint URL or description required"}), 400
+
+        prompt = f"""You are a senior API QA engineer. Generate thorough API test scenarios.
+
+Endpoint: {method} {endpoint}
+Description: {description[:5000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "endpoint": "{method} {endpoint}",
+  "test_scenarios": [
+    {{
+      "id": "API-001",
+      "scenario": "Scenario name",
+      "type": "Happy Path|Error|Auth|Boundary|Performance",
+      "method": "{method}",
+      "headers": {{"Content-Type": "application/json"}},
+      "request_body": {{}},
+      "query_params": {{}},
+      "expected_status": 200,
+      "expected_response": "Description of expected response",
+      "validation_points": ["check1", "check2"]
+    }}
+  ],
+  "auth_tests": ["auth scenario 1", "auth scenario 2"],
+  "performance_notes": "Notes on load/performance testing"
+}}
+
+Include: success cases, error cases (4xx, 5xx), auth failures, boundary inputs, missing fields."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/bug-log-analyze', methods=['POST', 'OPTIONS'])
+def qa_bug_log_analyze():
+    """Analyze a bug log (pasted text or file upload) and extract error patterns, severity, root causes."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        log_text = ""
+        if request.is_json:
+            data = request.get_json() or {}
+            log_text = (data.get("log_text") or data.get("text") or "").strip()
+        if not log_text and request.files:
+            f = request.files.get('file')
+            if f and f.filename:
+                log_text = _qa_extract_text_file(f)
+        if not log_text:
+            return jsonify({"success": False, "error": "Log text or file required"}), 400
+
+        prompt = f"""You are an expert QA/DevOps engineer. Analyse the following application log and extract structured insights.
+
+Log Content:
+{log_text[:10000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "summary": "High-level summary of the log health",
+  "severity": "Critical|High|Medium|Low",
+  "error_patterns": [
+    {{
+      "pattern": "Error pattern description",
+      "occurrences": 0,
+      "severity": "Critical|High|Medium|Low",
+      "message": "Example error message"
+    }}
+  ],
+  "root_causes": ["root cause 1", "root cause 2"],
+  "affected_components": ["component1", "component2"],
+  "recommendations": ["recommendation1", "recommendation2"],
+  "error_count": 0,
+  "warning_count": 0
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/screenshot-analyze', methods=['POST', 'OPTIONS'])
+def qa_screenshot_analyze():
+    """Analyze a UI screenshot to identify visual bugs and UX issues."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        f = request.files.get('file') if request.files else None
+        if not f or not f.filename:
+            return jsonify({"success": False, "error": "Screenshot image file required"}), 400
+
+        ext = (os.path.splitext(f.filename)[1] or "").lower()
+        allowed = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        if ext not in allowed:
+            return jsonify({"success": False, "error": "Image file required (JPG, PNG, GIF, BMP, WEBP)"}), 400
+
+        upload_dir = "uploads/images"
+        os.makedirs(upload_dir, exist_ok=True)
+        file_id = str(uuid.uuid4())
+        tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+        f.save(tmp_path)
+
+        try:
+            vision_prompt = """You are a QA engineer reviewing a UI screenshot. Identify all visual bugs, UX issues, and accessibility concerns.
+Provide your analysis as JSON with no markdown:
+{
+  "overall_assessment": "Pass|Fail|Warning",
+  "summary": "Brief overall summary",
+  "ui_issues": [
+    {
+      "issue": "Issue description",
+      "severity": "Critical|High|Medium|Low",
+      "location": "Where on screen",
+      "recommendation": "How to fix"
+    }
+  ],
+  "ux_concerns": ["concern1", "concern2"],
+  "accessibility_issues": ["issue1", "issue2"],
+  "positive_observations": ["good thing 1", "good thing 2"]
+}"""
+            raw = analyze_image_with_vision(tmp_path, vision_prompt)
+            out = json.loads(_qa_strip_json(raw))
+            return jsonify({"success": True, "result": out})
+        except json.JSONDecodeError:
+            return jsonify({"success": True, "result": {"summary": raw, "ui_issues": [], "ux_concerns": [], "accessibility_issues": [], "positive_observations": []}})
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/root-cause-detect', methods=['POST', 'OPTIONS'])
+def qa_root_cause_detect():
+    """Detect root cause of a bug from description and optional log snippet."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json() or {}
+        bug_description = (data.get("bug_description") or data.get("text") or "").strip()
+        log_snippet = (data.get("log_snippet") or "").strip()
+        if not bug_description:
+            return jsonify({"success": False, "error": "Bug description required"}), 400
+
+        prompt = f"""You are a senior QA/debugging expert. Perform root cause analysis for the following bug.
+
+Bug Description: {bug_description[:4000]}
+{f'Log Snippet:{chr(10)}{log_snippet[:3000]}' if log_snippet else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "root_cause": "Primary root cause identified",
+  "confidence": "High|Medium|Low",
+  "category": "Code Bug|Configuration|Data|Environment|Integration|Performance|Security",
+  "contributing_factors": ["factor1", "factor2"],
+  "affected_components": ["component1", "component2"],
+  "fix_suggestions": [
+    {{
+      "action": "What to do",
+      "priority": "Immediate|Short-term|Long-term",
+      "effort": "Low|Medium|High"
+    }}
+  ],
+  "prevention_measures": ["measure1", "measure2"],
+  "similar_risks": ["other area at risk 1", "other area at risk 2"]
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/regression-impact', methods=['POST', 'OPTIONS'])
+def qa_regression_impact():
+    """Analyse a code/requirement change and suggest regression test areas."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json() or {}
+        change_description = (data.get("change_description") or data.get("text") or "").strip()
+        affected_modules = (data.get("affected_modules") or "").strip()
+        if not change_description:
+            return jsonify({"success": False, "error": "Change description required"}), 400
+
+        prompt = f"""You are a QA lead performing regression impact analysis.
+
+Change Description: {change_description[:5000]}
+{f'Modules mentioned as changed: {affected_modules}' if affected_modules else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "impact_summary": "Overall impact assessment",
+  "risk_level": "Critical|High|Medium|Low",
+  "directly_impacted_areas": [
+    {{
+      "area": "Module or feature name",
+      "impact_type": "Direct|Indirect",
+      "reason": "Why this is impacted"
+    }}
+  ],
+  "regression_test_suites": [
+    {{
+      "suite": "Test suite name",
+      "priority": "Must Run|Should Run|Nice to Have",
+      "estimated_effort": "Low|Medium|High",
+      "test_types": ["Smoke", "Functional", "Integration"]
+    }}
+  ],
+  "specific_test_scenarios": ["scenario1", "scenario2"],
+  "skip_safe_areas": ["area safe to skip regression 1"],
+  "recommendations": ["recommendation1", "recommendation2"]
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/risk-advisor', methods=['POST', 'OPTIONS'])
+def qa_risk_advisor():
+    """Generate a risk-based test priority matrix for a feature or module."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json() or {}
+        feature_description = (data.get("feature_description") or data.get("text") or "").strip()
+        if not feature_description:
+            return jsonify({"success": False, "error": "Feature or module description required"}), 400
+
+        prompt = f"""You are a QA strategist. Generate a risk-based test prioritization matrix for the following feature/module.
+
+Feature/Module: {feature_description[:5000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Risk assessment summary",
+  "risk_areas": [
+    {{
+      "area": "Risk area name",
+      "risk_level": "Critical|High|Medium|Low",
+      "likelihood": "High|Medium|Low",
+      "impact": "High|Medium|Low",
+      "description": "What could go wrong",
+      "mitigation": "How to mitigate"
+    }}
+  ],
+  "test_priorities": [
+    {{
+      "test_area": "What to test",
+      "priority": 1,
+      "rationale": "Why this priority",
+      "test_type": "Smoke|Functional|Integration|Performance|Security|UAT"
+    }}
+  ],
+  "must_test_scenarios": ["critical scenario 1", "critical scenario 2"],
+  "estimated_test_effort": {{
+    "smoke": "X hours",
+    "functional": "X hours",
+    "regression": "X hours"
+  }}
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 @app.route('/api/hr/send-mail', methods=['POST'])
 def hr_send_mail():
     """Send HR email with subject, body, and recipient. Valoriz signature is always appended."""
