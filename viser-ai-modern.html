@@ -17,6 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
         :root {
             /* Bella Kitchenware-inspired Theme - Oatmilk, Plum, Surf */
@@ -3926,29 +3927,56 @@
             </div>
             <div id="requirement-analyzerView" class="view-container" style="display: none;">
                 <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Requirement Analyzer</h1><span class="page-info-icon" data-page-id="requirement-analyzer" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
-                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
-                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-search"></i></div>
-                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
-                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Requirement Analyzer is under development.</p>
-                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Analyze these requirements'; viseAI.messageInput.focus();">Open in Chat</button>
+                <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <div style="max-width:900px;">
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Upload document (PDF, DOCX, TXT)</label>
+                            <input type="file" id="reqAnalyzerFile" accept=".pdf,.docx,.txt" style="max-width:400px;">
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Or paste requirements</label>
+                            <textarea id="reqAnalyzerInput" rows="10" placeholder="Paste your requirements document, PRD, or feature description here..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="reqAnalyzeBtn"><i class="fas fa-search"></i> Analyze Requirements</button>
+                        <div id="reqAnalyzeResult" style="margin-top:24px;display:none;"></div>
+                        <div id="reqAnalyzeLoading" style="display:none;text-align:center;padding:32px;"><div class="loading-spinner" style="margin:0 auto 16px;"></div><p>Analyzing requirements...</p></div>
+                    </div>
                 </div>
             </div>
             <div id="user-story-generatorView" class="view-container" style="display: none;">
                 <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">User Story Generator</h1><span class="page-info-icon" data-page-id="user-story-generator" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
-                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
-                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-book"></i></div>
-                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
-                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">User Story Generator is under development.</p>
-                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Generate user stories from requirements'; viseAI.messageInput.focus();">Open in Chat</button>
+                <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <div style="max-width:900px;">
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Requirements</label>
+                            <textarea id="userStoryInput" rows="8" placeholder="Paste requirements to generate user stories..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
+                        </div>
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Output Type</label>
+                            <select id="userStoryType" style="padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                <option value="user_story">User Story</option>
+                                <option value="use_case">Use Case</option>
+                                <option value="epic">Epic</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="userStoryGenBtn"><i class="fas fa-magic"></i> Generate</button>
+                        <div id="userStoryResult" style="margin-top:24px;display:none;"></div>
+                        <div id="userStoryLoading" style="display:none;text-align:center;padding:32px;"><div class="loading-spinner" style="margin:0 auto 16px;"></div><p>Generating user stories...</p></div>
+                    </div>
                 </div>
             </div>
             <div id="flow-diagramView" class="view-container" style="display: none;">
                 <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Flow Diagram Builder</h1><span class="page-info-icon" data-page-id="flow-diagram" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
-                <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
-                    <div style="font-size:64px;color:#cbd5e0;margin-bottom:24px;"><i class="fas fa-project-diagram"></i></div>
-                    <h3 style="font-size:24px;font-weight:700;color:#2d3748;margin-bottom:12px;">Coming Soon</h3>
-                    <p style="font-size:16px;color:#718096;margin-bottom:24px;">Flow Diagram Builder is under development.</p>
-                    <button class="btn btn-primary" onclick="viseAI.switchView('chat'); viseAI.messageInput.value='Create a flow diagram'; viseAI.messageInput.focus();">Open in Chat</button>
+                <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <div style="max-width:900px;">
+                        <div style="margin-bottom:20px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;">Process Description</label>
+                            <textarea id="flowDiagramInput" rows="8" placeholder="Describe the process or flow (e.g. User login flow, Order checkout process, Approval workflow)..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="flowDiagramGenBtn"><i class="fas fa-project-diagram"></i> Generate Diagram</button>
+                        <div id="flowDiagramResult" style="margin-top:24px;display:none;"></div>
+                        <div id="flowDiagramLoading" style="display:none;text-align:center;padding:32px;"><div class="loading-spinner" style="margin:0 auto 16px;"></div><p>Generating diagram...</p></div>
+                    </div>
                 </div>
             </div>
 
@@ -4023,7 +4051,7 @@
             'candidate-screening': { title: 'Candidate Screening', desc: 'Paste job description, upload resumes or paste profiles. AI ranks candidates with match %, skill color coding (green=has, red=missing). Select candidates and use Bulk Accept/Reject for emails. Use /screen in chat to open.' },
             'mail-automation': { title: 'Mail Automation', desc: 'Generate HR emails from templates (Interview Invite, Rejection, Follow-up, Offer). Fill in name, role, date, time. Use /mail in chat to open.' },
             'employee-documents': { title: 'Employee Documents', desc: 'Manage employee documents. (On hold)' },
-            'requirement-analyzer': { title: 'Requirement Analyzer', desc: 'Analyze requirements documents. (Coming soon)' },
+            'requirement-analyzer': { title: 'Requirement Analyzer', desc: 'Analyze requirements documents. Paste text or upload a file to extract summary, features, acceptance criteria, dependencies, risks, and stakeholders.' },
             'user-story-generator': { title: 'User Story Generator', desc: 'Generate user stories from requirements. (Coming soon)' },
             'flow-diagram': { title: 'Flow Diagram Builder', desc: 'Create flow diagrams. (Coming soon)' },
             history: { title: 'Conversation History', desc: 'Browse past conversations. Search and filter messages.' },
@@ -4067,9 +4095,19 @@
         };
 
         // When on Netlify, point API/Socket.IO to your Render backend
-        window.API_BASE = (window.location.hostname.includes('netlify.app') || window.location.hostname.includes('netlify.com'))
-            ? 'https://viser-ai.onrender.com'
-            : '';
+        // When on localhost but different port (e.g. Live Server 5500), point to Flask on 8000
+        // Override: ?api=http://localhost:8000 or localStorage.nexora_api_base
+        const host = window.location.hostname;
+        const port = parseInt(window.location.port || '80', 10);
+        const urlApi = new URLSearchParams(window.location.search).get('api');
+        const storedApi = typeof localStorage !== 'undefined' ? localStorage.getItem('nexora_api_base') : null;
+        window.API_BASE = urlApi || storedApi || (
+            (host.includes('netlify.app') || host.includes('netlify.com'))
+                ? 'https://viser-ai.onrender.com'
+                : ((host === 'localhost' || host === '127.0.0.1') && port !== 8000)
+                    ? 'http://localhost:8000'
+                    : ''
+        );
         const _api = (path) => (window.API_BASE || '') + path;
         function _apiHeaders(extra = {}) {
             const h = { ...extra };
@@ -4090,6 +4128,8 @@
 
                 // Store uploaded files for analysis
                 this.uploadedFiles = [];
+                // Holds the most-recent analysis result for client-side context
+                this.lastAnalysis = null;
 
                 // Chat session persistence (per-user when logged in)
                 this.STORAGE_KEY = (() => {
@@ -4109,6 +4149,7 @@
                 this.setupSidebarToggle();
                 this.setupChatHistory();
                 this.setupHRModules();
+                this.setupBAModules();
                 this.restoreOrCreateSession();
                 // Chat is default view on load - show submenu
                 const chatGroup = document.querySelector('.chat-nav-group');
@@ -4206,6 +4247,171 @@
                 if (mailDraftBtn) mailDraftBtn.onclick = () => this._draftHRMail();
                 const mailSendBtn = document.getElementById('mailSendBtn');
                 if (mailSendBtn) mailSendBtn.onclick = () => this._sendHRMail();
+            }
+
+            setupBAModules() {
+                const reqBtn = document.getElementById('reqAnalyzeBtn');
+                if (reqBtn) reqBtn.onclick = () => this._analyzeRequirements();
+                const userStoryBtn = document.getElementById('userStoryGenBtn');
+                if (userStoryBtn) userStoryBtn.onclick = () => this._generateUserStories();
+                const flowBtn = document.getElementById('flowDiagramGenBtn');
+                if (flowBtn) flowBtn.onclick = () => this._generateFlowDiagram();
+            }
+
+            async _analyzeRequirements() {
+                const input = document.getElementById('reqAnalyzerInput');
+                const fileInput = document.getElementById('reqAnalyzerFile');
+                const result = document.getElementById('reqAnalyzeResult');
+                const loading = document.getElementById('reqAnalyzeLoading');
+                const requirements = (input?.value || '').trim();
+                const file = fileInput?.files?.[0];
+                if (!requirements && !file) { alert('Enter or paste requirements, or upload a PDF/DOCX/TXT file'); return; }
+                if (result) { result.style.display = 'none'; result.innerHTML = ''; }
+                if (loading) loading.style.display = 'block';
+                try {
+                    let opts = { method: 'POST', headers: _apiHeaders() };
+                    if (file) {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        opts.body = fd;
+                    } else {
+                        opts.headers = { ...opts.headers, 'Content-Type': 'application/json' };
+                        opts.body = JSON.stringify({ requirements });
+                    }
+                    const r = await fetch(_api('/api/ba-requirement-analyze'), opts);
+                    const ct = (r.headers.get('content-type') || '').toLowerCase();
+                    let data;
+                    if (ct.includes('application/json')) {
+                        data = await r.json();
+                    } else {
+                        await r.text();
+                        throw new Error(`API returned ${r.status} (expected JSON). ${r.status >= 400 ? (window.API_BASE ? 'Deploy latest code to Render and check Render logs.' : 'Restart the Flask server and ensure you have the latest code.') : ''}`);
+                    }
+                    if (loading) loading.style.display = 'none';
+                    if (data.success && data.analysis) {
+                        const a = data.analysis;
+                        const renderList = (arr, title) => Array.isArray(arr) && arr.length ? `<div style="margin-bottom:16px;"><strong>${title}</strong><ul style="margin:4px 0 0 20px;">${arr.map(x => `<li>${String(x).replace(/</g,'&lt;')}</li>`).join('')}</ul></div>` : '';
+                        result.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                            ${a.summary ? `<p style="margin-bottom:16px;">${String(a.summary).replace(/</g,'&lt;')}</p>` : ''}
+                            ${renderList(a.features, 'Features')}
+                            ${renderList(a.acceptance_criteria, 'Acceptance Criteria')}
+                            ${renderList(a.dependencies, 'Dependencies')}
+                            ${renderList(a.assumptions, 'Assumptions')}
+                            ${renderList(a.risks, 'Risks')}
+                            ${renderList(a.stakeholders, 'Stakeholders')}
+                        </div>`;
+                        result.style.display = 'block';
+                    } else {
+                        result.innerHTML = `<p style="color:#e53e3e;">${(data.error||'Analysis failed').replace(/</g,'&lt;')}</p>`;
+                        result.style.display = 'block';
+                    }
+                } catch (e) {
+                    if (loading) loading.style.display = 'none';
+                    result.innerHTML = `<p style="color:#e53e3e;">Error: ${String(e.message).replace(/</g,'&lt;')}</p>`;
+                    result.style.display = 'block';
+                }
+            }
+
+            async _generateUserStories() {
+                const input = document.getElementById('userStoryInput');
+                const typeSel = document.getElementById('userStoryType');
+                const result = document.getElementById('userStoryResult');
+                const loading = document.getElementById('userStoryLoading');
+                const requirements = (input?.value || '').trim();
+                if (!requirements) { alert('Enter requirements to generate user stories'); return; }
+                if (result) { result.style.display = 'none'; result.innerHTML = ''; }
+                if (loading) loading.style.display = 'block';
+                try {
+                    const r = await fetch(_api('/api/ba-user-story-generate'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ requirements, story_type: typeSel?.value || 'user_story' })
+                    });
+                    const ct = (r.headers.get('content-type') || '').toLowerCase();
+                    let data;
+                    if (ct.includes('application/json')) {
+                        data = await r.json();
+                    } else {
+                        await r.text();
+                        throw new Error(`API returned ${r.status} (expected JSON). ${r.status >= 400 ? (window.API_BASE ? 'Deploy latest code to Render and check Render logs.' : 'Restart the Flask server and ensure you have the latest code.') : ''}`);
+                    }
+                    if (loading) loading.style.display = 'none';
+                    if (data.success && data.stories && data.stories.length) {
+                        result.innerHTML = data.stories.map((s, i) => {
+                            const desc = (s.description || s.title || '').replace(/</g,'&lt;');
+                            const ac = Array.isArray(s.acceptance_criteria) ? s.acceptance_criteria.map(x => `<li>${String(x).replace(/</g,'&lt;')}</li>`).join('') : '';
+                            const priority = (s.priority || '').replace(/</g,'&lt;');
+                            return `<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                                <div style="font-weight:600;color:var(--accent);margin-bottom:8px;">${(s.id||'US-'+(i+1)).replace(/</g,'&lt;')} ${(s.title||'').replace(/</g,'&lt;')}</div>
+                                <p style="margin:8px 0;">${desc}</p>
+                                ${ac ? `<p style="font-weight:600;margin-top:8px;">Acceptance Criteria:</p><ul style="margin:4px 0 0 20px;">${ac}</ul>` : ''}
+                                ${priority ? `<span style="font-size:12px;color:#718096;">Priority: ${priority}</span>` : ''}
+                            </div>`;
+                        }).join('');
+                        result.style.display = 'block';
+                    } else {
+                        result.innerHTML = `<p style="color:#e53e3e;">${(data.error||'Generation failed').replace(/</g,'&lt;')}</p>`;
+                        result.style.display = 'block';
+                    }
+                } catch (e) {
+                    if (loading) loading.style.display = 'none';
+                    result.innerHTML = `<p style="color:#e53e3e;">Error: ${String(e.message).replace(/</g,'&lt;')}</p>`;
+                    result.style.display = 'block';
+                }
+            }
+
+            async _generateFlowDiagram() {
+                const input = document.getElementById('flowDiagramInput');
+                const result = document.getElementById('flowDiagramResult');
+                const loading = document.getElementById('flowDiagramLoading');
+                const description = (input?.value || '').trim();
+                if (!description) { alert('Describe the process or flow to generate a diagram'); return; }
+                if (result) { result.style.display = 'none'; result.innerHTML = ''; }
+                if (loading) loading.style.display = 'block';
+                try {
+                    const r = await fetch(_api('/api/ba-flow-diagram-generate'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description })
+                    });
+                    const ct = (r.headers.get('content-type') || '').toLowerCase();
+                    let data;
+                    if (ct.includes('application/json')) {
+                        data = await r.json();
+                    } else {
+                        await r.text();
+                        throw new Error(`API returned ${r.status} (expected JSON). ${r.status >= 400 ? (window.API_BASE ? 'Deploy latest code to Render and check Render logs.' : 'Restart the Flask server and ensure you have the latest code.') : ''}`);
+                    }
+                    if (loading) loading.style.display = 'none';
+                    if (data.success && data.mermaid) {
+                        const code = data.mermaid;
+                        const codeEscaped = code.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        result.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                            <pre id="flowMermaidCode" style="background:#f7fafc;padding:12px;border-radius:8px;font-size:13px;overflow:auto;margin-bottom:16px;">${codeEscaped}</pre>
+                            <div id="flowMermaidSvg" style="text-align:center;min-height:120px;"></div>
+                            <button type="button" class="btn btn-secondary" style="margin-top:12px;" onclick="navigator.clipboard.writeText(document.getElementById('flowMermaidCode').innerText)"><i class="fas fa-copy"></i> Copy Mermaid Code</button>
+                        </div>`;
+                        result.style.display = 'block';
+                        const svgEl = document.getElementById('flowMermaidSvg');
+                        if (window.mermaid && svgEl) {
+                            (async () => {
+                                try {
+                                    const id = 'flowDiagram_' + Date.now();
+                                    const { svg, bindFunctions } = await window.mermaid.render(id, code);
+                                    svgEl.innerHTML = svg;
+                                    if (bindFunctions) bindFunctions(svgEl);
+                                } catch (m) { svgEl.innerHTML = `<p style="color:#e53e3e;">Diagram render failed: ${String(m.message||m).replace(/</g,'&lt;')}</p>`; }
+                            })();
+                        }
+                    } else {
+                        result.innerHTML = `<p style="color:#e53e3e;">${(data.error||'Generation failed').replace(/</g,'&lt;')}</p>`;
+                        result.style.display = 'block';
+                    }
+                } catch (e) {
+                    if (loading) loading.style.display = 'none';
+                    result.innerHTML = `<p style="color:#e53e3e;">Error: ${String(e.message).replace(/</g,'&lt;')}</p>`;
+                    result.style.display = 'block';
+                }
             }
 
             _openMailWithVars(template, variables) {
@@ -5725,15 +5931,17 @@
             }
 
             isAnalysisRequest(message) {
-                const analysisKeywords = ['analyze', 'analyse', 'analysis', 'review', 'check', 'examine', 'study'];
+                const analysisKeywords = ['analyze', 'analyse', 'analysis', 'review', 'examine', 'study'];
                 const fileKeywords = ['file', 'document', 'doc', 'upload', 'uploaded', 'image', 'picture', 'photo'];
 
                 const lowerMessage = message.toLowerCase();
                 const hasAnalysisKeyword = analysisKeywords.some(keyword => lowerMessage.includes(keyword));
                 const hasFileKeyword = fileKeywords.some(keyword => lowerMessage.includes(keyword));
 
-                // Return true if message contains analysis keywords, or if it contains both analysis and file keywords
-                return hasAnalysisKeyword || (hasAnalysisKeyword && hasFileKeyword);
+                // Require BOTH an analysis keyword AND a file keyword so that generic
+                // phrases like "check this logic" or "let me study this" don't
+                // accidentally hijack normal chat messages into file analysis.
+                return hasAnalysisKeyword && hasFileKeyword;
             }
 
             async analyzeLatestFile() {
@@ -5761,9 +5969,6 @@
                         fetch(_api('/api/analyze'), {
                             method: 'POST',
                             headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
                             body: JSON.stringify(analysisPayload)
                         }),
                         new Promise((_, reject) =>
@@ -5783,6 +5988,10 @@
                     const data = await response.json();
                     const analysis = data.analysis;
                     console.log('✅ Analysis completed successfully');
+
+                    // Keep a reference so follow-up chat messages can optionally
+                    // re-surface the analysis context on the client side.
+                    this.lastAnalysis = { filename: latestFile.filename, text: analysis };
 
                     this.hideTypingIndicator();
                     const msgId = this.addMessage('ai', analysis, true);
@@ -6920,7 +7129,13 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
             async loadRepositoryData() {
                 try {
                     const settings = JSON.parse(localStorage.getItem('viserAISettings') || '{}');
-                    const useGoogleSheets = settings.useGoogleSheets && settings.gsheetsUrl;
+                    let config = { defaultUrl: null };
+                    try {
+                        const cfgResp = await fetch(_api('/api/repo/gsheets-config'));
+                        if (cfgResp.ok) config = await cfgResp.json();
+                    } catch (_) {}
+                    const effectiveUrl = (settings.gsheetsUrl || '').trim() || config.defaultUrl || '';
+                    const useGoogleSheets = !!effectiveUrl && (settings.useGoogleSheets || !!config.defaultUrl);
                     const fileSelector = document.getElementById('repoFileSelector');
                     fileSelector.innerHTML = `<option selected disabled>Select Repository</option>`;
                     this.allRepoData = {};
@@ -6935,7 +7150,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     }
 
                     if (useGoogleSheets) {
-                        const url = encodeURIComponent(settings.gsheetsUrl);
+                        const url = encodeURIComponent(effectiveUrl);
                         const response = await fetch(_api(`/api/repo/gsheets?url=${url}`));
                         const data = await response.json().catch(() => ({}));
                         if (response.ok && data.success && data.data) {
@@ -7651,7 +7866,24 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                         if (gsheetsUrlItem) gsheetsUrlItem.style.display = useGoogleSheets.checked ? 'block' : 'none';
                     };
                 }
-                if (gsheetsUrlInput) gsheetsUrlInput.value = settings.gsheetsUrl || '';
+                if (gsheetsUrlInput) {
+                    gsheetsUrlInput.value = settings.gsheetsUrl || '';
+                    if (!settings.gsheetsUrl) {
+                        try {
+                            const cfgResp = await fetch(_api('/api/repo/gsheets-config'));
+                            if (cfgResp.ok) {
+                                const cfg = await cfgResp.json();
+                                if (cfg.defaultUrl) {
+                                    gsheetsUrlInput.value = cfg.defaultUrl;
+                                    if (useGoogleSheets) {
+                                        useGoogleSheets.checked = true;
+                                        if (gsheetsUrlItem) gsheetsUrlItem.style.display = 'block';
+                                    }
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                }
 
                 const theme = settings.theme || 'purple';
                 const themeSelect = document.getElementById('themeSelect');

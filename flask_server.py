@@ -14,6 +14,7 @@ if sys.platform == "win32":
 
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
+from werkzeug.routing import PathConverter, BaseConverter
 import os
 import json
 from dotenv import load_dotenv
@@ -121,9 +122,20 @@ def tonnify_preprocess(user_prompt: str) -> str:
     t = t.strip()
     return t if t else user_prompt.strip()
 
+class StaticPathConverter(BaseConverter):
+    """Matches static file paths only. Excludes /api/* so API routes take precedence."""
+    regex = r'(?!api/).+'
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'viser-ai-secret-key'
+app.url_map.converters['staticpath'] = StaticPathConverter
 CORS(app)
+
+@app.before_request
+def _log_ba_requests():
+    path = request.path or ''
+    if 'ba-' in path and path.startswith('/api/'):
+        print(f"[BA] {request.method} {path}", flush=True)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # Spec2 Web UI Logger Bridge
@@ -254,21 +266,23 @@ TABLE RULES (use tables ONLY when explicitly requested):
 """
         
         if include_files and session["uploaded_files"]:
-            files_for_context = [
-                {"filename": f["filename"], "status": "analyzed" if f["analyzed"] else "uploaded"}
-                for f in session["uploaded_files"][-5:]
-            ]
-            if TOON_AVAILABLE and toon_encode:
-                try:
-                    context_toon = toon_encode({"uploaded_files": files_for_context})
-                    system_message += f"\n\nContext (TOON):\n{context_toon}\nReference these files and offer to analyze if not already done."
-                except Exception:
-                    file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
-                    system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list) + "\nYou can reference these files in your responses and offer to analyze them if not already done."
-            else:
-                file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
-                system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list)
-                system_message += "\nYou can reference these files in your responses and offer to analyze them if not already done."
+            analyzed = [f for f in session["uploaded_files"][-5:] if f.get("analyzed")]
+            pending  = [f for f in session["uploaded_files"][-5:] if not f.get("analyzed")]
+
+            context_lines = []
+            if analyzed:
+                context_lines.append("The following documents have already been analysed and their full analysis is in the conversation history above:")
+                for f in analyzed:
+                    context_lines.append(f"  - {f['filename']} (fully analysed)")
+                context_lines.append("When the user asks follow-up questions (e.g. create test cases, write a report, summarise), use the analysis from the conversation history to answer directly — do NOT say you haven't seen the document.")
+            if pending:
+                context_lines.append("The following files have been uploaded but not yet analysed:")
+                for f in pending:
+                    context_lines.append(f"  - {f['filename']} (awaiting analysis)")
+                context_lines.append("Offer to analyse them if the user hasn't already requested it.")
+
+            if context_lines:
+                system_message += "\n\nFILE CONTEXT:\n" + "\n".join(context_lines)
         
         # Build message history
         messages = [{"role": "system", "content": system_message}]
@@ -605,12 +619,19 @@ def _extract_sheet_id(url_or_id):
     return s
 
 
+@app.route('/api/repo/gsheets-config', methods=['GET'])
+def repo_gsheets_config():
+    """Return default Google Sheet URL from env (for frontend to use when user hasn't set one)."""
+    default_url = os.environ.get('GOOGLE_SHEETS_URL', '').strip()
+    return jsonify({"defaultUrl": default_url or None})
+
+
 @app.route('/api/repo/gsheets', methods=['GET'])
 def repo_gsheets():
     """Fetch testcase data from Google Sheets. Requires GOOGLE_SHEETS_CREDENTIALS_JSON env var."""
     if not GOOGLE_SHEETS_AVAILABLE:
         return jsonify({"success": False, "error": "Google Sheets API not available. Install google-auth and google-api-python-client."}), 503
-    sheet_id = request.args.get('sheet_id') or request.args.get('url')
+    sheet_id = request.args.get('sheet_id') or request.args.get('url') or os.environ.get('GOOGLE_SHEETS_URL', '').strip()
     if not sheet_id:
         return jsonify({"success": False, "error": "Missing sheet_id or url parameter"}), 400
     spreadsheet_id = _extract_sheet_id(sheet_id)
@@ -1640,40 +1661,6 @@ def serve_assets(subpath):
         print(f"❌ Asset serve error: {e}")
         return "Not found", 404
 
-@app.route('/<path:filename>')
-def serve_static(filename):
-    """Serve static files (HTML, CSS, JS)"""
-    try:
-        # Security: only allow certain file types
-        allowed_extensions = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico'}
-        file_ext = os.path.splitext(filename)[1].lower()
-        
-        if file_ext not in allowed_extensions:
-            return "File type not allowed", 403
-            
-        # Set appropriate content type
-        content_types = {
-            '.html': 'text/html',
-            '.css': 'text/css', 
-            '.js': 'application/javascript',
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.gif': 'image/gif',
-            '.ico': 'image/x-icon'
-        }
-        
-        if os.path.exists(filename):
-            response = send_file(filename)
-            response.headers['Content-Type'] = content_types.get(file_ext, 'text/plain')
-            return response
-        else:
-            return "File not found", 404
-            
-    except Exception as e:
-        print(f"❌ Static file error: {e}")
-        return "Error serving file", 500
-
 
 def _load_users_config():
     """Load users config from: 1) USERS_CONFIG_JSON env, 2) config/users.json, 3) config/users.example.json"""
@@ -2073,6 +2060,175 @@ Return ONLY the email body (no subject line, no extra text). Use the variables w
         sub_prompt = f"Generate a short subject line for: {subject_prompts.get(template, 'HR email')}. Variables: {variables}. Reply with ONLY the subject, no quotes."
         subject = _hr_llm_completion(sub_prompt, max_tokens=50)
         return jsonify({"success": True, "subject": subject.strip(), "body": body.strip()})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── BA (Business Analysis) Module APIs ──────────────────────────────────────
+
+def _ba_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM for BA analysis (reuses HR LLM)."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _extract_requirements_from_file(file, tmp_path, ext):
+    """Extract text from requirements file (PDF, DOCX, TXT)."""
+    if ext == '.pdf':
+        return extract_pdf_content(tmp_path)
+    if ext == '.docx':
+        return extract_docx_content(tmp_path)
+    if ext == '.txt':
+        with open(tmp_path, 'r', encoding='utf-8', errors='ignore') as f:
+            return f.read()
+    return None
+
+
+@app.route('/api/ba-requirement-analyze', methods=['POST', 'OPTIONS'])
+def ba_requirement_analyze():
+    """Analyze requirements document and extract structured insights. Accepts JSON with 'requirements' or file upload (PDF, DOCX, TXT)."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        requirements = ""
+        if request.is_json:
+            data = request.get_json() or {}
+            requirements = (data.get("requirements") or data.get("text") or "").strip()
+        if not requirements and request.files:
+            file = request.files.get('file')
+            if file and file.filename:
+                ext = (os.path.splitext(file.filename)[1] or '').lower()
+                if ext not in ('.pdf', '.docx', '.txt'):
+                    return jsonify({"success": False, "error": "Only PDF, DOCX, TXT supported"}), 400
+                upload_dir = "uploads/documents"
+                os.makedirs(upload_dir, exist_ok=True)
+                file_id = str(uuid.uuid4())
+                tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+                file.save(tmp_path)
+                try:
+                    requirements = _extract_requirements_from_file(file, tmp_path, ext) or ""
+                finally:
+                    if os.path.exists(tmp_path):
+                        try:
+                            os.remove(tmp_path)
+                        except OSError:
+                            pass
+        if not requirements or not requirements.strip():
+            return jsonify({"success": False, "error": "Requirements text or file required"}), 400
+        requirements = requirements.strip()
+        prompt = f"""Analyze these software/business requirements and return ONLY valid JSON (no markdown, no extra text):
+{{
+  "summary": "2-3 sentence summary of the requirements",
+  "features": ["feature1", "feature2", ...],
+  "acceptance_criteria": ["criterion1", "criterion2", ...],
+  "dependencies": ["dep1", "dep2", ...],
+  "assumptions": ["assumption1", ...],
+  "risks": ["risk1", ...],
+  "stakeholders": ["stakeholder1", ...]
+}}
+
+Requirements:
+{requirements[:8000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=1500)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        return jsonify({"success": True, "analysis": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ba-user-story-generate', methods=['POST', 'OPTIONS'])
+def ba_user_story_generate():
+    """Generate user stories from requirements."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json() or {}
+        requirements = (data.get("requirements") or data.get("text") or "").strip()
+        story_type = (data.get("story_type") or "user_story").strip().lower()
+        if not requirements:
+            return jsonify({"success": False, "error": "Requirements text required"}), 400
+        type_instructions = {
+            "user_story": "Generate user stories in format: As a [role], I want [action] so that [benefit]. Include acceptance criteria for each.",
+            "use_case": "Generate use cases with actors, preconditions, main flow, and postconditions.",
+            "epic": "Generate epics (high-level features) that can be broken into user stories.",
+        }
+        instruction = type_instructions.get(story_type, type_instructions["user_story"])
+        prompt = f"""Convert these requirements into {story_type.replace('_', ' ')}s. {instruction}
+
+Return ONLY valid JSON:
+{{
+  "stories": [
+    {{
+      "id": "US-1",
+      "title": "short title",
+      "description": "As a [role], I want [action] so that [benefit]",
+      "acceptance_criteria": ["AC1", "AC2", ...],
+      "priority": "High|Medium|Low"
+    }}
+  ]
+}}
+
+Requirements:
+{requirements[:8000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=2000)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        stories = out.get("stories", out) if isinstance(out, dict) else (out if isinstance(out, list) else [])
+        return jsonify({"success": True, "stories": stories})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ba-flow-diagram-generate', methods=['GET', 'POST', 'OPTIONS'])
+def ba_flow_diagram_generate():
+    """Generate Mermaid flowchart from process description."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    if request.method == 'GET':
+        return jsonify({"ok": True, "message": "Use POST with {description: '...'}"}), 200
+    try:
+        data = request.get_json() or {}
+        description = (data.get("description") or data.get("text") or "").strip()
+        diagram_type = (data.get("diagram_type") or "flowchart").strip().lower()
+        if not description:
+            return jsonify({"success": False, "error": "Process description required"}), 400
+        prompt = f"""Convert this process/flow description into a Mermaid diagram. Return ONLY the Mermaid code, no markdown fences, no explanation.
+
+Use flowchart TB (top-bottom) or LR (left-right) as appropriate. Use standard Mermaid syntax:
+- flowchart TB / flowchart LR
+- A[Step] --> B[Next]
+- {{}} for decisions
+- (()) for start/end
+
+Description:
+{description[:3000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=800)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        if "flowchart" not in result.lower() and "graph" not in result.lower():
+            result = "flowchart TB\n" + result
+        return jsonify({"success": True, "mermaid": result})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
@@ -2676,9 +2832,14 @@ Begin your detailed analysis now:
         # Mark file as analyzed in context
         ContextManager.mark_file_analyzed(session_id, filename)
         
-        # Add analysis to conversation history
-        analysis_summary = f"Completed analysis of {filename}. Key findings and recommendations provided."
-        ContextManager.add_message(session_id, "assistant", analysis_summary)
+        # Store the user's implicit analysis request and the FULL analysis result in
+        # conversation history so follow-up messages (e.g. "create test cases",
+        # "summarise this", "write a report") have the complete document context.
+        ContextManager.add_message(
+            session_id, "user",
+            f"I uploaded the document '{filename}'. Please analyse it in detail."
+        )
+        ContextManager.add_message(session_id, "assistant", ai_response)
         
         return jsonify({
             "filename": filename,
@@ -4009,6 +4170,23 @@ def send_calendar_event_now(event_id):
     except Exception as e:
         print(f"❌ Calendar event send error: {str(e)}")
         return jsonify({"error": f"Failed to send calendar event: {str(e)}"}), 500
+
+
+@app.route('/<staticpath:filename>', methods=['GET'])
+def serve_static(filename):
+    """Serve static files. Excludes api/* paths so API routes take precedence."""
+    try:
+        allowed = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico'}
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in allowed:
+            return "File type not allowed", 403
+        if os.path.exists(filename):
+            return send_file(filename)
+        return "File not found", 404
+    except Exception as e:
+        print(f"❌ Static file error: {e}")
+        return "Error serving file", 500
+
 
 if __name__ == '__main__':
     print("Starting Vise-AI Flask Server...")
