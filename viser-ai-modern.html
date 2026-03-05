@@ -3961,6 +3961,14 @@
                                     </div>
                                     <button class="qa-tool-btn" onclick="viseAI.openQATool('api-test-generate')">Generate</button>
                                 </div>
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#38a169;"><i class="fas fa-database"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Test Data Generator</h3>
+                                        <p>Generate valid, invalid, boundary and edge-case test data sets for any entity or form.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('test-data-generate')">Generate</button>
+                                </div>
                             </div>
                         </div>
 
@@ -4035,6 +4043,7 @@
                             <p style="font-size:11px;font-weight:600;color:#a0aec0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Suggested Prompts</p>
                             <div style="display:flex;flex-direction:column;gap:6px;">
                                 <button class="qa-prompt-chip" onclick="viseAI.openQATool('test-case-generate','Create test cases for Login')">Create test cases for Login</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('test-data-generate')">Generate test data for User form</button>
                                 <button class="qa-prompt-chip" onclick="viseAI.openQATool('bug-log-analyze')">Analyze error log</button>
                                 <button class="qa-prompt-chip" onclick="viseAI.openQATool('regression-impact')">Generate regression scenarios</button>
                                 <button class="qa-prompt-chip" onclick="viseAI.openQATool('test-case-generate','Suggest exploratory tests for Checkout')">Suggest exploratory tests for Checkout</button>
@@ -4695,17 +4704,97 @@
                         endpoint: '/api/qa/test-case-generate',
                         runLabel: 'Generate Test Cases',
                         buildInput: (prefill) => `
-                            <label style="display:block;font-weight:600;margin-bottom:6px;">Feature / Requirement Description <span style="color:#e53e3e;">*</span></label>
-                            <textarea id="qaInput_feature" rows="5" placeholder="Describe the feature or requirement to generate test cases for…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            <!-- Input mode toggle -->
+                            <div style="display:flex;gap:0;margin-bottom:16px;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                                <button type="button" id="tcTab_type" onclick="viseAI._tcSwitchTab('type')"
+                                    style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--accent);color:#fff;transition:background .15s;">
+                                    <i class="fas fa-keyboard" style="margin-right:5px;"></i>Type Description
+                                </button>
+                                <button type="button" id="tcTab_file" onclick="viseAI._tcSwitchTab('file')"
+                                    style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:#f7fafc;color:#4a5568;transition:background .15s;">
+                                    <i class="fas fa-upload" style="margin-right:5px;"></i>Upload File
+                                </button>
+                            </div>
+
+                            <!-- Type panel -->
+                            <div id="tcPanel_type">
+                                <label style="display:block;font-weight:600;margin-bottom:6px;">Feature / Requirement Description <span style="color:#e53e3e;">*</span></label>
+                                <textarea id="qaInput_feature" rows="5" placeholder="Describe the feature or requirement to generate test cases for…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            </div>
+
+                            <!-- Upload panel -->
+                            <div id="tcPanel_file" style="display:none;">
+                                <label style="display:block;font-weight:600;margin-bottom:10px;">Upload Requirements Document <span style="color:#e53e3e;">*</span></label>
+                                <div id="tcFilePreviewWrap" style="display:none;margin-bottom:10px;padding:10px 14px;background:#f0fff4;border:1.5px solid #9ae6b4;border-radius:8px;display:none;align-items:center;gap:10px;">
+                                    <i class="fas fa-file-alt" style="color:#276749;font-size:18px;"></i>
+                                    <span id="tcFileName" style="font-size:13px;font-weight:600;color:#276749;flex:1;"></span>
+                                    <button type="button" onclick="viseAI._tcClearFile()" style="background:none;border:none;cursor:pointer;color:#718096;font-size:14px;" title="Remove file"><i class="fas fa-times"></i></button>
+                                </div>
+                                <input type="file" id="qaInput_tc_file" accept=".pdf,.docx,.txt,.md,.csv" style="display:none;">
+                                <button type="button" onclick="document.getElementById('qaInput_tc_file').click()"
+                                    style="width:100%;padding:14px;border:2px dashed #e2e8f0;border-radius:8px;background:#f7fafc;cursor:pointer;font-size:14px;color:#4a5568;transition:border-color .15s;"
+                                    id="tcFilePickBtn">
+                                    <i class="fas fa-cloud-upload-alt" style="font-size:20px;display:block;margin-bottom:6px;color:#a0aec0;"></i>
+                                    Click to choose a file (PDF, DOCX, TXT, MD, CSV)
+                                </button>
+                                <p style="font-size:12px;color:#a0aec0;margin-top:6px;">The document content will be used as the feature/requirement input.</p>
+                            </div>
+
+                            <!-- Shared context field -->
                             <label style="display:block;font-weight:600;margin:14px 0 6px;">Additional Context <span style="color:#a0aec0;font-weight:400;">(optional)</span></label>
                             <textarea id="qaInput_context" rows="2" placeholder="Technology stack, user roles, constraints…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;"></textarea>`,
                         collectPayload: () => ({
                             feature: (document.getElementById('qaInput_feature')?.value || '').trim(),
                             context: (document.getElementById('qaInput_context')?.value || '').trim()
                         }),
-                        validate: (p) => p.feature ? null : 'Feature description is required.',
+                        getFile: () => {
+                            const filePanel = document.getElementById('tcPanel_file');
+                            if (filePanel && filePanel.style.display !== 'none') {
+                                return document.getElementById('qaInput_tc_file')?.files?.[0] || null;
+                            }
+                            return null;
+                        },
+                        validate: (p, file) => {
+                            const filePanel = document.getElementById('tcPanel_file');
+                            const usingFile = filePanel && filePanel.style.display !== 'none';
+                            if (usingFile) return file ? null : 'Please select a requirements file to upload.';
+                            return p.feature ? null : 'Feature description is required.';
+                        },
                         renderResult: (r) => this._renderTestCases(r)
                     },
+                    'test-data-generate': {
+                        title: 'Test Data Generator',
+                        subtitle: 'Generate valid, invalid, boundary and edge-case data sets',
+                        icon: '<i class="fas fa-database"></i>',
+                        endpoint: '/api/qa/test-data-generate',
+                        runLabel: 'Generate Test Data',
+                        buildInput: () => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Entity / Form Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="qaInput_entity" rows="3" placeholder="e.g. User Registration form with name, email, phone, password, date of birth…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;"></textarea>
+
+                            <label style="display:block;font-weight:600;margin:14px 0 6px;">Field Details <span style="color:#a0aec0;font-weight:400;">(optional)</span></label>
+                            <textarea id="qaInput_td_fields" rows="3" placeholder="e.g. name: string max 50 chars, email: valid email format, age: integer 18-99, phone: 10-digit number…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;"></textarea>
+
+                            <div style="display:grid;grid-template-columns:1fr 120px;gap:12px;margin-top:14px;">
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:6px;">Data Constraints <span style="color:#a0aec0;font-weight:400;">(optional)</span></label>
+                                    <input id="qaInput_td_constraints" type="text" placeholder="e.g. unique email, password must have uppercase, no special chars in name" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                </div>
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:6px;">Records each</label>
+                                    <input id="qaInput_td_count" type="number" value="3" min="1" max="20" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;text-align:center;">
+                                </div>
+                            </div>`,
+                        collectPayload: () => ({
+                            entity:       (document.getElementById('qaInput_entity')?.value || '').trim(),
+                            fields:       (document.getElementById('qaInput_td_fields')?.value || '').trim(),
+                            data_types:   (document.getElementById('qaInput_td_constraints')?.value || '').trim(),
+                            record_count: parseInt(document.getElementById('qaInput_td_count')?.value || '3', 10)
+                        }),
+                        validate: (p) => p.entity ? null : 'Entity or form description is required.',
+                        renderResult: (r) => this._renderTestDataResult(r)
+                    },
+
                     'api-test-generate': {
                         title: 'API Test Generator',
                         subtitle: 'Generate API test scenarios for endpoints',
@@ -4839,6 +4928,21 @@
                     if (imgInput.files?.[0]) this._qaOpenFromAssistantFile(imgInput.files[0], 'image');
                 });
 
+                // Wire Test Case Generator file pick preview
+                document.addEventListener('change', (e) => {
+                    if (e.target && e.target.id === 'qaInput_tc_file') {
+                        const file = e.target.files?.[0];
+                        const wrap = document.getElementById('tcFilePreviewWrap');
+                        const name = document.getElementById('tcFileName');
+                        const btn  = document.getElementById('tcFilePickBtn');
+                        if (file) {
+                            if (name) name.textContent = file.name;
+                            if (wrap) { wrap.style.display = 'flex'; }
+                            if (btn)  btn.style.display = 'none';
+                        }
+                    }
+                });
+
                 // Wire screenshot preview inside modal
                 document.addEventListener('change', (e) => {
                     if (e.target && e.target.id === 'qaInput_screenshot') {
@@ -4854,6 +4958,34 @@
                         }
                     }
                 });
+            }
+
+            _tcSwitchTab(mode) {
+                const typePanel = document.getElementById('tcPanel_type');
+                const filePanel = document.getElementById('tcPanel_file');
+                const typeTab   = document.getElementById('tcTab_type');
+                const fileTab   = document.getElementById('tcTab_file');
+                if (!typePanel || !filePanel) return;
+                if (mode === 'file') {
+                    typePanel.style.display = 'none';
+                    filePanel.style.display = 'block';
+                    if (typeTab) { typeTab.style.background = '#f7fafc'; typeTab.style.color = '#4a5568'; }
+                    if (fileTab) { fileTab.style.background = 'var(--accent)'; fileTab.style.color = '#fff'; }
+                } else {
+                    typePanel.style.display = 'block';
+                    filePanel.style.display = 'none';
+                    if (typeTab) { typeTab.style.background = 'var(--accent)'; typeTab.style.color = '#fff'; }
+                    if (fileTab) { fileTab.style.background = '#f7fafc'; fileTab.style.color = '#4a5568'; }
+                }
+            }
+
+            _tcClearFile() {
+                const input = document.getElementById('qaInput_tc_file');
+                if (input) input.value = '';
+                const wrap = document.getElementById('tcFilePreviewWrap');
+                if (wrap) wrap.style.display = 'none';
+                const btn = document.getElementById('tcFilePickBtn');
+                if (btn) btn.style.display = 'block';
             }
 
             _qaOpenFromAssistantFile(file, type) {
@@ -4995,26 +5127,249 @@
                 const cases = r.test_cases || [];
                 const typePills = { Functional: '#3182ce', Edge: '#d69e2e', Negative: '#e53e3e', Performance: '#805ad5' };
                 const pCols = { High: '#c53030', Medium: '#c05621', Low: '#276749' };
+                const _esc = (v) => v == null ? '' : String(v).replace(/</g, '&lt;');
                 let html = '';
-                if (r.summary) html += this._qaCard(`<p style="margin:0;color:#4a5568;">${r.summary.replace(/</g,'&lt;')}</p>`);
+                if (r.summary) html += this._qaCard(`<p style="margin:0;color:#4a5568;">${_esc(r.summary)}</p>`);
                 if (r.coverage_areas?.length) {
-                    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${r.coverage_areas.map(a => `<span style="background:#ebf8ff;color:#2b6cb0;border-radius:12px;padding:3px 10px;font-size:12px;">${a.replace(/</g,'&lt;')}</span>`).join('')}</div>`;
+                    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${r.coverage_areas.map(a => `<span style="background:#ebf8ff;color:#2b6cb0;border-radius:12px;padding:3px 10px;font-size:12px;">${_esc(a)}</span>`).join('')}</div>`;
                 }
+                // Safe stringify — handles strings, arrays, objects and nulls from AI
+                const _s = (v) => {
+                    if (v == null) return '';
+                    if (typeof v === 'string') return v.replace(/</g, '&lt;');
+                    if (Array.isArray(v)) return v.map(x => String(x)).join(', ').replace(/</g, '&lt;');
+                    return JSON.stringify(v).replace(/</g, '&lt;');
+                };
+
                 cases.forEach(tc => {
                     const typeColor = typePills[tc.type] || '#718096';
                     const pColor = pCols[tc.priority] || '#718096';
+                    const steps = Array.isArray(tc.steps) ? tc.steps
+                        : (typeof tc.steps === 'string' ? tc.steps.split('\n').filter(Boolean) : []);
                     html += this._qaCard(`
                         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-                            <span style="font-weight:700;color:#1a202c;font-size:14px;">${(tc.id||'').replace(/</g,'&lt;')} — ${(tc.title||'').replace(/</g,'&lt;')}</span>
-                            <span style="background:${typeColor}20;color:${typeColor};border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;">${(tc.type||'').replace(/</g,'&lt;')}</span>
-                            <span style="background:#f7fafc;color:${pColor};border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700;">P: ${(tc.priority||'').replace(/</g,'&lt;')}</span>
+                            <span style="font-weight:700;color:#1a202c;font-size:14px;">${_s(tc.id)} — ${_s(tc.title)}</span>
+                            <span style="background:${typeColor}20;color:${typeColor};border-radius:10px;padding:2px 8px;font-size:11px;font-weight:600;">${_s(tc.type)}</span>
+                            <span style="background:#f7fafc;color:${pColor};border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700;">P: ${_s(tc.priority)}</span>
                         </div>
-                        ${tc.preconditions ? `<p style="font-size:13px;color:#718096;margin-bottom:8px;"><strong>Preconditions:</strong> ${tc.preconditions.replace(/</g,'&lt;')}</p>` : ''}
-                        ${Array.isArray(tc.steps) && tc.steps.length ? `<p style="font-size:13px;font-weight:600;margin-bottom:4px;">Steps:</p><ol style="margin:0 0 8px 18px;">${tc.steps.map(s => `<li style="font-size:13px;margin-bottom:2px;">${s.replace(/</g,'&lt;')}</li>`).join('')}</ol>` : ''}
-                        ${tc.expected_result ? `<p style="font-size:13px;color:#276749;margin-bottom:6px;"><strong>Expected:</strong> ${tc.expected_result.replace(/</g,'&lt;')}</p>` : ''}
-                        ${tc.test_data ? `<p style="font-size:12px;color:#718096;margin:0;"><strong>Test Data:</strong> ${tc.test_data.replace(/</g,'&lt;')}</p>` : ''}`);
+                        ${tc.preconditions ? `<p style="font-size:13px;color:#718096;margin-bottom:8px;"><strong>Preconditions:</strong> ${_s(tc.preconditions)}</p>` : ''}
+                        ${steps.length ? `<p style="font-size:13px;font-weight:600;margin-bottom:4px;">Steps:</p><ol style="margin:0 0 8px 18px;">${steps.map(s => `<li style="font-size:13px;margin-bottom:2px;">${_s(s)}</li>`).join('')}</ol>` : ''}
+                        ${tc.expected_result ? `<p style="font-size:13px;color:#276749;margin-bottom:6px;"><strong>Expected:</strong> ${_s(tc.expected_result)}</p>` : ''}
+                        ${tc.test_data ? `<p style="font-size:12px;color:#718096;margin:0;"><strong>Test Data:</strong> ${_s(tc.test_data)}</p>` : ''}`);
                 });
                 return html || '<p style="color:#718096;">No test cases generated.</p>';
+            }
+
+            _renderTestDataResult(r) {
+                const _s = (v) => {
+                    if (v == null) return '';
+                    if (typeof v === 'string') return v.replace(/</g, '&lt;');
+                    if (Array.isArray(v)) return v.map(x => String(x)).join(', ').replace(/</g, '&lt;');
+                    return JSON.stringify(v).replace(/</g, '&lt;');
+                };
+
+                const catColors = {
+                    'Valid Data':           { bg: '#f0fff4', border: '#9ae6b4', badge: '#276749', badgeBg: '#c6f6d5' },
+                    'Invalid Data':         { bg: '#fff5f5', border: '#feb2b2', badge: '#c53030', badgeBg: '#fed7d7' },
+                    'Boundary Values':      { bg: '#fffaf0', border: '#fbd38d', badge: '#c05621', badgeBg: '#feebc8' },
+                    'Edge Cases':           { bg: '#ebf8ff', border: '#90cdf4', badge: '#2b6cb0', badgeBg: '#bee3f8' },
+                    'SQL / XSS Injection':  { bg: '#faf5ff', border: '#d6bcfa', badge: '#553c9a', badgeBg: '#e9d8fd' },
+                };
+                const defaultColor = { bg: '#f7fafc', border: '#e2e8f0', badge: '#4a5568', badgeBg: '#edf2f7' };
+
+                let html = '';
+                if (r.entity || r.summary) {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                            <i class="fas fa-database" style="color:#38a169;font-size:18px;"></i>
+                            <span style="font-weight:700;font-size:15px;">${_s(r.entity)}</span>
+                        </div>
+                        ${r.summary ? `<p style="margin:0;font-size:13px;color:#718096;">${_s(r.summary)}</p>` : ''}`);
+                }
+
+                (r.categories || []).forEach(cat => {
+                    const col = catColors[cat.category] || defaultColor;
+                    html += `<div style="background:${col.bg};border:1.5px solid ${col.border};border-radius:12px;padding:16px 18px;margin-bottom:14px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                            <span style="background:${col.badgeBg};color:${col.badge};border-radius:10px;padding:3px 12px;font-size:12px;font-weight:700;">${_s(cat.category)}</span>
+                            <span style="font-size:12px;color:#718096;">${_s(cat.description)}</span>
+                        </div>`;
+
+                    (cat.records || []).forEach((rec, i) => {
+                        const recData = rec.data || rec;
+                        const dataEntries = typeof recData === 'object' && !Array.isArray(recData)
+                            ? Object.entries(recData)
+                            : [];
+                        html += `<div style="background:#fff;border-radius:8px;padding:12px 14px;margin-bottom:8px;border:1px solid ${col.border};">
+                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                                <span style="font-size:12px;font-weight:700;color:#4a5568;">Record ${rec.id || (i + 1)}</span>
+                                ${rec.description ? `<span style="font-size:12px;color:#718096;font-style:italic;flex:1;text-align:right;">${_s(rec.description)}</span>` : ''}
+                            </div>
+                            ${dataEntries.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;">
+                                ${dataEntries.map(([k, v]) => `
+                                    <div style="background:#f7fafc;border-radius:6px;padding:6px 10px;">
+                                        <span style="font-size:10px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.04em;">${_s(k)}</span>
+                                        <p style="margin:2px 0 0;font-size:13px;font-weight:600;color:#2d3748;word-break:break-all;">${_s(v)}</p>
+                                    </div>`).join('')}
+                            </div>` : `<code style="font-size:12px;color:#4a5568;">${_s(recData)}</code>`}
+                            ${rec.expected_error ? `<p style="margin:8px 0 0;font-size:12px;color:#c53030;"><i class="fas fa-exclamation-circle"></i> Expected error: ${_s(rec.expected_error)}</p>` : ''}
+                        </div>`;
+                    });
+                    html += '</div>';
+                });
+
+                if (r.notes?.length) {
+                    html += this._qaSection('Notes & Constraints', r.notes, 'fas fa-info-circle');
+                }
+
+                // Store result on instance for download handlers
+                this._lastTestDataResult = r;
+
+                // Download / export bar
+                html += `<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 16px;background:#f7fafc;border:1.5px solid #e2e8f0;border-radius:10px;">
+                    <span style="font-size:12px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.05em;margin-right:4px;">Export</span>
+                    <button onclick="viseAI._downloadTestDataExcel()"
+                        style="display:flex;align-items:center;gap:7px;padding:9px 18px;background:#276749;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;"
+                        onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <i class="fas fa-file-excel"></i> Download Excel
+                    </button>
+                    <button onclick="viseAI._downloadTestDataTxt()"
+                        style="display:flex;align-items:center;gap:7px;padding:9px 18px;background:#2b6cb0;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;"
+                        onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <i class="fas fa-file-alt"></i> Download TXT
+                    </button>
+                    <button onclick="navigator.clipboard.writeText(JSON.stringify(viseAI._lastTestDataResult?.categories||[], null, 2)).then(()=>{this.innerHTML='<i class=\\'fas fa-check\\'></i> Copied!';setTimeout(()=>{this.innerHTML='<i class=\\'fas fa-copy\\'></i> Copy JSON'},2000)})"
+                        style="display:flex;align-items:center;gap:7px;padding:9px 18px;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:600;color:#4a5568;cursor:pointer;transition:border-color .15s;"
+                        onmouseover="this.style.borderColor='#a0aec0'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <i class="fas fa-copy"></i> Copy JSON
+                    </button>
+                </div>`;
+
+                return html || '<p style="color:#718096;">No test data generated.</p>';
+            }
+
+            _downloadTestDataExcel() {
+                const r = this._lastTestDataResult;
+                if (!r) return;
+                try {
+                    const wb = XLSX.utils.book_new();
+                    const entityName = (r.entity || 'TestData').replace(/[^\w\s-]/g, '').trim().substring(0, 25) || 'TestData';
+
+                    (r.categories || []).forEach(cat => {
+                        const records = cat.records || [];
+                        if (!records.length) return;
+
+                        // Collect all unique field keys across all records
+                        const allKeys = new Set();
+                        records.forEach(rec => {
+                            const data = rec.data || rec;
+                            if (data && typeof data === 'object' && !Array.isArray(data)) {
+                                Object.keys(data).forEach(k => allKeys.add(k));
+                            }
+                        });
+                        const keys = [...allKeys];
+
+                        const rows = records.map((rec, i) => {
+                            const data = rec.data || rec;
+                            const row = {
+                                'Record #': rec.id || (i + 1),
+                                'Description': rec.description || '',
+                                'Expected Error': rec.expected_error || ''
+                            };
+                            keys.forEach(k => {
+                                const v = data[k];
+                                row[k] = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+                            });
+                            return row;
+                        });
+
+                        const ws = XLSX.utils.json_to_sheet(rows);
+
+                        // Style header row width
+                        const colWidths = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 2, 14) }));
+                        ws['!cols'] = colWidths;
+
+                        // Sheet name: strip Excel-illegal chars :\/?*[] and limit to 31
+                        const sheetName = cat.category.replace(/[:\\/?\*\[\]]/g, '').trim().substring(0, 31);
+                        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                    });
+
+                    // Notes sheet
+                    if (r.notes?.length) {
+                        const notesWs = XLSX.utils.aoa_to_sheet([['Notes & Constraints'], ...r.notes.map(n => [n])]);
+                        XLSX.utils.book_append_sheet(wb, notesWs, 'Notes');
+                    }
+
+                    const filename = `TestData_${entityName}_${new Date().toISOString().slice(0,10)}.xlsx`;
+                    XLSX.writeFile(wb, filename);
+                } catch (e) {
+                    alert('Excel export failed: ' + e.message);
+                }
+            }
+
+            _downloadTestDataTxt() {
+                const r = this._lastTestDataResult;
+                if (!r) return;
+                try {
+                    const lines = [];
+                    const sep = '═'.repeat(60);
+                    const div = '─'.repeat(60);
+
+                    lines.push(sep);
+                    lines.push(`  TEST DATA REPORT`);
+                    lines.push(`  Entity : ${r.entity || 'N/A'}`);
+                    lines.push(`  Generated : ${new Date().toLocaleString()}`);
+                    lines.push(sep);
+                    if (r.summary) { lines.push(''); lines.push(`Summary: ${r.summary}`); }
+
+                    (r.categories || []).forEach(cat => {
+                        lines.push('');
+                        lines.push(sep);
+                        lines.push(`  ${cat.category.toUpperCase()}`);
+                        if (cat.description) lines.push(`  ${cat.description}`);
+                        lines.push(sep);
+
+                        (cat.records || []).forEach((rec, i) => {
+                            lines.push('');
+                            lines.push(`  Record ${rec.id || (i + 1)}${rec.description ? ' — ' + rec.description : ''}`);
+                            lines.push('  ' + div);
+                            const data = rec.data || rec;
+                            if (data && typeof data === 'object' && !Array.isArray(data)) {
+                                Object.entries(data).forEach(([k, v]) => {
+                                    const val = v == null ? '(empty)' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+                                    lines.push(`    ${k.padEnd(22)}: ${val}`);
+                                });
+                            } else {
+                                lines.push(`    ${JSON.stringify(data)}`);
+                            }
+                            if (rec.expected_error) {
+                                lines.push(`    ${'Expected Error'.padEnd(22)}: ${rec.expected_error}`);
+                            }
+                        });
+                    });
+
+                    if (r.notes?.length) {
+                        lines.push('');
+                        lines.push(sep);
+                        lines.push('  NOTES & CONSTRAINTS');
+                        lines.push(sep);
+                        r.notes.forEach((n, i) => lines.push(`  ${i + 1}. ${n}`));
+                    }
+
+                    lines.push('');
+                    lines.push(sep);
+
+                    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+                    const url  = URL.createObjectURL(blob);
+                    const a    = document.createElement('a');
+                    const entityName = (r.entity || 'TestData').replace(/[^\w\s-]/g, '').trim().substring(0, 30);
+                    a.href     = url;
+                    a.download = `TestData_${entityName}_${new Date().toISOString().slice(0,10)}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    alert('TXT export failed: ' + e.message);
+                }
             }
 
             _renderAPITests(r) {
@@ -8129,6 +8484,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                         this.addAutomationLog(`Executing with ${provider.toUpperCase()}...`, 'INFO');
                         document.getElementById('automationStatus').textContent = 'Running…';
                         this.setAutomationButtonsEnabled(false);
+                        this.setAutomationLoading(true, 'Starting browser engine…');
                         this.socket.emit('execute_task', { url, prompt, provider });
                     });
                 }
@@ -8199,9 +8555,9 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     overlay.style.display = 'flex';
                     this._autoLoadingTimeout = setTimeout(() => {
                         this.setAutomationLoading(false);
-                        this.addAutomationLog('Operation timed out after 60s', 'WARN');
+                        this.addAutomationLog('Operation timed out after 5 minutes. The backend task may still be running — watch the log panel.', 'WARN');
                         this.setAutomationButtonsEnabled(true);
-                    }, 60000);
+                    }, 300000);
                 } else {
                     overlay.style.display = 'none';
                 }

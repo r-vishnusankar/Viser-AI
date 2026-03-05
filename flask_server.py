@@ -167,7 +167,7 @@ def get_request_user_id():
     uid = request.headers.get("X-User-Id") or request.args.get("user_id")
     if not uid and request.is_json:
         try:
-            uid = (request.get_json() or {}).get("user_id")
+            uid = (request.get_json(silent=True) or {}).get("user_id")
         except Exception:
             pass
     if not uid and request.form:
@@ -354,15 +354,19 @@ def handle_execute_task(data):
     socketio.start_background_task(run_core_engine_task, url, prompt, provider)
 
 def run_core_engine_task(url, prompt, provider):
-    """Execute Core Engine 2.0 task following original logic exactly powder"""
+    """Execute Core Engine 2.0 task following original logic exactly."""
     global is_automation_running
     try:
         is_automation_running = True
-        ui_logger.log('INFO', f'🚀 Starting Core Engine 2.0...')
-        ui_logger.log('INFO', f'📍 Target URL: {url}')
-        ui_logger.log('INFO', f'🎯 Task: {prompt}')
-        
-        # We need to run the async automation in the background thread
+        ui_logger.log('INFO', 'Starting Core Engine 2.0...')
+        ui_logger.log('INFO', f'Target URL: {url}')
+        ui_logger.log('INFO', f'Task: {prompt}')
+
+        # On Windows, Playwright requires ProactorEventLoop — set the policy
+        # before creating the event loop so it takes effect in this thread.
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -1690,7 +1694,7 @@ def auth_login():
         cfg = _load_users_config()
         if not cfg:
             return jsonify({"success": False, "error": "Auth not configured. Add config/users.json"}), 503
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         email = (data.get("email") or "").strip().lower()
         password = (data.get("password") or "").strip()
         workspace = (data.get("workspace") or "qa").strip().lower()
@@ -1815,7 +1819,7 @@ Resume content:
 def hr_resume_analyze_by_id():
     """Analyze a resume from session context by file_id (isolated per user)."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         file_id = (data.get("file_id") or "").strip()
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get("session_id") or "default_session", user_id)
@@ -1909,7 +1913,7 @@ def hr_resume_analyze():
 def hr_jd_keywords():
     """Extract key skills/keywords from job description."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         jd = (data.get("job_description") or "").strip()
         if not jd:
             return jsonify({"success": False, "error": "Job description required"}), 400
@@ -1937,7 +1941,7 @@ Job Description:
 def hr_screen():
     """Match candidates to job description. Returns ranked list with match %, skill_match (color indication), and notes."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         job_description = (data.get("job_description") or "").strip()
         job_role = (data.get("job_role") or "").strip()  # designation from JD for email
         candidates = data.get("candidates") or []
@@ -2006,7 +2010,7 @@ Candidates:
 def hr_mail_draft():
     """Draft HR email from template and variables."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         template = (data.get("template") or "interview_invite").strip()
         variables = data.get("variables") or {}
         templates = {
@@ -2092,7 +2096,7 @@ def ba_requirement_analyze():
     try:
         requirements = ""
         if request.is_json:
-            data = request.get_json() or {}
+            data = request.get_json(silent=True) or {}
             requirements = (data.get("requirements") or data.get("text") or "").strip()
         if not requirements and request.files:
             file = request.files.get('file')
@@ -2151,7 +2155,7 @@ def ba_user_story_generate():
     if request.method == 'OPTIONS':
         return '', 204
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         requirements = (data.get("requirements") or data.get("text") or "").strip()
         story_type = (data.get("story_type") or "user_story").strip().lower()
         if not requirements:
@@ -2204,7 +2208,7 @@ def ba_flow_diagram_generate():
     if request.method == 'GET':
         return jsonify({"ok": True, "message": "Use POST with {description: '...'}"}), 200
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         description = (data.get("description") or data.get("text") or "").strip()
         diagram_type = (data.get("diagram_type") or "flowchart").strip().lower()
         if not description:
@@ -2276,15 +2280,33 @@ def _qa_extract_text_file(file_storage) -> str:
 
 @app.route('/api/qa/test-case-generate', methods=['POST', 'OPTIONS'])
 def qa_test_case_generate():
-    """Generate functional and edge test cases from a feature/requirement description."""
+    """Generate functional and edge test cases from a feature/requirement description or uploaded document."""
     if request.method == 'OPTIONS':
         return '', 204
     try:
-        data = request.get_json() or {}
-        feature = (data.get("feature") or data.get("text") or "").strip()
-        context = (data.get("context") or "").strip()
+        feature = ""
+        context = ""
+
+        # Accept file upload (PDF, DOCX, TXT, MD) OR JSON body
+        if request.files and request.files.get('file'):
+            uploaded = request.files['file']
+            ext = (os.path.splitext(uploaded.filename)[1] or "").lower()
+            allowed = {'.pdf', '.docx', '.txt', '.md', '.csv'}
+            if ext not in allowed:
+                return jsonify({"success": False, "error": "Only PDF, DOCX, TXT, MD or CSV files are supported"}), 400
+            feature = _qa_extract_text_file(uploaded) or ""
+            if not feature.strip():
+                return jsonify({"success": False, "error": "Could not extract text from the uploaded file"}), 400
+            # context may arrive as a form field alongside the file
+            context = (request.form.get("context") or "").strip()
+        else:
+            # silent=True prevents a 415 when content-type is multipart/form-data without a file
+            data = request.get_json(silent=True) or {}
+            feature = (data.get("feature") or data.get("text") or request.form.get("feature") or "").strip()
+            context = (data.get("context") or request.form.get("context") or "").strip()
+
         if not feature:
-            return jsonify({"success": False, "error": "Feature or requirement description required"}), 400
+            return jsonify({"success": False, "error": "Feature description or document file required"}), 400
 
         prompt = f"""You are an expert QA engineer. Generate comprehensive test cases for the following feature.
 
@@ -2321,13 +2343,92 @@ Generate at least 8-12 test cases covering: happy path, edge cases, negative cas
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/qa/test-data-generate', methods=['POST', 'OPTIONS'])
+def qa_test_data_generate():
+    """Generate realistic test data sets (valid, invalid, boundary, edge) for a given entity or form."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        entity       = (data.get("entity") or data.get("text") or "").strip()
+        fields       = (data.get("fields") or "").strip()
+        data_types   = (data.get("data_types") or "").strip()
+        record_count = int(data.get("record_count") or 5)
+        record_count = max(1, min(record_count, 20))   # clamp 1-20
+
+        if not entity:
+            return jsonify({"success": False, "error": "Entity or form description is required"}), 400
+
+        prompt = f"""You are an expert QA test data engineer. Generate comprehensive test data for the following entity/form.
+
+Entity / Form: {entity[:4000]}
+{f'Fields: {fields[:2000]}' if fields else ''}
+{f'Data types / constraints: {data_types[:1000]}' if data_types else ''}
+Records requested per category: {record_count}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "entity": "name of the entity/form",
+  "summary": "Brief description of the test data strategy",
+  "categories": [
+    {{
+      "category": "Valid Data",
+      "description": "Normal, expected inputs that should pass all validations",
+      "records": [
+        {{"id": 1, "description": "typical happy path record", "data": {{"field1": "value1", "field2": "value2"}}}}
+      ]
+    }},
+    {{
+      "category": "Invalid Data",
+      "description": "Inputs that violate business rules or format constraints",
+      "records": [
+        {{"id": 1, "description": "what makes this invalid", "data": {{"field1": "bad_value"}}, "expected_error": "Error message expected"}}
+      ]
+    }},
+    {{
+      "category": "Boundary Values",
+      "description": "Min/max limits, empty strings, zero, max length strings",
+      "records": [
+        {{"id": 1, "description": "min boundary", "data": {{"field1": "min_value"}}}}
+      ]
+    }},
+    {{
+      "category": "Edge Cases",
+      "description": "Unusual but valid inputs: special characters, unicode, nulls, whitespace",
+      "records": [
+        {{"id": 1, "description": "special character input", "data": {{"field1": "special@#$value"}}}}
+      ]
+    }},
+    {{
+      "category": "SQL / XSS Injection",
+      "description": "Security test inputs to verify sanitisation",
+      "records": [
+        {{"id": 1, "description": "SQL injection attempt", "data": {{"field1": "' OR '1'='1"}}}}
+      ]
+    }}
+  ],
+  "notes": ["important note about test data", "constraint to be aware of"]
+}}
+
+Generate {record_count} records per category. Make field values realistic and specific to the entity described."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=3500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/qa/api-test-generate', methods=['POST', 'OPTIONS'])
 def qa_api_test_generate():
     """Generate API test scenarios from endpoint description or OpenAPI snippet."""
     if request.method == 'OPTIONS':
         return '', 204
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         endpoint = (data.get("endpoint") or "").strip()
         method = (data.get("method") or "GET").strip().upper()
         description = (data.get("description") or data.get("text") or "").strip()
@@ -2380,7 +2481,7 @@ def qa_bug_log_analyze():
     try:
         log_text = ""
         if request.is_json:
-            data = request.get_json() or {}
+            data = request.get_json(silent=True) or {}
             log_text = (data.get("log_text") or data.get("text") or "").strip()
         if not log_text and request.files:
             f = request.files.get('file')
@@ -2484,7 +2585,7 @@ def qa_root_cause_detect():
     if request.method == 'OPTIONS':
         return '', 204
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         bug_description = (data.get("bug_description") or data.get("text") or "").strip()
         log_snippet = (data.get("log_snippet") or "").strip()
         if not bug_description:
@@ -2529,7 +2630,7 @@ def qa_regression_impact():
     if request.method == 'OPTIONS':
         return '', 204
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         change_description = (data.get("change_description") or data.get("text") or "").strip()
         affected_modules = (data.get("affected_modules") or "").strip()
         if not change_description:
@@ -2580,7 +2681,7 @@ def qa_risk_advisor():
     if request.method == 'OPTIONS':
         return '', 204
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         feature_description = (data.get("feature_description") or data.get("text") or "").strip()
         if not feature_description:
             return jsonify({"success": False, "error": "Feature or module description required"}), 400
@@ -2635,7 +2736,7 @@ Return ONLY valid JSON with no markdown:
 def hr_send_mail():
     """Send HR email with subject, body, and recipient. Valoriz signature is always appended."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         subject = (data.get("subject") or "").strip()
         body = (data.get("body") or "").strip()
         recipient = (data.get("recipient") or "").strip()
@@ -2661,7 +2762,7 @@ def hr_send_mail():
 def chat():
     try:
         print("📨 Received chat request")
-        data = request.get_json()
+        data = request.get_json(silent=True)
         user_message = data.get("message", "")
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
@@ -2999,7 +3100,7 @@ def upload():
 def analyze():
     try:
         print("🔍 Received analysis request")
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         filename = data.get("filename")
         file_path = data.get("file_path")
         user_id = get_request_user_id()
@@ -3296,7 +3397,7 @@ def get_context():
 def sync_context():
     """Sync messages from frontend to backend session (for chat persistence, isolated per user)"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get('session_id', 'default_session'), user_id)
         messages = data.get('messages', [])
@@ -3324,7 +3425,7 @@ def settings_provider():
     """GET: return active provider. POST {provider}: switch (groq/openai only)."""
     if request.method == 'GET':
         return jsonify({"provider": get_ai_provider()})
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     new_provider = data.get("provider", "").strip().lower()
     if new_provider == "gemini":
         new_provider = "groq"
@@ -3429,7 +3530,7 @@ def chat_stream():
     """Streaming version of /api/chat — emits text chunks via SSE."""
     from flask import Response, stream_with_context
 
-    data      = request.get_json() or {}
+    data      = request.get_json(silent=True) or {}
     user_msg  = data.get("message", "").strip()
     user_id   = get_request_user_id()
     session_id= get_effective_session_id(data.get("session_id", "default_session"), user_id)
@@ -3772,7 +3873,7 @@ def chat_history_session(session_id):
 @app.route('/api/summarize-files', methods=['POST'])
 def summarize_files():
     """Summarise all uploaded files in a session so the AI has multi-file context (isolated per user)."""
-    data       = request.get_json() or {}
+    data       = request.get_json(silent=True) or {}
     user_id    = get_request_user_id()
     session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
     session    = ContextManager.get_session(session_id)
@@ -3831,7 +3932,7 @@ def get_key_status():
 def clear_context():
     """Clear conversation context for a session (isolated per user)"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
@@ -3853,7 +3954,7 @@ def clear_context():
 def email_analysis():
     """Send analysis report via email"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         filename = data.get("filename")
         analysis = data.get("analysis")
         recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
@@ -3895,7 +3996,7 @@ def email_analysis():
 def email_notification():
     """Send notification email"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         title = data.get("title", "Vise-AI Notification")
         message = data.get("message")
         details = data.get("details")
@@ -3951,7 +4052,7 @@ def get_email_config():
 def test_email():
     """Test email functionality"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
 
         if not recipient:
@@ -3987,7 +4088,7 @@ def test_email():
 def generate_document():
     """Generate document in specified format"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         content = data.get('content')
         format_type = data.get('format', 'pdf').lower()
         filename = data.get('filename', 'vise-ai-document')
@@ -4382,7 +4483,7 @@ def get_today_events():
 def create_calendar_event_endpoint():
     """Create a new calendar event"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         
         event_date = data.get("date")
         recipient_email = data.get("email")
@@ -4446,7 +4547,7 @@ def update_calendar_event(event_id):
         if not event:
             return jsonify({"error": "Event not found"}), 404
         
-        data = request.get_json()
+        data = request.get_json(silent=True)
         
         # Update fields
         if "date" in data:
