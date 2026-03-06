@@ -14,6 +14,7 @@ if sys.platform == "win32":
 
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
+from werkzeug.routing import PathConverter, BaseConverter
 import os
 import json
 from dotenv import load_dotenv
@@ -121,9 +122,20 @@ def tonnify_preprocess(user_prompt: str) -> str:
     t = t.strip()
     return t if t else user_prompt.strip()
 
+class StaticPathConverter(BaseConverter):
+    """Matches static file paths only. Excludes /api/* so API routes take precedence."""
+    regex = r'(?!api/).+'
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'viser-ai-secret-key'
+app.url_map.converters['staticpath'] = StaticPathConverter
 CORS(app)
+
+@app.before_request
+def _log_ba_requests():
+    path = request.path or ''
+    if 'ba-' in path and path.startswith('/api/'):
+        print(f"[BA] {request.method} {path}", flush=True)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # Spec2 Web UI Logger Bridge
@@ -155,7 +167,7 @@ def get_request_user_id():
     uid = request.headers.get("X-User-Id") or request.args.get("user_id")
     if not uid and request.is_json:
         try:
-            uid = (request.get_json() or {}).get("user_id")
+            uid = (request.get_json(silent=True) or {}).get("user_id")
         except Exception:
             pass
     if not uid and request.form:
@@ -254,21 +266,23 @@ TABLE RULES (use tables ONLY when explicitly requested):
 """
         
         if include_files and session["uploaded_files"]:
-            files_for_context = [
-                {"filename": f["filename"], "status": "analyzed" if f["analyzed"] else "uploaded"}
-                for f in session["uploaded_files"][-5:]
-            ]
-            if TOON_AVAILABLE and toon_encode:
-                try:
-                    context_toon = toon_encode({"uploaded_files": files_for_context})
-                    system_message += f"\n\nContext (TOON):\n{context_toon}\nReference these files and offer to analyze if not already done."
-                except Exception:
-                    file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
-                    system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list) + "\nYou can reference these files in your responses and offer to analyze them if not already done."
-            else:
-                file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
-                system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list)
-                system_message += "\nYou can reference these files in your responses and offer to analyze them if not already done."
+            analyzed = [f for f in session["uploaded_files"][-5:] if f.get("analyzed")]
+            pending  = [f for f in session["uploaded_files"][-5:] if not f.get("analyzed")]
+
+            context_lines = []
+            if analyzed:
+                context_lines.append("The following documents have already been analysed and their full analysis is in the conversation history above:")
+                for f in analyzed:
+                    context_lines.append(f"  - {f['filename']} (fully analysed)")
+                context_lines.append("When the user asks follow-up questions (e.g. create test cases, write a report, summarise), use the analysis from the conversation history to answer directly — do NOT say you haven't seen the document.")
+            if pending:
+                context_lines.append("The following files have been uploaded but not yet analysed:")
+                for f in pending:
+                    context_lines.append(f"  - {f['filename']} (awaiting analysis)")
+                context_lines.append("Offer to analyse them if the user hasn't already requested it.")
+
+            if context_lines:
+                system_message += "\n\nFILE CONTEXT:\n" + "\n".join(context_lines)
         
         # Build message history
         messages = [{"role": "system", "content": system_message}]
@@ -340,15 +354,19 @@ def handle_execute_task(data):
     socketio.start_background_task(run_core_engine_task, url, prompt, provider)
 
 def run_core_engine_task(url, prompt, provider):
-    """Execute Core Engine 2.0 task following original logic exactly powder"""
+    """Execute Core Engine 2.0 task following original logic exactly."""
     global is_automation_running
     try:
         is_automation_running = True
-        ui_logger.log('INFO', f'🚀 Starting Core Engine 2.0...')
-        ui_logger.log('INFO', f'📍 Target URL: {url}')
-        ui_logger.log('INFO', f'🎯 Task: {prompt}')
-        
-        # We need to run the async automation in the background thread
+        ui_logger.log('INFO', 'Starting Core Engine 2.0...')
+        ui_logger.log('INFO', f'Target URL: {url}')
+        ui_logger.log('INFO', f'Task: {prompt}')
+
+        # On Windows, Playwright requires ProactorEventLoop — set the policy
+        # before creating the event loop so it takes effect in this thread.
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -605,12 +623,19 @@ def _extract_sheet_id(url_or_id):
     return s
 
 
+@app.route('/api/repo/gsheets-config', methods=['GET'])
+def repo_gsheets_config():
+    """Return default Google Sheet URL from env (for frontend to use when user hasn't set one)."""
+    default_url = os.environ.get('GOOGLE_SHEETS_URL', '').strip()
+    return jsonify({"defaultUrl": default_url or None})
+
+
 @app.route('/api/repo/gsheets', methods=['GET'])
 def repo_gsheets():
     """Fetch testcase data from Google Sheets. Requires GOOGLE_SHEETS_CREDENTIALS_JSON env var."""
     if not GOOGLE_SHEETS_AVAILABLE:
         return jsonify({"success": False, "error": "Google Sheets API not available. Install google-auth and google-api-python-client."}), 503
-    sheet_id = request.args.get('sheet_id') or request.args.get('url')
+    sheet_id = request.args.get('sheet_id') or request.args.get('url') or os.environ.get('GOOGLE_SHEETS_URL', '').strip()
     if not sheet_id:
         return jsonify({"success": False, "error": "Missing sheet_id or url parameter"}), 400
     spreadsheet_id = _extract_sheet_id(sheet_id)
@@ -1640,40 +1665,6 @@ def serve_assets(subpath):
         print(f"❌ Asset serve error: {e}")
         return "Not found", 404
 
-@app.route('/<path:filename>')
-def serve_static(filename):
-    """Serve static files (HTML, CSS, JS)"""
-    try:
-        # Security: only allow certain file types
-        allowed_extensions = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico'}
-        file_ext = os.path.splitext(filename)[1].lower()
-        
-        if file_ext not in allowed_extensions:
-            return "File type not allowed", 403
-            
-        # Set appropriate content type
-        content_types = {
-            '.html': 'text/html',
-            '.css': 'text/css', 
-            '.js': 'application/javascript',
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.gif': 'image/gif',
-            '.ico': 'image/x-icon'
-        }
-        
-        if os.path.exists(filename):
-            response = send_file(filename)
-            response.headers['Content-Type'] = content_types.get(file_ext, 'text/plain')
-            return response
-        else:
-            return "File not found", 404
-            
-    except Exception as e:
-        print(f"❌ Static file error: {e}")
-        return "Error serving file", 500
-
 
 def _load_users_config():
     """Load users config from: 1) USERS_CONFIG_JSON env, 2) config/users.json, 3) config/users.example.json"""
@@ -1703,7 +1694,7 @@ def auth_login():
         cfg = _load_users_config()
         if not cfg:
             return jsonify({"success": False, "error": "Auth not configured. Add config/users.json"}), 503
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         email = (data.get("email") or "").strip().lower()
         password = (data.get("password") or "").strip()
         workspace = (data.get("workspace") or "qa").strip().lower()
@@ -1744,6 +1735,17 @@ def auth_verify():
 
 
 # ─── HR Module APIs ───────────────────────────────────────────────────────────
+
+VALORIZ_SIGNATURE = """
+
+Best regards,
+Team HR
+| teamhr@valoriz.com | www.valoriz.com
+
+Valoriz Digital Pvt. Ltd. | CIN: U72900KL2014PTC037415,
+L-2, -1 Floor, Thejaswini Building, Technopark, Trivandrum, Kerala, India
+Disclaimer: The information in this email is confidential and is intended solely for the addressee. Access to this mail by anyone else is unauthorized."""
+
 
 def _hr_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
     """Call LLM (Groq or OpenAI) for HR analysis."""
@@ -1817,7 +1819,7 @@ Resume content:
 def hr_resume_analyze_by_id():
     """Analyze a resume from session context by file_id (isolated per user)."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         file_id = (data.get("file_id") or "").strip()
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get("session_id") or "default_session", user_id)
@@ -1911,7 +1913,7 @@ def hr_resume_analyze():
 def hr_jd_keywords():
     """Extract key skills/keywords from job description."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         jd = (data.get("job_description") or "").strip()
         if not jd:
             return jsonify({"success": False, "error": "Job description required"}), 400
@@ -1939,7 +1941,7 @@ Job Description:
 def hr_screen():
     """Match candidates to job description. Returns ranked list with match %, skill_match (color indication), and notes."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         job_description = (data.get("job_description") or "").strip()
         job_role = (data.get("job_role") or "").strip()  # designation from JD for email
         candidates = data.get("candidates") or []
@@ -2008,7 +2010,7 @@ Candidates:
 def hr_mail_draft():
     """Draft HR email from template and variables."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         template = (data.get("template") or "interview_invite").strip()
         variables = data.get("variables") or {}
         templates = {
@@ -2052,16 +2054,7 @@ Return ONLY the email body (no subject line, no extra text). Use the variables w
             if body == prev:
                 break
         # Append Valoriz signature to all generated emails
-        signature = """
-
-Best regards,
-Team HR
-| teamhr@valoriz.com | www.valoriz.com
-
-Valoriz Digital Pvt. Ltd. | CIN: U72900KL2014PTC037415,
-L-2, -1 Floor, Thejaswini Building, Technopark, Trivandrum, Kerala, India
-Disclaimer: The information in this email is confidential and is intended solely for the addressee. Access to this mail by anyone else is unauthorized."""
-        body = body + signature
+        body = body + VALORIZ_SIGNATURE
         subject_prompts = {
             "interview_invite": "Subject line for interview invitation",
             "rejection": "Subject line for rejection email",
@@ -2076,11 +2069,674 @@ Disclaimer: The information in this email is confidential and is intended solely
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ─── BA (Business Analysis) Module APIs ──────────────────────────────────────
+
+def _ba_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM for BA analysis (reuses HR LLM)."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _extract_requirements_from_file(file, tmp_path, ext):
+    """Extract text from requirements file (PDF, DOCX, TXT)."""
+    if ext == '.pdf':
+        return extract_pdf_content(tmp_path)
+    if ext == '.docx':
+        return extract_docx_content(tmp_path)
+    if ext == '.txt':
+        with open(tmp_path, 'r', encoding='utf-8', errors='ignore') as f:
+            return f.read()
+    return None
+
+
+@app.route('/api/ba-requirement-analyze', methods=['POST', 'OPTIONS'])
+def ba_requirement_analyze():
+    """Analyze requirements document and extract structured insights. Accepts JSON with 'requirements' or file upload (PDF, DOCX, TXT)."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        requirements = ""
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            requirements = (data.get("requirements") or data.get("text") or "").strip()
+        if not requirements and request.files:
+            file = request.files.get('file')
+            if file and file.filename:
+                ext = (os.path.splitext(file.filename)[1] or '').lower()
+                if ext not in ('.pdf', '.docx', '.txt'):
+                    return jsonify({"success": False, "error": "Only PDF, DOCX, TXT supported"}), 400
+                upload_dir = "uploads/documents"
+                os.makedirs(upload_dir, exist_ok=True)
+                file_id = str(uuid.uuid4())
+                tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+                file.save(tmp_path)
+                try:
+                    requirements = _extract_requirements_from_file(file, tmp_path, ext) or ""
+                finally:
+                    if os.path.exists(tmp_path):
+                        try:
+                            os.remove(tmp_path)
+                        except OSError:
+                            pass
+        if not requirements or not requirements.strip():
+            return jsonify({"success": False, "error": "Requirements text or file required"}), 400
+        requirements = requirements.strip()
+        prompt = f"""Analyze these software/business requirements and return ONLY valid JSON (no markdown, no extra text):
+{{
+  "summary": "2-3 sentence summary of the requirements",
+  "features": ["feature1", "feature2", ...],
+  "acceptance_criteria": ["criterion1", "criterion2", ...],
+  "dependencies": ["dep1", "dep2", ...],
+  "assumptions": ["assumption1", ...],
+  "risks": ["risk1", ...],
+  "stakeholders": ["stakeholder1", ...]
+}}
+
+Requirements:
+{requirements[:8000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=1500)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        return jsonify({"success": True, "analysis": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ba-user-story-generate', methods=['POST', 'OPTIONS'])
+def ba_user_story_generate():
+    """Generate user stories from requirements."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        requirements = (data.get("requirements") or data.get("text") or "").strip()
+        story_type = (data.get("story_type") or "user_story").strip().lower()
+        if not requirements:
+            return jsonify({"success": False, "error": "Requirements text required"}), 400
+        type_instructions = {
+            "user_story": "Generate user stories in format: As a [role], I want [action] so that [benefit]. Include acceptance criteria for each.",
+            "use_case": "Generate use cases with actors, preconditions, main flow, and postconditions.",
+            "epic": "Generate epics (high-level features) that can be broken into user stories.",
+        }
+        instruction = type_instructions.get(story_type, type_instructions["user_story"])
+        prompt = f"""Convert these requirements into {story_type.replace('_', ' ')}s. {instruction}
+
+Return ONLY valid JSON:
+{{
+  "stories": [
+    {{
+      "id": "US-1",
+      "title": "short title",
+      "description": "As a [role], I want [action] so that [benefit]",
+      "acceptance_criteria": ["AC1", "AC2", ...],
+      "priority": "High|Medium|Low"
+    }}
+  ]
+}}
+
+Requirements:
+{requirements[:8000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=2000)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        stories = out.get("stories", out) if isinstance(out, dict) else (out if isinstance(out, list) else [])
+        return jsonify({"success": True, "stories": stories})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ba-flow-diagram-generate', methods=['GET', 'POST', 'OPTIONS'])
+def ba_flow_diagram_generate():
+    """Generate Mermaid flowchart from process description."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    if request.method == 'GET':
+        return jsonify({"ok": True, "message": "Use POST with {description: '...'}"}), 200
+    try:
+        data = request.get_json(silent=True) or {}
+        description = (data.get("description") or data.get("text") or "").strip()
+        diagram_type = (data.get("diagram_type") or "flowchart").strip().lower()
+        if not description:
+            return jsonify({"success": False, "error": "Process description required"}), 400
+        prompt = f"""Convert this process/flow description into a Mermaid diagram. Return ONLY the Mermaid code, no markdown fences, no explanation.
+
+Use flowchart TB (top-bottom) or LR (left-right) as appropriate. Use standard Mermaid syntax:
+- flowchart TB / flowchart LR
+- A[Step] --> B[Next]
+- {{}} for decisions
+- (()) for start/end
+
+Description:
+{description[:3000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=800)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        if "flowchart" not in result.lower() and "graph" not in result.lower():
+            result = "flowchart TB\n" + result
+        return jsonify({"success": True, "mermaid": result})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── QA Intelligence Module ──────────────────────────────────────────────────
+
+def _qa_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM (Groq or OpenAI) for QA Intelligence analysis."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _qa_strip_json(raw: str) -> str:
+    """Strip markdown fences from LLM JSON response."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0].strip()
+    return raw.strip()
+
+
+def _qa_extract_text_file(file_storage) -> str:
+    """Extract plain text from an uploaded log / text file."""
+    ext = (os.path.splitext(file_storage.filename)[1] or "").lower()
+    upload_dir = "uploads/documents"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_id = str(uuid.uuid4())
+    tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+    file_storage.save(tmp_path)
+    try:
+        if ext == ".pdf":
+            return extract_pdf_content(tmp_path) or ""
+        if ext == ".docx":
+            return extract_docx_content(tmp_path) or ""
+        with open(tmp_path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+
+@app.route('/api/qa/test-case-generate', methods=['POST', 'OPTIONS'])
+def qa_test_case_generate():
+    """Generate functional and edge test cases from a feature/requirement description or uploaded document."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        feature = ""
+        context = ""
+
+        # Accept file upload (PDF, DOCX, TXT, MD) OR JSON body
+        if request.files and request.files.get('file'):
+            uploaded = request.files['file']
+            ext = (os.path.splitext(uploaded.filename)[1] or "").lower()
+            allowed = {'.pdf', '.docx', '.txt', '.md', '.csv'}
+            if ext not in allowed:
+                return jsonify({"success": False, "error": "Only PDF, DOCX, TXT, MD or CSV files are supported"}), 400
+            feature = _qa_extract_text_file(uploaded) or ""
+            if not feature.strip():
+                return jsonify({"success": False, "error": "Could not extract text from the uploaded file"}), 400
+            # context may arrive as a form field alongside the file
+            context = (request.form.get("context") or "").strip()
+        else:
+            # silent=True prevents a 415 when content-type is multipart/form-data without a file
+            data = request.get_json(silent=True) or {}
+            feature = (data.get("feature") or data.get("text") or request.form.get("feature") or "").strip()
+            context = (data.get("context") or request.form.get("context") or "").strip()
+
+        if not feature:
+            return jsonify({"success": False, "error": "Feature description or document file required"}), 400
+
+        prompt = f"""You are an expert QA engineer. Generate comprehensive test cases for the following feature.
+
+Feature: {feature[:6000]}
+{f'Additional context: {context[:2000]}' if context else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "summary": "Brief description of what is being tested",
+  "test_cases": [
+    {{
+      "id": "TC-001",
+      "title": "Test case title",
+      "type": "Functional|Edge|Negative|Performance",
+      "priority": "High|Medium|Low",
+      "preconditions": "What must be true before the test",
+      "steps": ["Step 1", "Step 2"],
+      "expected_result": "What should happen",
+      "test_data": "Sample data if applicable"
+    }}
+  ],
+  "coverage_areas": ["area1", "area2"]
+}}
+
+Generate at least 8-12 test cases covering: happy path, edge cases, negative cases, boundary values."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=3000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/test-data-generate', methods=['POST', 'OPTIONS'])
+def qa_test_data_generate():
+    """Generate realistic test data sets (valid, invalid, boundary, edge) for a given entity or form."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        entity       = (data.get("entity") or data.get("text") or "").strip()
+        fields       = (data.get("fields") or "").strip()
+        data_types   = (data.get("data_types") or "").strip()
+        record_count = int(data.get("record_count") or 5)
+        record_count = max(1, min(record_count, 20))   # clamp 1-20
+
+        if not entity:
+            return jsonify({"success": False, "error": "Entity or form description is required"}), 400
+
+        prompt = f"""You are an expert QA test data engineer. Generate comprehensive test data for the following entity/form.
+
+Entity / Form: {entity[:4000]}
+{f'Fields: {fields[:2000]}' if fields else ''}
+{f'Data types / constraints: {data_types[:1000]}' if data_types else ''}
+Records requested per category: {record_count}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "entity": "name of the entity/form",
+  "summary": "Brief description of the test data strategy",
+  "categories": [
+    {{
+      "category": "Valid Data",
+      "description": "Normal, expected inputs that should pass all validations",
+      "records": [
+        {{"id": 1, "description": "typical happy path record", "data": {{"field1": "value1", "field2": "value2"}}}}
+      ]
+    }},
+    {{
+      "category": "Invalid Data",
+      "description": "Inputs that violate business rules or format constraints",
+      "records": [
+        {{"id": 1, "description": "what makes this invalid", "data": {{"field1": "bad_value"}}, "expected_error": "Error message expected"}}
+      ]
+    }},
+    {{
+      "category": "Boundary Values",
+      "description": "Min/max limits, empty strings, zero, max length strings",
+      "records": [
+        {{"id": 1, "description": "min boundary", "data": {{"field1": "min_value"}}}}
+      ]
+    }},
+    {{
+      "category": "Edge Cases",
+      "description": "Unusual but valid inputs: special characters, unicode, nulls, whitespace",
+      "records": [
+        {{"id": 1, "description": "special character input", "data": {{"field1": "special@#$value"}}}}
+      ]
+    }},
+    {{
+      "category": "SQL / XSS Injection",
+      "description": "Security test inputs to verify sanitisation",
+      "records": [
+        {{"id": 1, "description": "SQL injection attempt", "data": {{"field1": "' OR '1'='1"}}}}
+      ]
+    }}
+  ],
+  "notes": ["important note about test data", "constraint to be aware of"]
+}}
+
+Generate {record_count} records per category. Make field values realistic and specific to the entity described."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=3500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/api-test-generate', methods=['POST', 'OPTIONS'])
+def qa_api_test_generate():
+    """Generate API test scenarios from endpoint description or OpenAPI snippet."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        endpoint = (data.get("endpoint") or "").strip()
+        method = (data.get("method") or "GET").strip().upper()
+        description = (data.get("description") or data.get("text") or "").strip()
+        if not description and not endpoint:
+            return jsonify({"success": False, "error": "Endpoint URL or description required"}), 400
+
+        prompt = f"""You are a senior API QA engineer. Generate thorough API test scenarios.
+
+Endpoint: {method} {endpoint}
+Description: {description[:5000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "endpoint": "{method} {endpoint}",
+  "test_scenarios": [
+    {{
+      "id": "API-001",
+      "scenario": "Scenario name",
+      "type": "Happy Path|Error|Auth|Boundary|Performance",
+      "method": "{method}",
+      "headers": {{"Content-Type": "application/json"}},
+      "request_body": {{}},
+      "query_params": {{}},
+      "expected_status": 200,
+      "expected_response": "Description of expected response",
+      "validation_points": ["check1", "check2"]
+    }}
+  ],
+  "auth_tests": ["auth scenario 1", "auth scenario 2"],
+  "performance_notes": "Notes on load/performance testing"
+}}
+
+Include: success cases, error cases (4xx, 5xx), auth failures, boundary inputs, missing fields."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/bug-log-analyze', methods=['POST', 'OPTIONS'])
+def qa_bug_log_analyze():
+    """Analyze a bug log (pasted text or file upload) and extract error patterns, severity, root causes."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        log_text = ""
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            log_text = (data.get("log_text") or data.get("text") or "").strip()
+        if not log_text and request.files:
+            f = request.files.get('file')
+            if f and f.filename:
+                log_text = _qa_extract_text_file(f)
+        if not log_text:
+            return jsonify({"success": False, "error": "Log text or file required"}), 400
+
+        prompt = f"""You are an expert QA/DevOps engineer. Analyse the following application log and extract structured insights.
+
+Log Content:
+{log_text[:10000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "summary": "High-level summary of the log health",
+  "severity": "Critical|High|Medium|Low",
+  "error_patterns": [
+    {{
+      "pattern": "Error pattern description",
+      "occurrences": 0,
+      "severity": "Critical|High|Medium|Low",
+      "message": "Example error message"
+    }}
+  ],
+  "root_causes": ["root cause 1", "root cause 2"],
+  "affected_components": ["component1", "component2"],
+  "recommendations": ["recommendation1", "recommendation2"],
+  "error_count": 0,
+  "warning_count": 0
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/screenshot-analyze', methods=['POST', 'OPTIONS'])
+def qa_screenshot_analyze():
+    """Analyze a UI screenshot to identify visual bugs and UX issues."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        f = request.files.get('file') if request.files else None
+        if not f or not f.filename:
+            return jsonify({"success": False, "error": "Screenshot image file required"}), 400
+
+        ext = (os.path.splitext(f.filename)[1] or "").lower()
+        allowed = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        if ext not in allowed:
+            return jsonify({"success": False, "error": "Image file required (JPG, PNG, GIF, BMP, WEBP)"}), 400
+
+        upload_dir = "uploads/images"
+        os.makedirs(upload_dir, exist_ok=True)
+        file_id = str(uuid.uuid4())
+        tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+        f.save(tmp_path)
+
+        try:
+            vision_prompt = """You are a QA engineer reviewing a UI screenshot. Identify all visual bugs, UX issues, and accessibility concerns.
+Provide your analysis as JSON with no markdown:
+{
+  "overall_assessment": "Pass|Fail|Warning",
+  "summary": "Brief overall summary",
+  "ui_issues": [
+    {
+      "issue": "Issue description",
+      "severity": "Critical|High|Medium|Low",
+      "location": "Where on screen",
+      "recommendation": "How to fix"
+    }
+  ],
+  "ux_concerns": ["concern1", "concern2"],
+  "accessibility_issues": ["issue1", "issue2"],
+  "positive_observations": ["good thing 1", "good thing 2"]
+}"""
+            raw = analyze_image_with_vision(tmp_path, vision_prompt)
+            out = json.loads(_qa_strip_json(raw))
+            return jsonify({"success": True, "result": out})
+        except json.JSONDecodeError:
+            return jsonify({"success": True, "result": {"summary": raw, "ui_issues": [], "ux_concerns": [], "accessibility_issues": [], "positive_observations": []}})
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/root-cause-detect', methods=['POST', 'OPTIONS'])
+def qa_root_cause_detect():
+    """Detect root cause of a bug from description and optional log snippet."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        bug_description = (data.get("bug_description") or data.get("text") or "").strip()
+        log_snippet = (data.get("log_snippet") or "").strip()
+        if not bug_description:
+            return jsonify({"success": False, "error": "Bug description required"}), 400
+
+        prompt = f"""You are a senior QA/debugging expert. Perform root cause analysis for the following bug.
+
+Bug Description: {bug_description[:4000]}
+{f'Log Snippet:{chr(10)}{log_snippet[:3000]}' if log_snippet else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "root_cause": "Primary root cause identified",
+  "confidence": "High|Medium|Low",
+  "category": "Code Bug|Configuration|Data|Environment|Integration|Performance|Security",
+  "contributing_factors": ["factor1", "factor2"],
+  "affected_components": ["component1", "component2"],
+  "fix_suggestions": [
+    {{
+      "action": "What to do",
+      "priority": "Immediate|Short-term|Long-term",
+      "effort": "Low|Medium|High"
+    }}
+  ],
+  "prevention_measures": ["measure1", "measure2"],
+  "similar_risks": ["other area at risk 1", "other area at risk 2"]
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/regression-impact', methods=['POST', 'OPTIONS'])
+def qa_regression_impact():
+    """Analyse a code/requirement change and suggest regression test areas."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        change_description = (data.get("change_description") or data.get("text") or "").strip()
+        affected_modules = (data.get("affected_modules") or "").strip()
+        if not change_description:
+            return jsonify({"success": False, "error": "Change description required"}), 400
+
+        prompt = f"""You are a QA lead performing regression impact analysis.
+
+Change Description: {change_description[:5000]}
+{f'Modules mentioned as changed: {affected_modules}' if affected_modules else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "impact_summary": "Overall impact assessment",
+  "risk_level": "Critical|High|Medium|Low",
+  "directly_impacted_areas": [
+    {{
+      "area": "Module or feature name",
+      "impact_type": "Direct|Indirect",
+      "reason": "Why this is impacted"
+    }}
+  ],
+  "regression_test_suites": [
+    {{
+      "suite": "Test suite name",
+      "priority": "Must Run|Should Run|Nice to Have",
+      "estimated_effort": "Low|Medium|High",
+      "test_types": ["Smoke", "Functional", "Integration"]
+    }}
+  ],
+  "specific_test_scenarios": ["scenario1", "scenario2"],
+  "skip_safe_areas": ["area safe to skip regression 1"],
+  "recommendations": ["recommendation1", "recommendation2"]
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/risk-advisor', methods=['POST', 'OPTIONS'])
+def qa_risk_advisor():
+    """Generate a risk-based test priority matrix for a feature or module."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        feature_description = (data.get("feature_description") or data.get("text") or "").strip()
+        if not feature_description:
+            return jsonify({"success": False, "error": "Feature or module description required"}), 400
+
+        prompt = f"""You are a QA strategist. Generate a risk-based test prioritization matrix for the following feature/module.
+
+Feature/Module: {feature_description[:5000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Risk assessment summary",
+  "risk_areas": [
+    {{
+      "area": "Risk area name",
+      "risk_level": "Critical|High|Medium|Low",
+      "likelihood": "High|Medium|Low",
+      "impact": "High|Medium|Low",
+      "description": "What could go wrong",
+      "mitigation": "How to mitigate"
+    }}
+  ],
+  "test_priorities": [
+    {{
+      "test_area": "What to test",
+      "priority": 1,
+      "rationale": "Why this priority",
+      "test_type": "Smoke|Functional|Integration|Performance|Security|UAT"
+    }}
+  ],
+  "must_test_scenarios": ["critical scenario 1", "critical scenario 2"],
+  "estimated_test_effort": {{
+    "smoke": "X hours",
+    "functional": "X hours",
+    "regression": "X hours"
+  }}
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 @app.route('/api/hr/send-mail', methods=['POST'])
 def hr_send_mail():
-    """Send HR email with subject, body, and recipient."""
+    """Send HR email with subject, body, and recipient. Valoriz signature is always appended."""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         subject = (data.get("subject") or "").strip()
         body = (data.get("body") or "").strip()
         recipient = (data.get("recipient") or "").strip()
@@ -2090,6 +2746,9 @@ def hr_send_mail():
             return jsonify({"success": False, "error": "Subject required"}), 400
         if not body:
             return jsonify({"success": False, "error": "Email body required"}), 400
+        # Always append Valoriz signature if not already present
+        if "teamhr@valoriz.com" not in body:
+            body = body.rstrip() + VALORIZ_SIGNATURE
         success, msg = send_email(recipient, subject, body)
         if success:
             return jsonify({"success": True, "message": f"Email sent to {recipient}"})
@@ -2103,7 +2762,7 @@ def hr_send_mail():
 def chat():
     try:
         print("📨 Received chat request")
-        data = request.get_json()
+        data = request.get_json(silent=True)
         user_message = data.get("message", "")
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
@@ -2441,7 +3100,7 @@ def upload():
 def analyze():
     try:
         print("🔍 Received analysis request")
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         filename = data.get("filename")
         file_path = data.get("file_path")
         user_id = get_request_user_id()
@@ -2671,9 +3330,14 @@ Begin your detailed analysis now:
         # Mark file as analyzed in context
         ContextManager.mark_file_analyzed(session_id, filename)
         
-        # Add analysis to conversation history
-        analysis_summary = f"Completed analysis of {filename}. Key findings and recommendations provided."
-        ContextManager.add_message(session_id, "assistant", analysis_summary)
+        # Store the user's implicit analysis request and the FULL analysis result in
+        # conversation history so follow-up messages (e.g. "create test cases",
+        # "summarise this", "write a report") have the complete document context.
+        ContextManager.add_message(
+            session_id, "user",
+            f"I uploaded the document '{filename}'. Please analyse it in detail."
+        )
+        ContextManager.add_message(session_id, "assistant", ai_response)
         
         return jsonify({
             "filename": filename,
@@ -2733,7 +3397,7 @@ def get_context():
 def sync_context():
     """Sync messages from frontend to backend session (for chat persistence, isolated per user)"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get('session_id', 'default_session'), user_id)
         messages = data.get('messages', [])
@@ -2761,7 +3425,7 @@ def settings_provider():
     """GET: return active provider. POST {provider}: switch (groq/openai only)."""
     if request.method == 'GET':
         return jsonify({"provider": get_ai_provider()})
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     new_provider = data.get("provider", "").strip().lower()
     if new_provider == "gemini":
         new_provider = "groq"
@@ -2866,7 +3530,7 @@ def chat_stream():
     """Streaming version of /api/chat — emits text chunks via SSE."""
     from flask import Response, stream_with_context
 
-    data      = request.get_json() or {}
+    data      = request.get_json(silent=True) or {}
     user_msg  = data.get("message", "").strip()
     user_id   = get_request_user_id()
     session_id= get_effective_session_id(data.get("session_id", "default_session"), user_id)
@@ -3209,7 +3873,7 @@ def chat_history_session(session_id):
 @app.route('/api/summarize-files', methods=['POST'])
 def summarize_files():
     """Summarise all uploaded files in a session so the AI has multi-file context (isolated per user)."""
-    data       = request.get_json() or {}
+    data       = request.get_json(silent=True) or {}
     user_id    = get_request_user_id()
     session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
     session    = ContextManager.get_session(session_id)
@@ -3268,7 +3932,7 @@ def get_key_status():
 def clear_context():
     """Clear conversation context for a session (isolated per user)"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         user_id = get_request_user_id()
         session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
@@ -3290,7 +3954,7 @@ def clear_context():
 def email_analysis():
     """Send analysis report via email"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         filename = data.get("filename")
         analysis = data.get("analysis")
         recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
@@ -3332,7 +3996,7 @@ def email_analysis():
 def email_notification():
     """Send notification email"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         title = data.get("title", "Vise-AI Notification")
         message = data.get("message")
         details = data.get("details")
@@ -3388,7 +4052,7 @@ def get_email_config():
 def test_email():
     """Test email functionality"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
 
         if not recipient:
@@ -3424,7 +4088,7 @@ def test_email():
 def generate_document():
     """Generate document in specified format"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         content = data.get('content')
         format_type = data.get('format', 'pdf').lower()
         filename = data.get('filename', 'vise-ai-document')
@@ -3819,7 +4483,7 @@ def get_today_events():
 def create_calendar_event_endpoint():
     """Create a new calendar event"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         
         event_date = data.get("date")
         recipient_email = data.get("email")
@@ -3883,7 +4547,7 @@ def update_calendar_event(event_id):
         if not event:
             return jsonify({"error": "Event not found"}), 404
         
-        data = request.get_json()
+        data = request.get_json(silent=True)
         
         # Update fields
         if "date" in data:
@@ -4004,6 +4668,23 @@ def send_calendar_event_now(event_id):
     except Exception as e:
         print(f"❌ Calendar event send error: {str(e)}")
         return jsonify({"error": f"Failed to send calendar event: {str(e)}"}), 500
+
+
+@app.route('/<staticpath:filename>', methods=['GET'])
+def serve_static(filename):
+    """Serve static files. Excludes api/* paths so API routes take precedence."""
+    try:
+        allowed = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico'}
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in allowed:
+            return "File type not allowed", 403
+        if os.path.exists(filename):
+            return send_file(filename)
+        return "File not found", 404
+    except Exception as e:
+        print(f"❌ Static file error: {e}")
+        return "Error serving file", 500
+
 
 if __name__ == '__main__':
     print("Starting Vise-AI Flask Server...")
