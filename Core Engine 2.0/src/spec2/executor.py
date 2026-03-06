@@ -17,18 +17,21 @@ except Exception:
 
 async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> None:
     """Run browser automation using browser-use with OpenAI API"""
-    # Import Agent lazily to avoid stale availability checks
+    # browser_use 0.12+ ships its own ChatOpenAI in browser_use.llm.models.
+    # That class carries the required `.provider = 'openai'` attribute that
+    # Agent.__init__ inspects. The old path (browser_use.llm.openai.chat) and
+    # langchain_openai.ChatOpenAI both lack this attribute and cause crashes.
     try:
         from browser_use import Agent  # type: ignore
-        from browser_use.llm.openai.chat import ChatOpenAI  # type: ignore
-    except Exception:
-        error_msg = "⚠️ browser-use not installed. pip install browser-use"
+        from browser_use.llm.models import ChatOpenAI  # type: ignore
+    except ImportError as e:
+        error_msg = f"⚠️ Missing dependency: {e}. Run: pip install browser-use"
         if ui_logger:
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
         return
-    
+
     # OpenAI key from .env only
     openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
@@ -38,8 +41,9 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
         else:
             print(error_msg)
         return
-    
-    openai_model = os.getenv('OPENAI_MODEL', 'o4-mini-2025-04-16')
+
+    # Default to gpt-4o-mini — a real, available OpenAI model suitable for browser tasks
+    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     
     try:
         if ui_logger:
@@ -51,10 +55,10 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             print(f"🎯 Task: {task_description}")
             print(f"🤖 Using OpenAI model: {openai_model}")
         
-        # Set OpenAI API key for browser-use
+        # Ensure env var is set (browser-use may read it internally too)
         os.environ['OPENAI_API_KEY'] = openai_key
-        
-        # Initialize browser-use with proper LLM instance and a dedicated profile
+
+        # Initialize browser-use with a real langchain_openai LLM and a dedicated profile
         from browser_use.browser.profile import BrowserProfile  # type: ignore
         llm = ChatOpenAI(model=openai_model, api_key=openai_key)
         profile_dir = str(Path.cwd() / "browser_use_profile")

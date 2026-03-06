@@ -4,15 +4,13 @@ from typing import Dict, Any, List
 from loguru import logger
 from pathlib import Path
 
-# Groq
-from groq import Groq
-# Gemini
-import google.generativeai as genai
-
 # Import settings
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from settings import settings
+
+# NOTE: groq and google.generativeai are imported LAZILY inside AIPlanner.__init__
+# to avoid stale module-cache / pycache issues when loaded in a background thread.
 
 # Use env-overridable model names
 GROQ_MODEL   = os.getenv("GROQ_MODEL",   "llama-3.3-70b-versatile")
@@ -67,12 +65,14 @@ class AIPlanner:
             key = os.getenv("GROQ_API_KEY")
             if not key:
                 raise RuntimeError("GROQ_API_KEY not set. Add it to .env file.")
+            from groq import Groq  # lazy import — avoids stale pycache in background threads
             self.client = Groq(api_key=key)
             self.model = GROQ_MODEL
         elif self.provider == "gemini":
             key = os.getenv("GEMINI_API_KEY")
             if not key:
                 raise RuntimeError("GEMINI_API_KEY not set. Add it to .env file.")
+            import google.generativeai as genai  # lazy import
             genai.configure(api_key=key)
             self.client = genai.GenerativeModel(GEMINI_MODEL)
             self.model = GEMINI_MODEL
