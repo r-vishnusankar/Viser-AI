@@ -15,47 +15,65 @@ try:
 except Exception:
     PLAYWRIGHT_OK = False
 
-async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> None:
-    """Run browser automation using browser-use with OpenAI API"""
-    # Import Agent lazily to avoid stale availability checks
+async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> str:
+    """Run browser automation using browser-use with OpenAI API. Returns the agent's final result text."""
+    # browser_use 0.12+ ships its own ChatOpenAI in browser_use.llm.models.
+    # That class carries the required `.provider = 'openai'` attribute that
+    # Agent.__init__ inspects. The old path (browser_use.llm.openai.chat) and
+    # langchain_openai.ChatOpenAI both lack this attribute and cause crashes.
     try:
         from browser_use import Agent  # type: ignore
-        from browser_use.llm.openai.chat import ChatOpenAI  # type: ignore
-    except Exception:
-        error_msg = "⚠️ browser-use not installed. pip install browser-use"
+        from browser_use.llm.models import ChatOpenAI  # type: ignore
+    except ImportError as e:
+        error_msg = f"⚠️ Missing dependency: {e}. Run: pip install browser-use"
         if ui_logger:
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return
-    
-    # Check if OpenAI API key is available
-    openai_key = settings.openai_api_key
+        return ""
+
+    # OpenAI key from .env only
+    openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
-        error_msg = "⚠️ OpenAI API key not configured. Run 'python setup_api_keys.py' to configure."
+        error_msg = "⚠️ OPENAI_API_KEY not set. Add it to .env file."
         if ui_logger:
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return
+        return ""
+
+    # Default to gpt-4o-mini — a real, available OpenAI model suitable for browser tasks
+    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     
     try:
         if ui_logger:
             ui_logger.log('INFO', f'🌐 Opening browser to: {url}')
             ui_logger.log('INFO', f'🎯 Task: {task_description}')
+            ui_logger.log('INFO', f'🤖 Using OpenAI model: {openai_model} (key: ...{openai_key[-4:] if len(openai_key) > 4 else "****"})')
         else:
             print(f"🌐 Opening: {url}")
             print(f"🎯 Task: {task_description}")
+            print(f"🤖 Using OpenAI model: {openai_model}")
         
-        # Set OpenAI API key for browser-use
+        # Ensure env var is set (browser-use may read it internally too)
         os.environ['OPENAI_API_KEY'] = openai_key
-        
-        # Initialize browser-use with proper LLM instance and a dedicated profile
+
+        # browser-use 0.12 internally calls `uvx` for certain operations.
+        # On servers like Render, uv is installed to $HOME/.local/bin but that
+        # directory is not on PATH at runtime.  Inject it now so any subprocess
+        # that browser-use spawns can find uvx.
+        _uv_bin = str(Path.home() / ".local" / "bin")
+        if _uv_bin not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = _uv_bin + os.pathsep + os.environ.get("PATH", "")
+
+        # Initialize browser-use with a real langchain_openai LLM and a dedicated profile
         from browser_use.browser.profile import BrowserProfile  # type: ignore
-        llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_key)
+        llm = ChatOpenAI(model=openai_model, api_key=openai_key)
         profile_dir = str(Path.cwd() / "browser_use_profile")
         os.makedirs(profile_dir, exist_ok=True)
-        browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=False)
+        # headless=True required on servers (no display available)
+        is_server = not os.environ.get("DISPLAY") and sys.platform != "win32"
+        browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=is_server)
         # Include URL in the task so the agent navigates first
         full_task = f"Open {url} and then {task_description}"
         agent = Agent(task=full_task, llm=llm, browser_profile=browser_profile)
@@ -66,22 +84,29 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             print("✅ Browser-use initialized")
         
         # Run agent
-        result = await agent.run()
-        
+        agent_history = await agent.run()
+
+        # Extract the final text result from the agent history
+        try:
+            final = agent_history.final_result() if agent_history else None
+        except Exception:
+            final = None
+        result_text = str(final).strip() if final else "Task completed. No text result returned by the agent."
+
         if ui_logger:
             ui_logger.log('SUCCESS', '✅ Browser task completed')
-            ui_logger.log('INFO', f'Result: {result}')
         else:
             print("✅ Browser task completed")
-            print(f"Result: {result}")
-            
+
+        return result_text
+
     except Exception as e:
         error_msg = f'Browser-use execution failed: {str(e)}'
         if ui_logger:
             ui_logger.log('ERROR', f'💥 {error_msg}')
         else:
             print(f"❌ {error_msg}")
-        raise
+        raise  # re-raise so flask_server catches it and emits task_error
     finally:
         try:
             if 'agent' in locals():

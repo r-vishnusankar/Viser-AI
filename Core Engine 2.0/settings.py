@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """
 Settings configuration for spec2.0 AI DOM Engine
+Single source of truth: .env only. No config file for API keys.
 """
 
 import os
 from pathlib import Path
 from typing import Optional
+
+# Load .env from project root (Nexora.ai) - same for all entry points
+_env_path = Path(__file__).parent.parent / ".env"
+if _env_path.exists():
+    from dotenv import load_dotenv
+    load_dotenv(_env_path)
 
 class Settings:
     """Application settings with API key management"""
@@ -50,12 +57,7 @@ class Settings:
     
     @property
     def groq_api_key(self) -> Optional[str]:
-        """Get Groq API key from config or environment"""
-        # First try config file
-        if 'groq_api_key' in self._config:
-            return self._config['groq_api_key']
-        
-        # Fallback to environment variable
+        """Get Groq API key from .env only"""
         return os.getenv('GROQ_API_KEY')
     
     @groq_api_key.setter
@@ -66,12 +68,7 @@ class Settings:
     
     @property
     def gemini_api_key(self) -> Optional[str]:
-        """Get Gemini API key from config or environment"""
-        # First try config file
-        if 'gemini_api_key' in self._config:
-            return self._config['gemini_api_key']
-        
-        # Fallback to environment variable
+        """Get Gemini API key from .env only"""
         return os.getenv('GEMINI_API_KEY')
     
     @gemini_api_key.setter
@@ -82,12 +79,7 @@ class Settings:
     
     @property
     def openai_api_key(self) -> Optional[str]:
-        """Get OpenAI API key from config or environment"""
-        # First try config file
-        if 'openai_api_key' in self._config:
-            return self._config['openai_api_key']
-        
-        # Fallback to environment variable
+        """Get OpenAI API key from .env only"""
         return os.getenv('OPENAI_API_KEY')
     
     @openai_api_key.setter
