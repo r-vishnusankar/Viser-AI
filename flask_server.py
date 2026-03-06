@@ -2219,18 +2219,35 @@ def ba_flow_diagram_generate():
         diagram_type = (data.get("diagram_type") or "flowchart").strip().lower()
         if not description:
             return jsonify({"success": False, "error": "Process description required"}), 400
-        prompt = f"""Convert this process/flow description into a Mermaid diagram. Return ONLY the Mermaid code, no markdown fences, no explanation.
+        prompt = f"""Convert this process/flow description into a valid Mermaid flowchart diagram.
+Return ONLY the raw Mermaid code — no markdown fences, no explanation, no comments.
 
-Use flowchart TB (top-bottom) or LR (left-right) as appropriate. Use standard Mermaid syntax:
-- flowchart TB / flowchart LR
-- A[Step] --> B[Next]
-- {{}} for decisions
-- (()) for start/end
+STRICT MERMAID SYNTAX RULES (follow exactly):
+1. First line MUST be: flowchart TB  (or flowchart LR for wide flows)
+2. Every node needs an alphanumeric ID followed by its shape:
+   - Process box:   A[Step label]
+   - Decision:      D{{Yes or No?}}
+   - Start/End:     ST([Start])   EN([End])
+   - Circle:        id((text))
+3. Arrows:  A --> B   or   A -->|Yes| B   or   A -->|No| C
+4. NEVER use bare parentheses as a node — (Start) is INVALID. Use ST([Start]) instead.
+5. Node IDs must start with a letter (A-Z, a-z) — no punctuation or spaces in IDs.
+6. Keep labels short. Wrap long labels in quotes: A["Long label here"]
 
-Description:
+EXAMPLE (login flow):
+flowchart TB
+    ST([Start])
+    ST --> A[User enters credentials]
+    A --> B{{Valid credentials?}}
+    B -->|Yes| C[Dashboard]
+    B -->|No| D[Show error]
+    D --> A
+    C --> EN([End])
+
+Now generate the diagram for:
 {description[:3000]}
 """
-        result = _ba_llm_completion(prompt, max_tokens=800)
+        result = _ba_llm_completion(prompt, max_tokens=1000)
         result = result.strip()
         if result.startswith("```"):
             result = result.split("\n", 1)[1] if "\n" in result else result[3:]
@@ -2238,6 +2255,17 @@ Description:
             result = result.rsplit("```", 1)[0].strip()
         if "flowchart" not in result.lower() and "graph" not in result.lower():
             result = "flowchart TB\n" + result
+        # Sanitise common AI mistakes: bare (Start) / (End) nodes without an ID prefix
+        import re as _re
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(Start\)', 'ST([Start])', result, flags=_re.IGNORECASE)
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(End\)', 'EN([End])', result, flags=_re.IGNORECASE)
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(Stop\)', 'EN([End])', result, flags=_re.IGNORECASE)
+        # Fix arrows to bare (...) targets: --> (Word) → --> Word([Word])
+        def _fix_bare_paren_target(m):
+            label = m.group(1)
+            safe_id = _re.sub(r'\W+', '', label)[:12] or 'N'
+            return f'--> {safe_id}([{label}])'
+        result = _re.sub(r'-->\s*\(([^)]+)\)', _fix_bare_paren_target, result)
         return jsonify({"success": True, "mermaid": result})
     except Exception as e:
         traceback.print_exc()

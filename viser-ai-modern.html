@@ -3625,7 +3625,7 @@
             <!-- AI Automation View -->
             <div id="automationView" class="view-container" style="display: none;">
                 <div class="chat-header">
-                    <div style="display:flex;align-items:center;"><h1 class="chat-title">AI Automation Workbench</h1><span class="page-info-icon" data-page-id="automation" title="Page info"><i class="fas fa-info-circle"></i></span></div>
+                    <div style="display:flex;align-items:center;"><h1 class="chat-title">AI Automation Workbench</h1><span style="margin-left:10px;background:#f0fff4;color:#276749;border:1px solid #9ae6b4;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span><span class="page-info-icon" data-page-id="automation" title="Page info"><i class="fas fa-info-circle"></i></span></div>
                     <div class="status-indicator">
                         <span id="automationStatus">Ready</span>
                     </div>
@@ -3976,6 +3976,7 @@
                 <div class="chat-header">
                     <div style="display:flex;align-items:center;">
                         <h1 class="chat-title">QA Intelligence</h1>
+                        <span style="margin-left:10px;background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span>
                         <span class="page-info-icon" data-page-id="qa-intelligence" title="Page info"><i class="fas fa-info-circle"></i></span>
                     </div>
                 </div>
@@ -3983,6 +3984,17 @@
 
                     <!-- Tool Groups ──────────────────────────────────── -->
                     <div style="flex:1;overflow-y:auto;padding:28px 24px;">
+
+                        <!-- Hero Banner -->
+                        <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 60%,#553c9a 100%);border-radius:16px;padding:28px 32px;margin-bottom:32px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-brain" style="font-size:26px;color:#90cdf4;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">QA Intelligence Hub</h2>
+                                <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Generate test cases, analyse bugs, detect root causes, plan regression — all powered by AI and built for QA engineers.</p>
+                            </div>
+                        </div>
 
                         <!-- Test Intelligence -->
                         <div class="qa-intel-group" style="margin-bottom:36px;">
@@ -3996,15 +4008,15 @@
                                         <h3>Test Case Generator</h3>
                                         <p>Generate functional and edge test cases from a feature description.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('test-case-generate')">Generate</button>
+                                    <button class="qa-tool-btn" style="background:#2b6cb0;" onclick="viseAI.openQATool('test-case-generate')">Generate</button>
                                 </div>
                                 <div class="qa-tool-card">
-                                    <div class="qa-tool-icon"><i class="fas fa-plug"></i></div>
+                                    <div class="qa-tool-icon" style="color:#2b6cb0;"><i class="fas fa-plug"></i></div>
                                     <div class="qa-tool-info">
                                         <h3>API Test Generator</h3>
                                         <p>Generate API testing scenarios for endpoints.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('api-test-generate')">Generate</button>
+                                    <button class="qa-tool-btn" style="background:#2b6cb0;" onclick="viseAI.openQATool('api-test-generate')">Generate</button>
                                 </div>
                                 <div class="qa-tool-card">
                                     <div class="qa-tool-icon" style="color:#38a169;"><i class="fas fa-database"></i></div>
@@ -4012,7 +4024,7 @@
                                         <h3>Test Data Generator</h3>
                                         <p>Generate valid, invalid, boundary and edge-case test data sets for any entity or form.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('test-data-generate')">Generate</button>
+                                    <button class="qa-tool-btn" style="background:#38a169;" onclick="viseAI.openQATool('test-data-generate')">Generate</button>
                                 </div>
                             </div>
                         </div>
@@ -4029,7 +4041,7 @@
                                         <h3>Bug Log Analyzer</h3>
                                         <p>Examine logs for errors, patterns and root causes.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('bug-log-analyze')">Analyze</button>
+                                    <button class="qa-tool-btn" style="background:#e53e3e;" onclick="viseAI.openQATool('bug-log-analyze')">Analyze</button>
                                 </div>
                                 <div class="qa-tool-card">
                                     <div class="qa-tool-icon" style="color:#d69e2e;"><i class="fas fa-image"></i></div>
@@ -4037,7 +4049,7 @@
                                         <h3>Screenshot Analyzer</h3>
                                         <p>Identify UI issues from uploaded screenshots.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('screenshot-analyze')">Analyze</button>
+                                    <button class="qa-tool-btn" style="background:#d69e2e;" onclick="viseAI.openQATool('screenshot-analyze')">Analyze</button>
                                 </div>
                                 <div class="qa-tool-card">
                                     <div class="qa-tool-icon" style="color:#c53030;"><i class="fas fa-search-minus"></i></div>
@@ -4045,7 +4057,7 @@
                                         <h3>Root Cause Detector</h3>
                                         <p>Detect the root cause of defects with fix suggestions.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('root-cause-detect')">Analyze</button>
+                                    <button class="qa-tool-btn" style="background:#c53030;" onclick="viseAI.openQATool('root-cause-detect')">Analyze</button>
                                 </div>
                             </div>
                         </div>
@@ -4062,7 +4074,7 @@
                                         <h3>Regression Impact Analyzer</h3>
                                         <p>Identify areas of impact and suggest regression tests.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('regression-impact')">Analyze</button>
+                                    <button class="qa-tool-btn" style="background:#553c9a;" onclick="viseAI.openQATool('regression-impact')">Analyze</button>
                                 </div>
                                 <div class="qa-tool-card">
                                     <div class="qa-tool-icon" style="color:#2b6cb0;"><i class="fas fa-shield-alt"></i></div>
@@ -4070,7 +4082,7 @@
                                         <h3>Risk Advisor</h3>
                                         <p>Prioritize test cases based on module risk analysis.</p>
                                     </div>
-                                    <button class="qa-tool-btn" onclick="viseAI.openQATool('risk-advisor')">Analyze</button>
+                                    <button class="qa-tool-btn" style="background:#2b6cb0;" onclick="viseAI.openQATool('risk-advisor')">Analyze</button>
                                 </div>
                             </div>
                         </div>
@@ -4263,8 +4275,18 @@
                 </div>
             </div>
             <div id="resume-analyzerView" class="view-container" style="display: none;">
-                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Resume Analyzer</h1><span class="page-info-icon" data-page-id="resume-analyzer" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Resume Analyzer</h1><span style="margin-left:10px;background:#faf5ff;color:#6b46c1;border:1px solid #e9d8fd;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span><span class="page-info-icon" data-page-id="resume-analyzer" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <!-- Hero Banner -->
+                    <div style="background:linear-gradient(135deg,#44337a 0%,#6b46c1 60%,#9f7aea 100%);border-radius:16px;padding:28px 32px;margin-bottom:28px;color:#fff;display:flex;align-items:center;gap:24px;">
+                        <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fas fa-file-user" style="font-size:26px;color:#e9d8fd;"></i>
+                        </div>
+                        <div>
+                            <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">AI Resume Analyzer</h2>
+                            <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Upload one or more resumes (PDF, DOCX, TXT) and instantly extract name, skills, experience, education, and strengths — ready for screening.</p>
+                        </div>
+                    </div>
                     <div class="hr-upload-zone" id="resumeUploadZone" style="border:2px dashed rgba(107,76,113,0.3);border-radius:12px;padding:32px;text-align:center;background:rgba(107,76,113,0.04);margin-bottom:24px;">
                         <input type="file" id="resumeFileInput" accept=".pdf,.docx,.txt" multiple style="display:none;">
                         <p style="font-size:15px;color:#5C5258;margin-bottom:12px;"><i class="fas fa-file-alt" style="font-size:32px;color:var(--accent);"></i></p>
@@ -4278,9 +4300,19 @@
                 </div>
             </div>
             <div id="candidate-screeningView" class="view-container" style="display: none;">
-                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Candidate Screening</h1><span class="page-info-icon" data-page-id="candidate-screening" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Candidate Screening</h1><span style="margin-left:10px;background:#faf5ff;color:#6b46c1;border:1px solid #e9d8fd;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span><span class="page-info-icon" data-page-id="candidate-screening" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
                     <div style="max-width:900px;">
+                        <!-- Hero Banner -->
+                        <div style="background:linear-gradient(135deg,#322659 0%,#553c9a 60%,#7c3aed 100%);border-radius:16px;padding:28px 32px;margin-bottom:28px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-user-check" style="font-size:26px;color:#ddd6fe;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">AI Candidate Screening</h2>
+                                <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Paste a job description, upload resumes, and let AI rank candidates by match %, skill alignment, and suitability — then bulk send acceptance or rejection emails.</p>
+                            </div>
+                        </div>
                         <div style="margin-bottom:20px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;">Job Description</label>
                             <textarea id="screenJD" rows="6" placeholder="Paste the full job description here..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
@@ -4310,9 +4342,19 @@
                 </div>
             </div>
             <div id="mail-automationView" class="view-container" style="display: none;">
-                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Mail Automation</h1><span class="page-info-icon" data-page-id="mail-automation" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Mail Automation</h1><span style="margin-left:10px;background:#fffbeb;color:#b7791f;border:1px solid #fbd38d;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span><span class="page-info-icon" data-page-id="mail-automation" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
                     <div style="max-width:700px;">
+                        <!-- Hero Banner -->
+                        <div style="background:linear-gradient(135deg,#1a202c 0%,#2d3748 50%,#744210 100%);border-radius:16px;padding:28px 32px;margin-bottom:28px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-envelope-open-text" style="font-size:26px;color:#fbd38d;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">AI Mail Automation</h2>
+                                <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Generate professional HR emails (interview invites, offers, rejections, follow-ups) in seconds — personalised with candidate details and ready to send.</p>
+                            </div>
+                        </div>
                         <div style="margin-bottom:20px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;">Template</label>
                             <select id="mailTemplate" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
@@ -4352,9 +4394,19 @@
                 </div>
             </div>
             <div id="requirement-analyzerView" class="view-container" style="display: none;">
-                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Requirement Analyzer</h1><span class="page-info-icon" data-page-id="requirement-analyzer" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Requirement Analyzer</h1><span style="margin-left:10px;background:#e6fffa;color:#2c7a7b;border:1px solid #81e6d9;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span><span class="page-info-icon" data-page-id="requirement-analyzer" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
                     <div style="max-width:900px;">
+                        <!-- Hero Banner -->
+                        <div style="background:linear-gradient(135deg,#1a365d 0%,#2c7a7b 60%,#319795 100%);border-radius:16px;padding:28px 32px;margin-bottom:28px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-search" style="font-size:26px;color:#81e6d9;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">AI Requirement Analyzer</h2>
+                                <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Upload a PRD, BRD, or paste any requirements document — AI extracts features, acceptance criteria, dependencies, risks, and stakeholders in seconds.</p>
+                            </div>
+                        </div>
                         <div style="margin-bottom:16px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;">Upload document (PDF, DOCX, TXT)</label>
                             <input type="file" id="reqAnalyzerFile" accept=".pdf,.docx,.txt" style="max-width:400px;">
@@ -4370,9 +4422,19 @@
                 </div>
             </div>
             <div id="user-story-generatorView" class="view-container" style="display: none;">
-                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">User Story Generator</h1><span class="page-info-icon" data-page-id="user-story-generator" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">User Story Generator</h1><span style="margin-left:10px;background:#f0fff4;color:#276749;border:1px solid #9ae6b4;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span><span class="page-info-icon" data-page-id="user-story-generator" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
                     <div style="max-width:900px;">
+                        <!-- Hero Banner -->
+                        <div style="background:linear-gradient(135deg,#1c4532 0%,#276749 60%,#2f855a 100%);border-radius:16px;padding:28px 32px;margin-bottom:28px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-book" style="font-size:26px;color:#9ae6b4;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">AI User Story Generator</h2>
+                                <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Transform raw requirements into well-structured user stories, use cases, or epics — complete with acceptance criteria, ready for your backlog.</p>
+                            </div>
+                        </div>
                         <div style="margin-bottom:20px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;">Requirements</label>
                             <textarea id="userStoryInput" rows="8" placeholder="Paste requirements to generate user stories..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
@@ -4392,9 +4454,19 @@
                 </div>
             </div>
             <div id="flow-diagramView" class="view-container" style="display: none;">
-                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Flow Diagram Builder</h1><span class="page-info-icon" data-page-id="flow-diagram" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
+                <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Flow Diagram Builder</h1><span style="margin-left:10px;background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span><span class="page-info-icon" data-page-id="flow-diagram" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
                     <div style="max-width:900px;">
+                        <!-- Hero Banner -->
+                        <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 60%,#3182ce 100%);border-radius:16px;padding:28px 32px;margin-bottom:28px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-project-diagram" style="font-size:26px;color:#bee3f8;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">AI Flow Diagram Builder</h2>
+                                <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Describe any process or workflow in plain English — AI generates a structured, step-by-step flow diagram with decision points, actors, and transitions.</p>
+                            </div>
+                        </div>
                         <div style="margin-bottom:20px;">
                             <label style="display:block;font-weight:600;margin-bottom:8px;">Process Description</label>
                             <textarea id="flowDiagramInput" rows="8" placeholder="Describe the process or flow (e.g. User login flow, Order checkout process, Approval workflow)..." style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;"></textarea>
@@ -4812,12 +4884,23 @@
                     }
                     if (loading) loading.style.display = 'none';
                     if (data.success && data.mermaid) {
-                        const code = data.mermaid;
+                        // JS-side sanitiser: fix any remaining bare (Start)/(End) the backend missed
+                        let code = data.mermaid;
+                        code = code.replace(/(?<![A-Za-z0-9_])\(Start\)/gi, 'ST([Start])');
+                        code = code.replace(/(?<![A-Za-z0-9_])\(End\)/gi,   'EN([End])');
+                        code = code.replace(/(?<![A-Za-z0-9_])\(Stop\)/gi,  'EN([End])');
+                        code = code.replace(/-->\s*\(([^)]+)\)/g, (_, lbl) => {
+                            const id = lbl.replace(/\W+/g,'').slice(0,12) || 'N';
+                            return `--> ${id}([${lbl}])`;
+                        });
                         const codeEscaped = code.replace(/</g,'&lt;').replace(/>/g,'&gt;');
                         result.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                            <pre id="flowMermaidCode" style="background:#f7fafc;padding:12px;border-radius:8px;font-size:13px;overflow:auto;margin-bottom:16px;">${codeEscaped}</pre>
-                            <div id="flowMermaidSvg" style="text-align:center;min-height:120px;"></div>
-                            <button type="button" class="btn btn-secondary" style="margin-top:12px;" onclick="navigator.clipboard.writeText(document.getElementById('flowMermaidCode').innerText)"><i class="fas fa-copy"></i> Copy Mermaid Code</button>
+                            <div id="flowMermaidSvg" style="text-align:center;min-height:120px;margin-bottom:16px;overflow:auto;"></div>
+                            <details style="margin-top:4px;">
+                                <summary style="cursor:pointer;font-size:12px;color:#718096;font-weight:600;"><i class="fas fa-code" style="margin-right:5px;"></i>View Mermaid Code</summary>
+                                <pre id="flowMermaidCode" style="background:#f7fafc;padding:12px;border-radius:8px;font-size:12px;overflow:auto;margin-top:8px;">${codeEscaped}</pre>
+                            </details>
+                            <button type="button" class="btn btn-secondary" style="margin-top:12px;" onclick="navigator.clipboard.writeText(document.getElementById('flowMermaidCode').innerText).then(()=>this.textContent='Copied!')"><i class="fas fa-copy"></i> Copy Mermaid Code</button>
                         </div>`;
                         result.style.display = 'block';
                         const svgEl = document.getElementById('flowMermaidSvg');
@@ -4828,7 +4911,9 @@
                                     const { svg, bindFunctions } = await window.mermaid.render(id, code);
                                     svgEl.innerHTML = svg;
                                     if (bindFunctions) bindFunctions(svgEl);
-                                } catch (m) { svgEl.innerHTML = `<p style="color:#e53e3e;">Diagram render failed: ${String(m.message||m).replace(/</g,'&lt;')}</p>`; }
+                                } catch (m) {
+                                    svgEl.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;padding:14px;color:#c53030;font-size:13px;"><i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>Diagram render failed: ${String(m.message||m).replace(/</g,'&lt;')}</div>`;
+                                }
                             })();
                         }
                     } else {
