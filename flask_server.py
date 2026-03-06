@@ -400,18 +400,24 @@ def run_core_engine_task(url, prompt, provider):
                 'intent': intent
             })
             
+            result_text = ""
             if plan.get('execution_type') == 'browser_use':
                 ui_logger.log('SUCCESS', f'✅ Task planned: {plan.get("task_description", prompt)}')
                 ui_logger.log('INFO', '🔄 Executing with AI agent...')
-                loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger))
+                result_text = loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger)) or ""
             else:
                 steps = plan.get('steps', [])
                 ui_logger.log('SUCCESS', f'✅ Plan created: {len(steps)} steps')
                 ui_logger.log('INFO', '🔄 Executing steps with real browser...')
                 loop.run_until_complete(run_async(url, steps, socketio, ui_logger))
-                
+
             ui_logger.log('SUCCESS', '✅ Automation task completed successfully')
-            socketio.emit('task_success', {'message': 'Task completed successfully'})
+            socketio.emit('task_success', {
+                'message': 'Task completed successfully',
+                'result': result_text,
+                'task': plan.get('task_description', prompt),
+                'url': url
+            })
             
         except Exception as e:
             ui_logger.log('ERROR', f'💥 Automation failed: {str(e)}')
@@ -2722,6 +2728,253 @@ Return ONLY valid JSON with no markdown:
 
         raw = _qa_llm_completion(prompt, max_tokens=2500)
         out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── Security Intelligence Module ────────────────────────────────────────────
+
+def _sec_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM for Security Intelligence analysis."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _sec_strip_json(raw: str) -> str:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0].strip()
+    return raw.strip()
+
+
+@app.route('/api/security/threat-model', methods=['POST', 'OPTIONS'])
+def security_threat_model():
+    """Generate an OWASP-aligned threat model for a feature or system."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        description = (data.get("description") or data.get("text") or "").strip()
+        if not description:
+            return jsonify({"success": False, "error": "System or feature description is required"}), 400
+
+        prompt = f"""You are an expert application security engineer. Perform a comprehensive OWASP-aligned threat model for the system/feature described below.
+
+System/Feature: {description[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Brief threat model summary",
+  "threats": [
+    {{
+      "id": "T001",
+      "name": "Threat name",
+      "category": "OWASP category (e.g. Injection, Broken Auth)",
+      "owasp_ref": "OWASP Top 10 reference e.g. A03:2021",
+      "description": "What the threat is and how it could be exploited",
+      "likelihood": "High|Medium|Low",
+      "impact": "High|Medium|Low",
+      "mitigations": ["Mitigation 1", "Mitigation 2"]
+    }}
+  ],
+  "security_requirements": ["Requirement 1", "Requirement 2"]
+}}
+
+Generate 5-8 relevant threats. Be specific and actionable."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=3000)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/test-cases', methods=['POST', 'OPTIONS'])
+def security_test_cases():
+    """Generate security-focused test cases (OWASP, XSS, SQLi, Auth Bypass, etc.)."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        feature = (data.get("feature") or data.get("text") or "").strip()
+        attack_types = data.get("attack_types") or []
+        if not feature:
+            return jsonify({"success": False, "error": "Feature or endpoint description is required"}), 400
+
+        attack_filter = ""
+        if attack_types:
+            attack_filter = f"\nFocus on these attack types: {', '.join(attack_types)}."
+
+        prompt = f"""You are a senior security QA engineer. Generate detailed security test cases for the following feature or endpoint.
+
+Feature/Endpoint: {feature[:5000]}{attack_filter}
+
+Cover: SQL Injection, XSS, CSRF, Authentication Bypass, Authorisation flaws, Input Validation, Rate Limiting, Sensitive Data Exposure, and any other relevant attack vectors.
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "summary": "Brief description of security testing scope",
+  "test_cases": [
+    {{
+      "id": "SEC-001",
+      "title": "Test case title",
+      "type": "SQL Injection|XSS|CSRF|Auth Bypass|IDOR|Rate Limiting|Input Validation|Sensitive Data|Other",
+      "severity": "Critical|High|Medium|Low",
+      "cwe_ref": "CWE-89 or similar",
+      "description": "What this test verifies",
+      "steps": ["Step 1", "Step 2", "Step 3"],
+      "payload": "Example payload or attack vector (if applicable)",
+      "expected_result": "What should happen if the system is secure",
+      "fail_indicator": "What indicates a vulnerability"
+    }}
+  ]
+}}
+
+Generate 8-12 security test cases. Be specific with payloads and steps."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=3500)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/vulnerability-advisor', methods=['POST', 'OPTIONS'])
+def security_vulnerability_advisor():
+    """Analyse a vulnerability description or code snippet and provide remediation guidance."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        vulnerability = (data.get("vulnerability") or data.get("text") or "").strip()
+        if not vulnerability:
+            return jsonify({"success": False, "error": "Vulnerability description or code snippet is required"}), 400
+
+        prompt = f"""You are an expert application security researcher. Analyse the vulnerability or code snippet below and provide complete remediation guidance.
+
+Vulnerability / Code: {vulnerability[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "vulnerability_name": "Name of the vulnerability",
+  "severity": "Critical|High|Medium|Low",
+  "cvss_score": "e.g. 9.8 (or N/A)",
+  "cwe_ref": "e.g. CWE-79",
+  "owasp_ref": "e.g. A03:2021 - Injection",
+  "explanation": "Clear explanation of what the vulnerability is and why it is dangerous",
+  "attack_scenario": "Step-by-step how an attacker could exploit this",
+  "impact": ["Impact 1", "Impact 2"],
+  "remediation_steps": ["Step 1", "Step 2", "Step 3"],
+  "secure_code_example": "Short code snippet showing the secure version (if applicable)",
+  "references": ["Link or standard reference 1", "Link or standard reference 2"]
+}}"""
+
+        raw = _sec_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/auth-review', methods=['POST', 'OPTIONS'])
+def security_auth_review():
+    """Review an authentication or authorisation flow and surface security gaps."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        auth_flow = (data.get("auth_flow") or data.get("text") or "").strip()
+        if not auth_flow:
+            return jsonify({"success": False, "error": "Authentication/authorisation flow description is required"}), 400
+
+        prompt = f"""You are an application security architect specialising in identity and access management. Review the authentication/authorisation flow below and surface all security weaknesses.
+
+Auth Flow: {auth_flow[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Overall assessment of the auth flow",
+  "findings": [
+    {{
+      "id": "AF-001",
+      "issue": "Short issue title",
+      "severity": "Critical|High|Medium|Low",
+      "category": "Authentication|Authorisation|Session Management|Token Security|Other",
+      "description": "Detailed description of the weakness",
+      "attack_vector": "How an attacker could exploit this",
+      "recommendation": "Specific fix recommendation",
+      "owasp_ref": "e.g. A07:2021"
+    }}
+  ],
+  "positive_findings": ["Good practice 1", "Good practice 2"],
+  "recommended_controls": ["Control 1", "Control 2"]
+}}
+
+Be thorough — check for broken authentication, insecure direct object references, privilege escalation, session fixation, token weaknesses, and missing MFA."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/api-security-check', methods=['POST', 'OPTIONS'])
+def security_api_check():
+    """Check an API description against OWASP API Security Top 10."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        api_description = (data.get("api_description") or data.get("text") or "").strip()
+        if not api_description:
+            return jsonify({"success": False, "error": "API description is required"}), 400
+
+        prompt = f"""You are an API security expert. Evaluate the API description below against the OWASP API Security Top 10 (2023 edition).
+
+API Description: {api_description[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Overall API security posture summary",
+  "findings": [
+    {{
+      "owasp_ref": "API1:2023",
+      "title": "Broken Object Level Authorization",
+      "severity": "Critical|High|Medium|Low",
+      "applies": true,
+      "description": "Why this risk applies to this API",
+      "recommendation": "Specific remediation steps"
+    }}
+  ],
+  "security_headers": ["Recommended HTTP security header 1", "Header 2"],
+  "quick_wins": ["Quick security improvement 1", "Improvement 2"]
+}}
+
+Evaluate all applicable OWASP API Top 10 risks. Only include those that are relevant to the described API."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_sec_strip_json(raw))
         return jsonify({"success": True, "result": out})
     except json.JSONDecodeError as e:
         return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
