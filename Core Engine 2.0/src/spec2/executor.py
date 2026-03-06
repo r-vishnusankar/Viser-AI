@@ -15,8 +15,8 @@ try:
 except Exception:
     PLAYWRIGHT_OK = False
 
-async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> None:
-    """Run browser automation using browser-use with OpenAI API"""
+async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> str:
+    """Run browser automation using browser-use with OpenAI API. Returns the agent's final result text."""
     # browser_use 0.12+ ships its own ChatOpenAI in browser_use.llm.models.
     # That class carries the required `.provider = 'openai'` attribute that
     # Agent.__init__ inspects. The old path (browser_use.llm.openai.chat) and
@@ -30,7 +30,7 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return
+        return ""
 
     # OpenAI key from .env only
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -40,7 +40,7 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return
+        return ""
 
     # Default to gpt-4o-mini — a real, available OpenAI model suitable for browser tasks
     openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
@@ -84,22 +84,29 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             print("✅ Browser-use initialized")
         
         # Run agent
-        result = await agent.run()
-        
+        agent_history = await agent.run()
+
+        # Extract the final text result from the agent history
+        try:
+            final = agent_history.final_result() if agent_history else None
+        except Exception:
+            final = None
+        result_text = str(final).strip() if final else "Task completed. No text result returned by the agent."
+
         if ui_logger:
             ui_logger.log('SUCCESS', '✅ Browser task completed')
-            ui_logger.log('INFO', f'Result: {result}')
         else:
             print("✅ Browser task completed")
-            print(f"Result: {result}")
-            
+
+        return result_text
+
     except Exception as e:
         error_msg = f'Browser-use execution failed: {str(e)}'
         if ui_logger:
             ui_logger.log('ERROR', f'💥 {error_msg}')
         else:
             print(f"❌ {error_msg}")
-        raise
+        raise  # re-raise so flask_server catches it and emits task_error
     finally:
         try:
             if 'agent' in locals():
