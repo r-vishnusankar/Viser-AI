@@ -58,12 +58,22 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
         # Ensure env var is set (browser-use may read it internally too)
         os.environ['OPENAI_API_KEY'] = openai_key
 
+        # browser-use 0.12 internally calls `uvx` for certain operations.
+        # On servers like Render, uv is installed to $HOME/.local/bin but that
+        # directory is not on PATH at runtime.  Inject it now so any subprocess
+        # that browser-use spawns can find uvx.
+        _uv_bin = str(Path.home() / ".local" / "bin")
+        if _uv_bin not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = _uv_bin + os.pathsep + os.environ.get("PATH", "")
+
         # Initialize browser-use with a real langchain_openai LLM and a dedicated profile
         from browser_use.browser.profile import BrowserProfile  # type: ignore
         llm = ChatOpenAI(model=openai_model, api_key=openai_key)
         profile_dir = str(Path.cwd() / "browser_use_profile")
         os.makedirs(profile_dir, exist_ok=True)
-        browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=False)
+        # headless=True required on servers (no display available)
+        is_server = not os.environ.get("DISPLAY") and sys.platform != "win32"
+        browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=is_server)
         # Include URL in the task so the agent navigates first
         full_task = f"Open {url} and then {task_description}"
         agent = Agent(task=full_task, llm=llm, browser_profile=browser_profile)
