@@ -2725,6 +2725,39 @@
             flex-direction: column;
         }
 
+        /* Result panel */
+        .auto-result-card {
+            background: var(--bg-card, #1a1a2e);
+            border: 1px solid rgba(34,211,238,0.25);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 14px;
+            animation: fadeInUp 0.3s ease;
+        }
+        .auto-result-card .auto-card-header {
+            background: linear-gradient(90deg, rgba(34,211,238,0.12) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(34,211,238,0.15);
+        }
+        .auto-result-card .auto-card-header i { color: #22d3ee; }
+        .auto-result-body {
+            padding: 16px 18px;
+            max-height: 380px;
+            overflow-y: auto;
+        }
+        .auto-result-text {
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 13.5px;
+            line-height: 1.7;
+            color: var(--text-primary, #e2e8f0);
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 0;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
         /* Card header */
         .auto-card-header {
             display: flex;
@@ -3675,7 +3708,7 @@
 
                     </div>
 
-                    <!-- Right column: Live Logs -->
+                    <!-- Right column: Live Logs + Result -->
                     <div class="auto-col-logs">
                         <div class="auto-card auto-logs-card">
                             <div class="auto-card-header">
@@ -3692,6 +3725,18 @@
                                 <div class="log-entry"><span class="log-info">[SYSTEM]</span> Automation engine ready. Waiting for task…</div>
                                 <div id="automationLogContainer"></div>
                             </div>
+                        </div>
+
+                        <!-- Result panel — hidden until task completes -->
+                        <div class="auto-result-card" id="autoResultCard" style="display:none;">
+                            <div class="auto-card-header">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Result</span>
+                                <button class="auto-clear-btn" style="margin-left:auto;" onclick="document.getElementById('autoResultCard').style.display='none';">
+                                    <i class="fas fa-times"></i> Dismiss
+                                </button>
+                            </div>
+                            <div class="auto-result-body" id="autoResultBody"></div>
                         </div>
                     </div>
 
@@ -4079,6 +4124,112 @@
                 </div>
             </div>
 
+            <!-- ═══ SECURITY INTELLIGENCE VIEW ═══════════════════════════════ -->
+            <div id="securityView" class="view-container" style="display:none;flex-direction:column;">
+                <div class="chat-header">
+                    <div style="display:flex;align-items:center;">
+                        <h1 class="chat-title">Security Intelligence</h1>
+                        <span style="margin-left:10px;background:#fff5f5;color:#c53030;border:1px solid #feb2b2;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">AI-POWERED</span>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex;overflow:hidden;background:var(--main-bg);">
+                    <div style="flex:1;overflow-y:auto;padding:28px 24px;">
+
+                        <!-- Hero banner -->
+                        <div style="background:linear-gradient(135deg,#1a202c 0%,#2d3748 60%,#c53030 100%);border-radius:16px;padding:28px 32px;margin-bottom:32px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-shield-alt" style="font-size:26px;color:#fc8181;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">AI Security Advisor</h2>
+                                <p style="margin:0;font-size:13px;opacity:.8;max-width:560px;">Identify threats, generate security test cases, analyse vulnerabilities, and review auth flows — powered by AI and aligned with OWASP standards.</p>
+                            </div>
+                        </div>
+
+                        <!-- Threat &amp; Vulnerability Analysis -->
+                        <div class="qa-intel-group" style="margin-bottom:36px;">
+                            <h2 style="font-size:15px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
+                                <i class="fas fa-crosshairs" style="margin-right:8px;color:#c53030;"></i>Threat &amp; Vulnerability Analysis
+                            </h2>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#c53030;"><i class="fas fa-project-diagram"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>OWASP Threat Modeler</h3>
+                                        <p>Generate a full OWASP-aligned threat model with risk levels and mitigations for any feature or system.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" style="background:#c53030;" onclick="viseAI.openQATool('sec-threat-model')">Model Threats</button>
+                                </div>
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#c05621;"><i class="fas fa-bug"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Vulnerability Advisor</h3>
+                                        <p>Paste a vulnerability description or code snippet — get a severity rating, attack scenario, and step-by-step fix.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" style="background:#c05621;" onclick="viseAI.openQATool('sec-vuln-advisor')">Analyse</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Security Test Cases -->
+                        <div class="qa-intel-group" style="margin-bottom:36px;">
+                            <h2 style="font-size:15px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
+                                <i class="fas fa-vials" style="margin-right:8px;color:#6b46c1;"></i>Security Test Case Generation
+                            </h2>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#6b46c1;"><i class="fas fa-flask"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Security Test Cases</h3>
+                                        <p>Generate XSS, SQL Injection, CSRF, Auth Bypass, IDOR and other OWASP-based security test cases with payloads.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" style="background:#6b46c1;" onclick="viseAI.openQATool('sec-test-cases')">Generate</button>
+                                </div>
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#2b6cb0;"><i class="fas fa-plug"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>API Security Checker</h3>
+                                        <p>Evaluate your API against the OWASP API Security Top 10 (2023) and get actionable findings with recommendations.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" style="background:#2b6cb0;" onclick="viseAI.openQATool('sec-api-check')">Check API</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Auth & Access Control -->
+                        <div class="qa-intel-group" style="margin-bottom:36px;">
+                            <h2 style="font-size:15px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;">
+                                <i class="fas fa-lock" style="margin-right:8px;color:#276749;"></i>Auth &amp; Access Control
+                            </h2>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+                                <div class="qa-tool-card">
+                                    <div class="qa-tool-icon" style="color:#276749;"><i class="fas fa-user-shield"></i></div>
+                                    <div class="qa-tool-info">
+                                        <h3>Auth Flow Reviewer</h3>
+                                        <p>Describe your authentication or authorisation flow and get a full security review covering broken auth, session management, and privilege escalation.</p>
+                                    </div>
+                                    <button class="qa-tool-btn" style="background:#276749;" onclick="viseAI.openQATool('sec-auth-review')">Review</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Prompts -->
+                        <div style="background:#fff;border-radius:12px;padding:20px 24px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f0f0f0;margin-bottom:24px;">
+                            <p style="font-size:13px;font-weight:700;color:#4a5568;margin-bottom:12px;text-transform:uppercase;letter-spacing:.06em;"><i class="fas fa-bolt" style="margin-right:6px;color:#e53e3e;"></i>Quick Start</p>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('sec-threat-model','E-commerce checkout with card payment and user login')">Threat model e-commerce checkout</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('sec-test-cases','Login endpoint with username and password')">Security tests for Login endpoint</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('sec-vuln-advisor','SQL query built by string concatenation with user input')">Diagnose SQL Injection</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('sec-auth-review','JWT-based auth with refresh tokens, no MFA, role-based access')">Review JWT auth flow</button>
+                                <button class="qa-prompt-chip" onclick="viseAI.openQATool('sec-api-check','REST API for user management with CRUD operations and API keys')">Check REST API security</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            <!-- ═══ END SECURITY INTELLIGENCE VIEW ══════════════════════════ -->
+
             <!-- ═══ QA TOOL MODAL ════════════════════════════════════════════ -->
             <div id="qaToolModal" style="display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
                 <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">
@@ -4330,7 +4481,8 @@
             'user-story-generator': { title: 'User Story Generator', desc: 'Generate user stories from requirements. (Coming soon)' },
             'flow-diagram': { title: 'Flow Diagram Builder', desc: 'Create flow diagrams. (Coming soon)' },
             history: { title: 'Conversation History', desc: 'Browse past conversations. Search and filter messages.' },
-            help: { title: 'Help', desc: 'Overview of all Nexora features and how to use them.' }
+            help: { title: 'Help', desc: 'Overview of all Nexora features and how to use them.' },
+            security: { title: 'Security Intelligence', desc: 'AI-powered security tools: OWASP threat modelling, security test case generation (XSS, SQLi, CSRF, Auth Bypass), vulnerability analysis, auth flow review, and OWASP API Top 10 checking.' }
         };
 
         const HELP_BY_WORKSPACE = {
@@ -4913,6 +5065,95 @@
                         }),
                         validate: (p) => p.feature_description ? null : 'Feature description is required.',
                         renderResult: (r) => this._renderRiskResult(r)
+                    },
+
+                    // ── Security Intelligence Tools ──────────────────────────────
+                    'sec-threat-model': {
+                        title: 'OWASP Threat Modeler',
+                        subtitle: 'Generate an OWASP-aligned threat model with risk levels and mitigations',
+                        icon: '<i class="fas fa-project-diagram"></i>',
+                        endpoint: '/api/security/threat-model',
+                        runLabel: 'Model Threats',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">System / Feature Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="secInput_description" rows="6" placeholder="Describe the system or feature: what it does, what data it handles, integrations, user roles, technologies used…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            <p style="font-size:12px;color:#718096;margin-top:6px;">The AI will identify OWASP Top 10 threats, assign risk levels, and suggest mitigations.</p>`,
+                        collectPayload: () => ({
+                            description: (document.getElementById('secInput_description')?.value || '').trim()
+                        }),
+                        validate: (p) => p.description ? null : 'System or feature description is required.',
+                        renderResult: (r) => this._renderThreatModel(r)
+                    },
+                    'sec-test-cases': {
+                        title: 'Security Test Cases',
+                        subtitle: 'Generate XSS, SQLi, CSRF, Auth Bypass and OWASP security test cases',
+                        icon: '<i class="fas fa-flask"></i>',
+                        endpoint: '/api/security/test-cases',
+                        runLabel: 'Generate Security Tests',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Feature / Endpoint Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="secInput_feature" rows="5" placeholder="Describe the feature, page, or API endpoint to generate security test cases for…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            <label style="display:block;font-weight:600;margin:14px 0 8px;">Focus Attack Types <span style="color:#a0aec0;font-weight:400;">(optional)</span></label>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;" id="secAttackTypePills">
+                                ${['SQL Injection','XSS','CSRF','Auth Bypass','IDOR','Rate Limiting','Input Validation','Sensitive Data'].map(t =>
+                                    `<label style="display:flex;align-items:center;gap:5px;background:#f7fafc;border:1.5px solid #e2e8f0;border-radius:20px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600;">
+                                        <input type="checkbox" value="${t}" style="cursor:pointer;"> ${t}
+                                    </label>`).join('')}
+                            </div>`,
+                        collectPayload: () => ({
+                            feature: (document.getElementById('secInput_feature')?.value || '').trim(),
+                            attack_types: [...document.querySelectorAll('#secAttackTypePills input:checked')].map(c => c.value)
+                        }),
+                        validate: (p) => p.feature ? null : 'Feature or endpoint description is required.',
+                        renderResult: (r) => this._renderSecTestCases(r)
+                    },
+                    'sec-vuln-advisor': {
+                        title: 'Vulnerability Advisor',
+                        subtitle: 'Get severity, attack scenario and remediation for any vulnerability',
+                        icon: '<i class="fas fa-bug"></i>',
+                        endpoint: '/api/security/vulnerability-advisor',
+                        runLabel: 'Analyse Vulnerability',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Vulnerability Description or Code Snippet <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="secInput_vulnerability" rows="8" placeholder="Paste a vulnerability description, error message, or suspicious code snippet here…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;font-family:monospace;">${prefill || ''}</textarea>
+                            <p style="font-size:12px;color:#718096;margin-top:6px;">The AI will identify the vulnerability type, CVSS score, CWE reference, attack scenario, and provide a secure code fix.</p>`,
+                        collectPayload: () => ({
+                            vulnerability: (document.getElementById('secInput_vulnerability')?.value || '').trim()
+                        }),
+                        validate: (p) => p.vulnerability ? null : 'Vulnerability description or code snippet is required.',
+                        renderResult: (r) => this._renderVulnAdvisor(r)
+                    },
+                    'sec-auth-review': {
+                        title: 'Auth Flow Reviewer',
+                        subtitle: 'Review authentication and authorisation flows for security gaps',
+                        icon: '<i class="fas fa-user-shield"></i>',
+                        endpoint: '/api/security/auth-review',
+                        runLabel: 'Review Auth Flow',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">Authentication / Authorisation Flow <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="secInput_auth_flow" rows="7" placeholder="Describe your auth flow: e.g. JWT tokens, session cookies, OAuth2, role-based access, password reset mechanism, MFA setup…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            <p style="font-size:12px;color:#718096;margin-top:6px;">The AI will check for broken authentication, insecure session management, privilege escalation, and missing controls.</p>`,
+                        collectPayload: () => ({
+                            auth_flow: (document.getElementById('secInput_auth_flow')?.value || '').trim()
+                        }),
+                        validate: (p) => p.auth_flow ? null : 'Auth flow description is required.',
+                        renderResult: (r) => this._renderAuthReview(r)
+                    },
+                    'sec-api-check': {
+                        title: 'API Security Checker',
+                        subtitle: 'Evaluate your API against OWASP API Security Top 10 (2023)',
+                        icon: '<i class="fas fa-plug"></i>',
+                        endpoint: '/api/security/api-security-check',
+                        runLabel: 'Check API Security',
+                        buildInput: (prefill) => `
+                            <label style="display:block;font-weight:600;margin-bottom:6px;">API Description <span style="color:#e53e3e;">*</span></label>
+                            <textarea id="secInput_api" rows="7" placeholder="Describe your API: endpoints, authentication method, data exposed, user roles, rate limiting, input validation details…" style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;">${prefill || ''}</textarea>
+                            <p style="font-size:12px;color:#718096;margin-top:6px;">The AI will check your API against all 10 OWASP API security risks and provide specific recommendations.</p>`,
+                        collectPayload: () => ({
+                            api_description: (document.getElementById('secInput_api')?.value || '').trim()
+                        }),
+                        validate: (p) => p.api_description ? null : 'API description is required.',
+                        renderResult: (r) => this._renderApiSecCheck(r)
                     }
                 };
 
@@ -5539,6 +5780,159 @@
                             ${['smoke','functional','regression'].map(k => ef[k] ? `<div><span style="font-size:11px;color:#a0aec0;text-transform:uppercase;">${k}</span><p style="margin:2px 0 0;font-size:14px;font-weight:600;">${String(ef[k]).replace(/</g,'&lt;')}</p></div>` : '').join('')}
                         </div>`);
                 }
+                return html;
+            }
+
+            // ── Security Intelligence Renderers ──────────────────────────────
+
+            _secSevBadge(sev) {
+                const col = { Critical: '#c53030', High: '#c05621', Medium: '#b7791f', Low: '#276749' };
+                const bg  = { Critical: '#fff5f5', High: '#fffaf0', Medium: '#fffff0', Low: '#f0fff4' };
+                const c = col[sev] || '#4a5568', b = bg[sev] || '#f7fafc';
+                return `<span style="background:${b};color:${c};border:1px solid ${c};border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;">${sev||'Unknown'}</span>`;
+            }
+
+            _renderThreatModel(r) {
+                const _e = v => (v == null ? '' : String(v)).replace(/</g, '&lt;');
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+                        <span style="font-weight:700;font-size:15px;color:#1a202c;"><i class="fas fa-project-diagram" style="margin-right:8px;color:#c53030;"></i>Threat Model Summary</span>
+                        ${this._secSevBadge(r.overall_risk)}
+                    </div>
+                    <p style="margin:0;font-size:14px;color:#4a5568;">${_e(r.summary)}</p>`);
+                (r.threats || []).forEach(t => {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span style="font-weight:700;font-size:13px;color:#a0aec0;">${_e(t.id)}</span>
+                            <span style="font-weight:700;font-size:14px;color:#1a202c;flex:1;">${_e(t.name)}</span>
+                            ${this._secSevBadge(t.impact)}
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span style="background:#fed7e2;color:#c53030;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600;">${_e(t.category)}</span>
+                            <span style="background:#ebf8ff;color:#2b6cb0;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600;">${_e(t.owasp_ref)}</span>
+                            <span style="background:#f0fff4;color:#276749;border-radius:8px;padding:2px 8px;font-size:11px;">Likelihood: ${_e(t.likelihood)}</span>
+                        </div>
+                        <p style="font-size:13px;color:#4a5568;margin-bottom:8px;">${_e(t.description)}</p>
+                        ${Array.isArray(t.mitigations) && t.mitigations.length ? `<p style="font-size:12px;font-weight:700;color:#276749;margin-bottom:4px;"><i class="fas fa-shield-alt" style="margin-right:4px;"></i>Mitigations</p><ul style="margin:0 0 0 18px;padding:0;">${t.mitigations.map(m => `<li style="font-size:13px;color:#4a5568;margin-bottom:2px;">${_e(m)}</li>`).join('')}</ul>` : ''}`);
+                });
+                html += this._qaSection('Security Requirements', r.security_requirements, 'fas fa-lock');
+                return html;
+            }
+
+            _renderSecTestCases(r) {
+                const _e = v => (v == null ? '' : String(v)).replace(/</g, '&lt;');
+                const typeColors = { 'SQL Injection': '#c53030', 'XSS': '#c05621', 'CSRF': '#6b46c1', 'Auth Bypass': '#2b6cb0', 'IDOR': '#276749', 'Rate Limiting': '#b7791f', 'Input Validation': '#4a5568', 'Sensitive Data': '#c53030', 'Other': '#718096' };
+                let html = '';
+                if (r.summary) html += this._qaCard(`<p style="margin:0;color:#4a5568;font-size:14px;">${_e(r.summary)}</p>`);
+                (r.test_cases || []).forEach(tc => {
+                    const tc_col = typeColors[tc.type] || '#718096';
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                            <span style="font-weight:700;font-size:13px;color:#a0aec0;">${_e(tc.id)}</span>
+                            <span style="font-weight:700;font-size:14px;flex:1;">${_e(tc.title)}</span>
+                            ${this._secSevBadge(tc.severity)}
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span style="background:${tc_col}18;color:${tc_col};border:1px solid ${tc_col}40;border-radius:8px;padding:2px 9px;font-size:11px;font-weight:700;">${_e(tc.type)}</span>
+                            ${tc.cwe_ref ? `<span style="background:#ebf8ff;color:#2b6cb0;border-radius:8px;padding:2px 9px;font-size:11px;font-weight:600;">${_e(tc.cwe_ref)}</span>` : ''}
+                        </div>
+                        <p style="font-size:13px;color:#4a5568;margin-bottom:8px;">${_e(tc.description)}</p>
+                        ${Array.isArray(tc.steps) && tc.steps.length ? `<p style="font-size:12px;font-weight:700;color:#718096;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Steps</p><ol style="margin:0 0 8px 18px;padding:0;">${tc.steps.map(s => `<li style="font-size:13px;color:#4a5568;margin-bottom:2px;">${_e(s)}</li>`).join('')}</ol>` : ''}
+                        ${tc.payload ? `<div style="background:#1a202c;color:#68d391;border-radius:6px;padding:8px 12px;font-size:12px;font-family:monospace;margin-bottom:8px;"><span style="color:#fc8181;font-weight:700;">Payload: </span>${_e(tc.payload)}</div>` : ''}
+                        ${tc.expected_result ? `<p style="font-size:13px;color:#276749;margin-bottom:4px;"><strong>Expected (secure):</strong> ${_e(tc.expected_result)}</p>` : ''}
+                        ${tc.fail_indicator ? `<p style="font-size:13px;color:#c53030;margin:0;"><strong>Fail indicator:</strong> ${_e(tc.fail_indicator)}</p>` : ''}`);
+                });
+                return html;
+            }
+
+            _renderVulnAdvisor(r) {
+                const _e = v => (v == null ? '' : String(v)).replace(/</g, '&lt;');
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                        <div>
+                            <p style="font-weight:800;font-size:16px;color:#1a202c;margin:0 0 4px;">${_e(r.vulnerability_name)}</p>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                ${this._secSevBadge(r.severity)}
+                                ${r.cvss_score && r.cvss_score !== 'N/A' ? `<span style="background:#fff5f5;color:#c53030;border:1px solid #feb2b2;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700;">CVSS ${_e(r.cvss_score)}</span>` : ''}
+                                ${r.cwe_ref ? `<span style="background:#ebf8ff;color:#2b6cb0;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600;">${_e(r.cwe_ref)}</span>` : ''}
+                                ${r.owasp_ref ? `<span style="background:#faf5ff;color:#6b46c1;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600;">${_e(r.owasp_ref)}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <p style="font-size:14px;color:#4a5568;margin:0;">${_e(r.explanation)}</p>`);
+                if (r.attack_scenario) html += this._qaCard(`
+                    <p style="font-size:12px;font-weight:700;color:#c53030;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;"><i class="fas fa-skull-crossbones" style="margin-right:6px;"></i>Attack Scenario</p>
+                    <p style="font-size:13px;color:#4a5568;margin:0;">${_e(r.attack_scenario)}</p>`);
+                html += this._qaSection('Impact', r.impact, 'fas fa-exclamation-triangle');
+                if (Array.isArray(r.remediation_steps) && r.remediation_steps.length) {
+                    html += this._qaCard(`
+                        <p style="font-size:12px;font-weight:700;color:#276749;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;"><i class="fas fa-wrench" style="margin-right:6px;"></i>Remediation Steps</p>
+                        <ol style="margin:0 0 0 18px;padding:0;">${r.remediation_steps.map(s => `<li style="font-size:13px;color:#4a5568;margin-bottom:4px;">${_e(s)}</li>`).join('')}</ol>`);
+                }
+                if (r.secure_code_example) html += this._qaCard(`
+                    <p style="font-size:12px;font-weight:700;color:#2b6cb0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;"><i class="fas fa-code" style="margin-right:6px;"></i>Secure Code Example</p>
+                    <pre style="background:#1a202c;color:#68d391;border-radius:8px;padding:14px;font-size:12px;overflow-x:auto;margin:0;">${_e(r.secure_code_example)}</pre>`);
+                return html;
+            }
+
+            _renderAuthReview(r) {
+                const _e = v => (v == null ? '' : String(v)).replace(/</g, '&lt;');
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+                        <span style="font-weight:700;font-size:15px;"><i class="fas fa-user-shield" style="margin-right:8px;color:#276749;"></i>Auth Flow Assessment</span>
+                        ${this._secSevBadge(r.overall_risk)}
+                    </div>
+                    <p style="margin:0;font-size:14px;color:#4a5568;">${_e(r.summary)}</p>`);
+                (r.findings || []).forEach(f => {
+                    const catCol = { Authentication: '#c53030', Authorisation: '#c05621', 'Session Management': '#6b46c1', 'Token Security': '#2b6cb0', Other: '#718096' };
+                    const c = catCol[f.category] || '#718096';
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span style="font-weight:700;font-size:13px;color:#a0aec0;">${_e(f.id)}</span>
+                            <span style="font-weight:700;font-size:14px;flex:1;">${_e(f.issue)}</span>
+                            ${this._secSevBadge(f.severity)}
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span style="background:${c}18;color:${c};border-radius:8px;padding:2px 9px;font-size:11px;font-weight:700;">${_e(f.category)}</span>
+                            ${f.owasp_ref ? `<span style="background:#faf5ff;color:#6b46c1;border-radius:8px;padding:2px 9px;font-size:11px;font-weight:600;">${_e(f.owasp_ref)}</span>` : ''}
+                        </div>
+                        <p style="font-size:13px;color:#4a5568;margin-bottom:6px;">${_e(f.description)}</p>
+                        ${f.attack_vector ? `<p style="font-size:13px;color:#c53030;margin-bottom:6px;"><strong>Attack vector:</strong> ${_e(f.attack_vector)}</p>` : ''}
+                        <p style="font-size:13px;color:#276749;margin:0;"><strong>Recommendation:</strong> ${_e(f.recommendation)}</p>`);
+                });
+                if (Array.isArray(r.positive_findings) && r.positive_findings.length) {
+                    html += this._qaCard(`
+                        <p style="font-size:12px;font-weight:700;color:#276749;margin-bottom:6px;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Good Practices Found</p>
+                        <ul style="margin:0 0 0 18px;padding:0;">${r.positive_findings.map(p => `<li style="font-size:13px;color:#276749;margin-bottom:2px;">${_e(p)}</li>`).join('')}</ul>`);
+                }
+                html += this._qaSection('Recommended Controls', r.recommended_controls, 'fas fa-lock');
+                return html;
+            }
+
+            _renderApiSecCheck(r) {
+                const _e = v => (v == null ? '' : String(v)).replace(/</g, '&lt;');
+                let html = this._qaCard(`
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+                        <span style="font-weight:700;font-size:15px;"><i class="fas fa-plug" style="margin-right:8px;color:#2b6cb0;"></i>API Security Assessment</span>
+                        ${this._secSevBadge(r.overall_risk)}
+                    </div>
+                    <p style="margin:0;font-size:14px;color:#4a5568;">${_e(r.summary)}</p>`);
+                (r.findings || []).filter(f => f.applies !== false).forEach(f => {
+                    html += this._qaCard(`
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                            <span style="background:#ebf8ff;color:#2b6cb0;border-radius:8px;padding:2px 9px;font-size:11px;font-weight:700;">${_e(f.owasp_ref)}</span>
+                            <span style="font-weight:700;font-size:14px;flex:1;">${_e(f.title)}</span>
+                            ${this._secSevBadge(f.severity)}
+                        </div>
+                        <p style="font-size:13px;color:#4a5568;margin-bottom:8px;">${_e(f.description)}</p>
+                        <p style="font-size:13px;color:#276749;margin:0;"><strong>Recommendation:</strong> ${_e(f.recommendation)}</p>`);
+                });
+                if (Array.isArray(r.security_headers) && r.security_headers.length) {
+                    html += this._qaCard(`
+                        <p style="font-size:12px;font-weight:700;color:#2b6cb0;margin-bottom:6px;"><i class="fas fa-shield-alt" style="margin-right:5px;"></i>Recommended Security Headers</p>
+                        <ul style="margin:0 0 0 18px;padding:0;">${r.security_headers.map(h => `<li style="font-size:13px;font-family:monospace;color:#2b6cb0;margin-bottom:2px;">${_e(h)}</li>`).join('')}</ul>`);
+                }
+                html += this._qaSection('Quick Wins', r.quick_wins, 'fas fa-bolt');
                 return html;
             }
 
@@ -7736,6 +8130,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     this.loadHelp();
                 } else if (viewName === 'qa-intelligence') {
                     // Nothing to pre-load; the hub is fully static HTML
+                } else if (viewName === 'security') {
+                    // Security Intelligence — fully static HTML
                 }
             }
 
@@ -8434,6 +8830,19 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     this.setAutomationLoading(false);
                     this.setAutomationButtonsEnabled(true);
                     document.getElementById('automationStatus').textContent = 'Ready';
+
+                    // Show result panel with the agent's final answer
+                    const resultCard = document.getElementById('autoResultCard');
+                    const resultBody = document.getElementById('autoResultBody');
+                    if (resultCard && resultBody && data.result && data.result.trim()) {
+                        const escaped = data.result
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                        resultBody.innerHTML = `<pre class="auto-result-text">${escaped}</pre>`;
+                        resultCard.style.display = '';
+                        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
                 });
 
                 this.socket.on('task_warning', (data) => {
@@ -8481,6 +8890,9 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                         if (!url || !prompt) { this.addAutomationLog('Please provide both a URL and a task objective.', 'WARN'); return; }
                         if (!url.startsWith('http://') && !url.startsWith('https://')) { this.addAutomationLog('URL must start with http:// or https://', 'WARN'); return; }
                         document.getElementById('automationLogContainer').innerHTML = '';
+                        // Hide previous result panel on new task
+                        const _rc = document.getElementById('autoResultCard');
+                        if (_rc) _rc.style.display = 'none';
                         this.addAutomationLog(`Executing with ${provider.toUpperCase()}...`, 'INFO');
                         document.getElementById('automationStatus').textContent = 'Running…';
                         this.setAutomationButtonsEnabled(false);
@@ -9170,6 +9582,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'testcases', label: 'Testcases', icon: 'fa-folder-open' },
                 { view: 'automation', label: 'Automation', icon: 'fa-robot' },
                 { view: 'qa-intelligence', label: 'QA Intelligence', icon: 'fa-brain' },
+                { view: 'security', label: 'Security', icon: 'fa-shield-alt' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
                 { view: 'help', label: 'Help', icon: 'fa-question-circle' },
