@@ -3332,6 +3332,52 @@
             border-color: var(--accent);
             color: var(--accent);
         }
+        /* ── Saved Items ──────────────────────────────────── */
+        .saved-filter-btn {
+            padding: 7px 16px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 20px;
+            background: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all .15s;
+            margin-bottom: 12px;
+        }
+        .saved-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .saved-filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .saved-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            padding: 16px 18px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.04);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: box-shadow .15s;
+        }
+        .saved-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+        .saved-card-title { font-size: 14px; font-weight: 700; color: #1a202c; line-height: 1.3; }
+        .saved-card-meta { font-size: 11px; color: #a0aec0; }
+        .saved-card-actions { display: flex; gap: 8px; margin-top: 4px; }
+        .saved-card-actions button { font-size: 12px; padding: 5px 12px; border-radius: 7px; border: 1.5px solid #e2e8f0; background: #f7fafc; cursor: pointer; color: #4a5568; font-weight: 600; transition: all .15s; }
+        .saved-card-actions button:hover { border-color: var(--accent); color: var(--accent); }
+        .saved-card-actions .del-btn:hover { border-color: #e53e3e; color: #e53e3e; }
+        /* ── Analytics Board ─────────────────────────────── */
+        .analytics-stat { background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f0f0f0; }
+        .analytics-stat .stat-val { font-size:32px;font-weight:800;color:#1a202c;line-height:1; }
+        .analytics-stat .stat-lbl { font-size:12px;color:#718096;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.06em; }
+        .analytics-bar-row { display:flex;align-items:center;gap:10px;margin-bottom:10px; }
+        .analytics-bar-label { font-size:12px;color:#4a5568;width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600; }
+        .analytics-bar-track { flex:1;height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden; }
+        .analytics-bar-fill { height:100%;border-radius:5px;background:var(--accent);transition:width .5s; }
+        .analytics-bar-count { font-size:12px;color:#718096;font-weight:700;width:28px;text-align:right; }
+        .analytics-recent-row { display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #f0f0f0; }
+        .analytics-recent-row:last-child { border-bottom:none; }
+        .analytics-recent-dot { width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:4px; }
+        /* ── QA Upload Btn ────────────────────────────────── */
         .qa-upload-btn {
             padding: 6px 12px;
             border: 1.5px solid #e2e8f0;
@@ -4136,6 +4182,53 @@
                 </div>
             </div>
 
+            <!-- ═══ SAVED ITEMS VIEW ══════════════════════════════════════════ -->
+            <div id="savedView" class="view-container" style="display:none;flex-direction:column;">
+                <div class="chat-header">
+                    <div style="display:flex;align-items:center;">
+                        <h1 class="chat-title">Saved Items</h1>
+                        <span id="savedCountBadge" style="margin-left:10px;background:#f0fff4;color:#276749;border:1px solid #9ae6b4;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;"></span>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--main-bg);">
+                    <!-- Filter bar -->
+                    <div style="padding:16px 24px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid #e2e8f0;background:#fff;">
+                        <button class="saved-filter-btn active" data-cat="" onclick="viseAI.filterSaved('')">All</button>
+                        <button class="saved-filter-btn" data-cat="QA" onclick="viseAI.filterSaved('QA')"><i class="fas fa-brain" style="margin-right:4px;"></i>QA</button>
+                        <button class="saved-filter-btn" data-cat="Security" onclick="viseAI.filterSaved('Security')"><i class="fas fa-shield-alt" style="margin-right:4px;"></i>Security</button>
+                        <button class="saved-filter-btn" data-cat="BA" onclick="viseAI.filterSaved('BA')"><i class="fas fa-search" style="margin-right:4px;"></i>BA</button>
+                        <input id="savedSearch" type="text" placeholder="Search saved items…" oninput="viseAI.searchSaved(this.value)"
+                            style="margin-left:auto;padding:7px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;width:220px;">
+                    </div>
+                    <!-- List -->
+                    <div style="flex:1;overflow-y:auto;padding:20px 24px;" id="savedList">
+                        <div id="savedLoading" style="text-align:center;padding:48px;color:#a0aec0;"><div class="loading-spinner" style="margin:0 auto 12px;"></div>Loading…</div>
+                        <div id="savedEmpty" style="display:none;text-align:center;padding:64px 24px;">
+                            <i class="fas fa-bookmark" style="font-size:48px;color:#cbd5e0;display:block;margin-bottom:16px;"></i>
+                            <p style="font-size:16px;font-weight:700;color:#2d3748;margin-bottom:6px;">No saved items yet</p>
+                            <p style="font-size:14px;color:#718096;">Run any QA, Security or BA tool and click <strong>Save Result</strong> to keep it here.</p>
+                        </div>
+                        <div id="savedCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- ═══ END SAVED ITEMS VIEW ══════════════════════════════════════ -->
+
+            <!-- ═══ ANALYTICS BOARD VIEW ══════════════════════════════════════ -->
+            <div id="analyticsView" class="view-container" style="display:none;flex-direction:column;">
+                <div class="chat-header">
+                    <div style="display:flex;align-items:center;">
+                        <h1 class="chat-title">Analytics Board</h1>
+                        <span style="margin-left:10px;background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">LIVE</span>
+                    </div>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:28px 24px;background:var(--main-bg);" id="analyticsBody">
+                    <div id="analyticsLoading" style="text-align:center;padding:64px;color:#a0aec0;"><div class="loading-spinner" style="margin:0 auto 12px;"></div>Loading analytics…</div>
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+            <!-- ═══ END ANALYTICS BOARD VIEW ═══════════════════════════════════ -->
+
             <!-- ═══ SECURITY INTELLIGENCE VIEW ═══════════════════════════════ -->
             <div id="securityView" class="view-container" style="display:none;flex-direction:column;">
                 <div class="chat-header">
@@ -4271,6 +4364,14 @@
                         </div>
                         <!-- Result -->
                         <div id="qaModalResult" style="display:none;margin-top:20px;"></div>
+                        <!-- Save action bar — shown after result is rendered -->
+                        <div id="qaModalSaveBar" style="display:none;margin-top:12px;padding:12px 16px;background:#f7fafc;border-radius:10px;border:1px solid #e2e8f0;display:none;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <input id="qaModalSaveTitle" type="text" placeholder="Save as… (optional title)" style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;">
+                            <button id="qaModalSaveBtn" onclick="viseAI.saveQAResult()" style="background:#276749;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                                <i class="fas fa-bookmark"></i> Save Result
+                            </button>
+                            <span id="qaModalSavedMsg" style="display:none;color:#276749;font-size:13px;font-weight:600;"><i class="fas fa-check-circle"></i> Saved!</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5368,6 +5469,51 @@
                 if (modal) modal.style.display = 'none';
                 document.body.style.overflow = '';
                 this._activeQATool = null;
+                this._lastQAResult = null;
+                const saveBar = document.getElementById('qaModalSaveBar');
+                if (saveBar) saveBar.style.display = 'none';
+            }
+
+            async saveQAResult() {
+                const r = this._lastQAResult;
+                if (!r) return;
+                const tool = this._qaTools?.[r.tool];
+                const titleEl = document.getElementById('qaModalSaveTitle');
+                const savedMsg = document.getElementById('qaModalSavedMsg');
+                const saveBtn = document.getElementById('qaModalSaveBtn');
+                const autoTitle = titleEl?.value.trim() ||
+                    Object.values(r.payload || {}).filter(Boolean).join(' ').slice(0, 80) ||
+                    (tool?.title || r.tool);
+                const category = r.tool.startsWith('sec-') ? 'Security'
+                    : ['test-case-generate','api-test-generate','test-data-generate',
+                       'bug-log-analyze','screenshot-analyze','root-cause-detect',
+                       'regression-impact','risk-advisor'].includes(r.tool) ? 'QA'
+                    : 'BA';
+                if (saveBtn) saveBtn.disabled = true;
+                try {
+                    const resp = await fetch(_api('/api/items/save'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tool: r.tool,
+                            category,
+                            title: autoTitle,
+                            content: r.result,
+                            input_text: Object.values(r.payload || {}).filter(Boolean).join(' ').slice(0, 500)
+                        })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        if (savedMsg) { savedMsg.style.display = 'inline-flex'; }
+                        setTimeout(() => { if (savedMsg) savedMsg.style.display = 'none'; }, 3000);
+                    } else {
+                        alert('Save failed: ' + (data.error || 'Unknown error'));
+                    }
+                } catch (e) {
+                    alert('Save error: ' + e.message);
+                } finally {
+                    if (saveBtn) saveBtn.disabled = false;
+                }
             }
 
             async runQATool() {
@@ -5414,6 +5560,14 @@
                             result.innerHTML = tool.renderResult(data.result);
                             result.style.display = 'block';
                         }
+                        // Show save bar and cache result for saving
+                        this._lastQAResult = { tool: toolId, payload, result: data.result };
+                        const saveBar = document.getElementById('qaModalSaveBar');
+                        const savedMsg = document.getElementById('qaModalSavedMsg');
+                        const saveTitle = document.getElementById('qaModalSaveTitle');
+                        if (saveBar) { saveBar.style.display = 'flex'; }
+                        if (savedMsg) savedMsg.style.display = 'none';
+                        if (saveTitle) saveTitle.value = '';
                     } else {
                         if (result) {
                             result.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;padding:16px;color:#c53030;"><i class="fas fa-exclamation-triangle"></i> ${(data.error || 'Analysis failed').replace(/</g,'&lt;')}</div>`;
@@ -6022,6 +6176,336 @@
             }
 
             // ── end QA Intelligence ──────────────────────────────────────────
+
+            // ── Saved Items ───────────────────────────────────────────────────
+
+            async loadSavedItems(category = '') {
+                this._savedCategory = category || this._savedCategory || '';
+                const listEl   = document.getElementById('savedCards');
+                const emptyEl  = document.getElementById('savedEmpty');
+                const loadingEl = document.getElementById('savedLoading');
+                const badge    = document.getElementById('savedCountBadge');
+                const _done = () => { if (loadingEl) loadingEl.style.display = 'none'; };
+                if (loadingEl) loadingEl.style.display = 'block';
+                if (listEl) listEl.innerHTML = '';
+                if (emptyEl) emptyEl.style.display = 'none';
+                try {
+                    const cat = this._savedCategory;
+                    const ctrl = new AbortController();
+                    const tid  = setTimeout(() => ctrl.abort(), 10000);
+                    const resp = await fetch(_api('/api/items/list' + (cat ? `?category=${encodeURIComponent(cat)}` : '')), {
+                        headers: _apiHeaders(), signal: ctrl.signal
+                    });
+                    clearTimeout(tid);
+                    const ct = resp.headers.get('content-type') || '';
+                    if (!ct.includes('application/json')) throw new Error(`Server returned ${resp.status} (not JSON) — check that the Flask server is running with the latest code.`);
+                    const data = await resp.json();
+                    _done();
+                    if (!data.success) throw new Error(data.error || 'Load failed');
+                    this._savedAll = data.items || [];
+                    if (badge) badge.textContent = `${this._savedAll.length} item${this._savedAll.length !== 1 ? 's' : ''}`;
+                    this._renderSavedCards(this._savedAll);
+                } catch (e) {
+                    _done();
+                    if (listEl) listEl.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:20px 24px;color:#c53030;font-size:14px;"><i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>${String(e.message).replace(/</g,'&lt;')}<br><button onclick="viseAI.loadSavedItems()" style="margin-top:12px;padding:7px 16px;background:#c53030;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Retry</button></div>`;
+                }
+            }
+
+            _renderSavedCards(items) {
+                const listEl = document.getElementById('savedCards');
+                const emptyEl = document.getElementById('savedEmpty');
+                if (!listEl) return;
+                if (!items.length) {
+                    listEl.innerHTML = '';
+                    if (emptyEl) emptyEl.style.display = 'block';
+                    return;
+                }
+                if (emptyEl) emptyEl.style.display = 'none';
+                const catColors = { QA: '#2b6cb0', Security: '#c53030', BA: '#276749', General: '#718096' };
+                const toolLabels = {
+                    'test-case-generate': 'Test Cases', 'api-test-generate': 'API Tests',
+                    'test-data-generate': 'Test Data', 'bug-log-analyze': 'Bug Log',
+                    'screenshot-analyze': 'Screenshot', 'root-cause-detect': 'Root Cause',
+                    'regression-impact': 'Regression', 'risk-advisor': 'Risk Advisor',
+                    'sec-threat-model': 'Threat Model', 'sec-test-cases': 'Sec Tests',
+                    'sec-vuln-advisor': 'Vulnerability', 'sec-auth-review': 'Auth Review',
+                    'sec-api-check': 'API Security'
+                };
+                listEl.innerHTML = items.map(item => {
+                    const cc = catColors[item.category] || '#718096';
+                    const lbl = toolLabels[item.tool] || item.tool;
+                    const date = new Date(item.ts * 1000).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+                    const time = new Date(item.ts * 1000).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+                    const preview = (item.input_text || '').slice(0, 80).replace(/</g,'&lt;');
+                    return `<div class="saved-card">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <span style="background:${cc}18;color:${cc};border:1px solid ${cc}40;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700;">${item.category}</span>
+                            <span style="background:#f7fafc;color:#4a5568;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:600;">${lbl}</span>
+                        </div>
+                        <div class="saved-card-title">${(item.title || 'Untitled').replace(/</g,'&lt;')}</div>
+                        ${preview ? `<div style="font-size:12px;color:#718096;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${preview}</div>` : ''}
+                        <div class="saved-card-meta">${date} · ${time}</div>
+                        <div class="saved-card-actions">
+                            <button onclick="viseAI.viewSaved(${item.id})"><i class="fas fa-eye" style="margin-right:4px;"></i>View</button>
+                            <button class="del-btn" onclick="viseAI.deleteSaved(${item.id}, this)"><i class="fas fa-trash" style="margin-right:4px;"></i>Delete</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            filterSaved(category) {
+                this._savedCategory = category;
+                document.querySelectorAll('.saved-filter-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.cat === category);
+                });
+                this.loadSavedItems(category);
+            }
+
+            searchSaved(query) {
+                const q = query.toLowerCase().trim();
+                if (!this._savedAll) return;
+                const filtered = q ? this._savedAll.filter(i =>
+                    (i.title || '').toLowerCase().includes(q) ||
+                    (i.tool || '').toLowerCase().includes(q) ||
+                    (i.input_text || '').toLowerCase().includes(q)
+                ) : this._savedAll;
+                this._renderSavedCards(filtered);
+            }
+
+            async deleteSaved(id, btn) {
+                if (!confirm('Delete this saved item?')) return;
+                if (btn) { btn.disabled = true; btn.textContent = '…'; }
+                try {
+                    const resp = await fetch(_api(`/api/items/${id}`), { method: 'DELETE', headers: _apiHeaders() });
+                    const data = await resp.json();
+                    if (data.success) {
+                        this._savedAll = (this._savedAll || []).filter(i => i.id !== id);
+                        this._renderSavedCards(this._savedAll);
+                        const badge = document.getElementById('savedCountBadge');
+                        if (badge) badge.textContent = `${this._savedAll.length} item${this._savedAll.length !== 1 ? 's' : ''}`;
+                    }
+                } catch(e) { alert('Delete failed'); if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-trash"></i> Delete'; } }
+            }
+
+            async viewSaved(id) {
+                try {
+                    const resp = await fetch(_api(`/api/items/${id}`), { headers: _apiHeaders() });
+                    const data = await resp.json();
+                    if (!data.success) { alert(data.error || 'Load failed'); return; }
+                    const item = data.item;
+                    const tool = this._qaTools?.[item.tool];
+                    if (!tool) { alert('Preview not available for this tool type.'); return; }
+                    // Re-open modal with the saved result
+                    this._activeQATool = item.tool;
+                    const modal = document.getElementById('qaToolModal');
+                    const icon  = document.getElementById('qaModalIcon');
+                    const title = document.getElementById('qaModalTitle');
+                    const subtitle = document.getElementById('qaModalSubtitle');
+                    const inputArea = document.getElementById('qaModalInputArea');
+                    const runBtn = document.getElementById('qaModalRunBtn');
+                    const resultEl = document.getElementById('qaModalResult');
+                    const loading = document.getElementById('qaModalLoading');
+                    const saveBar = document.getElementById('qaModalSaveBar');
+                    if (icon) icon.innerHTML = tool.icon;
+                    if (title) title.textContent = item.title || tool.title;
+                    if (subtitle) subtitle.textContent = `Saved result · ${new Date(item.ts*1000).toLocaleDateString()}`;
+                    if (inputArea) inputArea.innerHTML = '';
+                    if (runBtn) runBtn.style.display = 'none';
+                    if (loading) loading.style.display = 'none';
+                    if (saveBar) saveBar.style.display = 'none';
+                    if (resultEl) {
+                        resultEl.innerHTML = tool.renderResult(item.content);
+                        resultEl.style.display = 'block';
+                    }
+                    if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+                    modal.onclick = (e) => { if (e.target === modal) this.closeQATool(); };
+                } catch(e) { alert('Load failed: ' + e.message); }
+            }
+
+            // ── Analytics Board ───────────────────────────────────────────────
+
+            async loadAnalytics() {
+                const body    = document.getElementById('analyticsBody');
+                const loading = document.getElementById('analyticsLoading');
+                const _done = (html) => {
+                    if (loading) loading.style.display = 'none';
+                    if (html && body) body.innerHTML = html;
+                };
+                if (loading) loading.style.display = 'block';
+                try {
+                    const ctrl = new AbortController();
+                    const tid  = setTimeout(() => ctrl.abort(), 10000);
+                    const resp = await fetch(_api('/api/analytics/summary'), { headers: _apiHeaders(), signal: ctrl.signal });
+                    clearTimeout(tid);
+                    const ct = resp.headers.get('content-type') || '';
+                    if (!ct.includes('application/json')) throw new Error(`Server returned ${resp.status} (not JSON) — restart the Flask server.`);
+                    const data = await resp.json();
+                    if (!data.success) throw new Error(data.error || 'Failed');
+                    _done();
+                    this._renderAnalytics(data, body);
+                } catch (e) {
+                    _done(`<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:24px;color:#c53030;font-size:14px;margin:32px auto;max-width:500px;text-align:center;"><i class="fas fa-exclamation-triangle" style="font-size:28px;display:block;margin-bottom:12px;"></i><strong>Analytics failed to load</strong><br><span style="font-size:13px;color:#718096;margin-top:8px;display:block;">${String(e.message).replace(/</g,'&lt;')}</span><button onclick="viseAI.loadAnalytics()" style="margin-top:16px;padding:8px 20px;background:#c53030;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Retry</button></div>`);
+                }
+            }
+
+            _relTime(ts) {
+                if (!ts) return null;
+                const diff = Math.floor(Date.now() / 1000 - ts);
+                if (diff < 60)  return 'just now';
+                if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+                if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+                if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+                return new Date(ts * 1000).toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+            }
+
+            _renderAnalytics(d, body) {
+                const _e = v => String(v == null ? '' : v).replace(/</g,'&lt;');
+                const _rt = ts => this._relTime(ts);
+                const ks = d.key_stats || {};
+                const catColors = { QA:'#2b6cb0', Security:'#c53030', BA:'#276749', General:'#718096' };
+                const toolLabels = {
+                    'test-case-generate':'Test Cases','api-test-generate':'API Tests',
+                    'test-data-generate':'Test Data','bug-log-analyze':'Bug Log',
+                    'screenshot-analyze':'Screenshot','root-cause-detect':'Root Cause',
+                    'regression-impact':'Regression','risk-advisor':'Risk Advisor',
+                    'sec-threat-model':'Threat Model','sec-test-cases':'Sec Tests',
+                    'sec-vuln-advisor':'Vulnerability','sec-auth-review':'Auth Review',
+                    'sec-api-check':'API Security'
+                };
+                const catIcons = {
+                    'test_cases':   { icon:'fa-list-check',  color:'#2b6cb0', label:'Test Cases Generated' },
+                    'test_data':    { icon:'fa-database',    color:'#38a169', label:'Test Data Sets' },
+                    'bug_analysis': { icon:'fa-bug',         color:'#e53e3e', label:'Bug Analyses' },
+                    'security':     { icon:'fa-shield-alt',  color:'#c53030', label:'Security Analyses' },
+                    'strategy':     { icon:'fa-chess',       color:'#553c9a', label:'Strategy Reports' },
+                    'documents':    { icon:'fa-file-alt',    color:'#b7791f', label:'Documents Analyzed' },
+                    'chats':        { icon:'fa-comments',    color:'#553c9a', label:'Chat Messages' },
+                };
+
+                // ── Section: Stat Cards ────────────────────────────────────────
+                const statKeys = ['test_cases','test_data','bug_analysis','security','strategy','documents','chats'];
+                const statCards = statKeys.map(k => {
+                    const cfg = catIcons[k];
+                    const stat = ks[k] || { count: k === 'chats' ? (d.chat_messages||0) : 0, last_ts: null };
+                    const rt = _rt(stat.last_ts);
+                    return `<div class="analytics-stat" style="display:flex;align-items:flex-start;gap:14px;">
+                        <div style="width:40px;height:40px;border-radius:10px;background:${cfg.color}18;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fas ${cfg.icon}" style="font-size:17px;color:${cfg.color};"></i>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:11px;color:#718096;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cfg.label}</div>
+                            <div style="display:flex;align-items:baseline;gap:8px;">
+                                <span class="stat-val" style="color:${cfg.color};">${stat.count}</span>
+                                ${rt ? `<span style="font-size:11px;color:#a0aec0;">${rt}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                const statsHtml = `
+                <div style="margin-bottom:28px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <h2 style="font-size:16px;font-weight:800;color:#1a202c;margin:0;">Analytics Dashboard</h2>
+                        <button onclick="viseAI.switchView('saved')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;font-weight:700;">View all &rsaquo;</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;">
+                        ${statCards}
+                    </div>
+                </div>`;
+
+                // ── Section: This week summary ─────────────────────────────────
+                const weekHtml = `
+                <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%);border-radius:14px;padding:20px 24px;margin-bottom:24px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                    <div>
+                        <div style="font-size:12px;opacity:.75;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">This week</div>
+                        <div style="font-size:28px;font-weight:800;">${d.this_week} <span style="font-size:14px;font-weight:400;opacity:.75;">saves</span></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:12px;opacity:.75;font-weight:600;margin-bottom:4px;">Total saved</div>
+                        <div style="font-size:28px;font-weight:800;">${d.total_saved}</div>
+                    </div>
+                </div>`;
+
+                // ── Section: Tool Usage bars ───────────────────────────────────
+                const maxCount = Math.max(...(d.by_tool || []).map(t => t.count), 1);
+                const barsHtml = (d.by_tool || []).length ? `
+                <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f0f0f0;margin-bottom:24px;">
+                    <h3 style="font-size:13px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.07em;margin-bottom:16px;"><i class="fas fa-tools" style="margin-right:7px;color:var(--accent);"></i>Tool Usage</h3>
+                    ${(d.by_tool || []).map(t => `
+                    <div class="analytics-bar-row">
+                        <div class="analytics-bar-label">${_e(toolLabels[t.tool] || t.tool)}</div>
+                        <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(t.count/maxCount*100)}%;"></div></div>
+                        <div class="analytics-bar-count">${t.count}</div>
+                    </div>`).join('')}
+                </div>` : '';
+
+                // ── Section: Category tiles ────────────────────────────────────
+                const total = d.total_saved || 1;
+                const catHtml = (d.by_category || []).length ? `
+                <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f0f0f0;margin-bottom:24px;">
+                    <h3 style="font-size:13px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.07em;margin-bottom:16px;"><i class="fas fa-layer-group" style="margin-right:7px;color:#553c9a;"></i>By Category</h3>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        ${(d.by_category || []).map(c => {
+                            const cc = catColors[c.category] || '#718096';
+                            const pct = Math.round(c.count / total * 100);
+                            return `<div style="background:${cc}10;border:1.5px solid ${cc}30;border-radius:12px;padding:14px 20px;min-width:110px;text-align:center;flex:1;">
+                                <div style="font-size:26px;font-weight:800;color:${cc};">${c.count}</div>
+                                <div style="font-size:12px;font-weight:700;color:${cc};margin-top:2px;">${_e(c.category)}</div>
+                                <div style="font-size:11px;color:#a0aec0;">${pct}%</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>` : '';
+
+                // ── Section: Recent Activity ───────────────────────────────────
+                const recentHtml = (d.recent || []).length ? `
+                <div style="background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f0f0f0;margin-bottom:24px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <h3 style="font-size:13px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.07em;margin:0;"><i class="fas fa-clock" style="margin-right:7px;color:#b7791f;"></i>Recent Activity</h3>
+                        <button onclick="viseAI.switchView('saved')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:12px;font-weight:700;">View all &rsaquo;</button>
+                    </div>
+                    ${(d.recent || []).map(r => {
+                        const cc = catColors[r.category] || '#718096';
+                        const rt = _rt(r.ts);
+                        const action = _e(r.action || toolLabels[r.tool] || 'Saved');
+                        const subject = _e(r.subject || r.title || '');
+                        const toolIconMap = {
+                            'test-case-generate':'fa-list-check','api-test-generate':'fa-plug',
+                            'test-data-generate':'fa-database','bug-log-analyze':'fa-terminal',
+                            'screenshot-analyze':'fa-image','root-cause-detect':'fa-search-minus',
+                            'regression-impact':'fa-code-branch','risk-advisor':'fa-shield-alt',
+                            'sec-threat-model':'fa-project-diagram','sec-test-cases':'fa-flask',
+                            'sec-vuln-advisor':'fa-bug','sec-auth-review':'fa-user-shield',
+                            'sec-api-check':'fa-plug'
+                        };
+                        const ico = toolIconMap[r.tool] || 'fa-star';
+                        return `<div class="analytics-recent-row">
+                            <div style="width:32px;height:32px;border-radius:8px;background:${cc}15;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas ${ico}" style="font-size:13px;color:${cc};"></i>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:13px;font-weight:600;color:#1a202c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    <span style="color:#4a5568;">${action}</span>${subject ? ` <span style="color:#1a202c;font-weight:700;">${subject}</span>` : ''}
+                                </div>
+                            </div>
+                            <div style="font-size:11px;color:#a0aec0;white-space:nowrap;flex-shrink:0;margin-left:12px;">${rt || ''}</div>
+                        </div>`;
+                    }).join('')}
+                </div>` : '';
+
+                // ── Empty state ────────────────────────────────────────────────
+                const emptyHtml = !d.total_saved ? `
+                <div style="text-align:center;padding:48px 24px;background:#fff;border-radius:14px;box-shadow:0 1px 6px rgba(0,0,0,.06);border:1px solid #f0f0f0;">
+                    <i class="fas fa-chart-bar" style="font-size:56px;color:#cbd5e0;display:block;margin-bottom:20px;"></i>
+                    <p style="font-size:16px;font-weight:700;color:#2d3748;margin-bottom:6px;">No data yet</p>
+                    <p style="font-size:14px;color:#718096;margin-bottom:20px;">Run any tool, save a result, and your analytics will appear here.</p>
+                    <button onclick="viseAI.switchView('qa-intelligence')" style="padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;">Try a tool now</button>
+                </div>` : '';
+
+                body.innerHTML = statsHtml + weekHtml + barsHtml + catHtml + recentHtml + emptyHtml;
+            }
+
+            // ─────────────────────────────────────────────────────────────────
 
             _openMailWithVars(template, variables) {
                 this.mailRecipientsFromScreening = [];
@@ -8217,6 +8701,10 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     // Nothing to pre-load; the hub is fully static HTML
                 } else if (viewName === 'security') {
                     // Security Intelligence — fully static HTML
+                } else if (viewName === 'saved') {
+                    this.loadSavedItems();
+                } else if (viewName === 'analytics') {
+                    this.loadAnalytics();
                 }
             }
 
@@ -8240,7 +8728,10 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 emptyState.style.display = 'none';
 
                 try {
-                    const response = await fetch(_api(`/api/documents?session_id=${this.sessionId}`), { headers: _apiHeaders() });
+                    const docsCtrl = new AbortController();
+                    const docsTid  = setTimeout(() => docsCtrl.abort(), 10000);
+                    const response = await fetch(_api(`/api/documents?session_id=${this.sessionId}`), { headers: _apiHeaders(), signal: docsCtrl.signal });
+                    clearTimeout(docsTid);
 
                     if (response.ok) {
                         const data = await response.json();
@@ -8262,11 +8753,10 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 } catch (error) {
                     console.error('Error loading documents:', error);
                     documentsList.innerHTML = `
-                        <div class="loading-state">
-                            <p><i class="fas fa-times-circle"></i> Error loading documents: ${error.message}</p>
-                            <button class="btn btn-primary" onclick="viseAI.loadDocuments()">
-                                <i class="fas fa-refresh"></i>
-                                Retry
+                        <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:20px 24px;color:#c53030;font-size:14px;grid-column:1/-1;">
+                            <i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>Error loading documents: ${String(error.message).replace(/</g,'&lt;')}
+                            <br><button class="btn btn-primary" onclick="viseAI.loadDocuments()" style="margin-top:12px;">
+                                <i class="fas fa-redo"></i> Retry
                             </button>
                         </div>
                     `;
@@ -9668,6 +10158,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'automation', label: 'Automation', icon: 'fa-robot' },
                 { view: 'qa-intelligence', label: 'QA Intelligence', icon: 'fa-brain' },
                 { view: 'security', label: 'Security', icon: 'fa-shield-alt' },
+                { view: 'saved', label: 'Saved', icon: 'fa-bookmark' },
+                { view: 'analytics', label: 'Analytics', icon: 'fa-chart-bar' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
                 { view: 'help', label: 'Help', icon: 'fa-question-circle' },

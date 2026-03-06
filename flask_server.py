@@ -1356,6 +1356,227 @@ def db_clear_session(session_id: str):
     except Exception as e:
         print(f"⚠️ DB clear error: {e}")
 
+# ─── Saved Items DB helpers ───────────────────────────────────────────────────
+
+def _ensure_saved_items_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS saved_items (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id   TEXT NOT NULL DEFAULT 'anonymous',
+            tool      TEXT NOT NULL,
+            category  TEXT NOT NULL,
+            title     TEXT NOT NULL,
+            content   TEXT NOT NULL,
+            input_text TEXT NOT NULL DEFAULT '',
+            ts        REAL NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_items(user_id, ts)")
+    conn.commit()
+
+
+@app.route('/api/items/save', methods=['POST', 'OPTIONS'])
+def items_save():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        tool       = (data.get('tool') or '').strip()
+        category   = (data.get('category') or 'General').strip()
+        title      = (data.get('title') or tool or 'Untitled').strip()[:200]
+        content    = json.dumps(data.get('content') or {})
+        input_text = str(data.get('input_text') or '')[:2000]
+        user_id    = request.headers.get('X-User-Id') or 'anonymous'
+        if not tool:
+            return jsonify({'success': False, 'error': 'tool is required'}), 400
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        cur = conn.execute(
+            "INSERT INTO saved_items(user_id,tool,category,title,content,input_text,ts) VALUES(?,?,?,?,?,?,?)",
+            (user_id, tool, category, title, content, input_text, time.time())
+        )
+        item_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'id': item_id})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/items/list', methods=['GET', 'OPTIONS'])
+def items_list():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id  = request.headers.get('X-User-Id') or 'anonymous'
+        category = (request.args.get('category') or '').strip()
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        if category:
+            rows = conn.execute(
+                "SELECT id,tool,category,title,input_text,ts FROM saved_items WHERE user_id=? AND category=? ORDER BY ts DESC LIMIT 200",
+                (user_id, category)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id,tool,category,title,input_text,ts FROM saved_items WHERE user_id=? ORDER BY ts DESC LIMIT 200",
+                (user_id,)
+            ).fetchall()
+        conn.close()
+        items = [{'id': r['id'], 'tool': r['tool'], 'category': r['category'],
+                  'title': r['title'], 'input_text': r['input_text'], 'ts': r['ts']} for r in rows]
+        return jsonify({'success': True, 'items': items})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/items/<int:item_id>', methods=['GET', 'DELETE', 'OPTIONS'])
+def items_detail(item_id):
+    if request.method == 'OPTIONS':
+        return '', 204
+    user_id = request.headers.get('X-User-Id') or 'anonymous'
+    try:
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        if request.method == 'DELETE':
+            conn.execute("DELETE FROM saved_items WHERE id=? AND user_id=?", (item_id, user_id))
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True})
+        row = conn.execute(
+            "SELECT * FROM saved_items WHERE id=? AND user_id=?", (item_id, user_id)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return jsonify({'success': False, 'error': 'Not found'}), 404
+        return jsonify({'success': True, 'item': {
+            'id': row['id'], 'tool': row['tool'], 'category': row['category'],
+            'title': row['title'], 'content': json.loads(row['content']),
+            'input_text': row['input_text'], 'ts': row['ts']
+        }})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/summary', methods=['GET', 'OPTIONS'])
+def analytics_summary():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id = request.headers.get('X-User-Id') or 'anonymous'
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+
+        total = conn.execute("SELECT COUNT(*) FROM saved_items WHERE user_id=?", (user_id,)).fetchone()[0]
+
+        week_ago = time.time() - 7 * 86400
+        this_week = conn.execute(
+            "SELECT COUNT(*) FROM saved_items WHERE user_id=? AND ts>=?", (user_id, week_ago)
+        ).fetchone()[0]
+
+        by_category = conn.execute(
+            "SELECT category, COUNT(*) as cnt FROM saved_items WHERE user_id=? GROUP BY category ORDER BY cnt DESC",
+            (user_id,)
+        ).fetchall()
+
+        by_tool = conn.execute(
+            "SELECT tool, COUNT(*) as cnt FROM saved_items WHERE user_id=? GROUP BY tool ORDER BY cnt DESC LIMIT 10",
+            (user_id,)
+        ).fetchall()
+
+        recent = conn.execute(
+            "SELECT tool,category,title,input_text,ts FROM saved_items WHERE user_id=? ORDER BY ts DESC LIMIT 20",
+            (user_id,)
+        ).fetchall()
+
+        # Chat messages count
+        chat_total = conn.execute(
+            "SELECT COUNT(*) FROM chat_messages WHERE session_id LIKE ?",
+            (f"{user_id}:%",)
+        ).fetchone()[0]
+
+        # Key stat cards: count + last activity timestamp per tool group
+        def _stat(tools):
+            placeholders = ','.join('?' * len(tools))
+            row = conn.execute(
+                f"SELECT COUNT(*) as cnt, MAX(ts) as last_ts FROM saved_items WHERE user_id=? AND tool IN ({placeholders})",
+                [user_id] + list(tools)
+            ).fetchone()
+            return {'count': row['cnt'] or 0, 'last_ts': row['last_ts']}
+
+        test_cases_stat  = _stat(['test-case-generate', 'api-test-generate'])
+        test_data_stat   = _stat(['test-data-generate'])
+        bug_analysis_stat = _stat(['bug-log-analyze', 'screenshot-analyze', 'root-cause-detect'])
+        security_stat    = _stat(['sec-threat-model', 'sec-test-cases', 'sec-vuln-advisor', 'sec-auth-review', 'sec-api-check'])
+        strategy_stat    = _stat(['regression-impact', 'risk-advisor'])
+
+        # Documents analyzed from documents table (if available) - fall back to chat count
+        try:
+            docs_count = conn.execute(
+                "SELECT COUNT(*) FROM documents WHERE user_id=?", (user_id,)
+            ).fetchone()[0]
+            docs_last_ts = conn.execute(
+                "SELECT MAX(uploaded_at) FROM documents WHERE user_id=?", (user_id,)
+            ).fetchone()[0]
+        except Exception:
+            docs_count = 0
+            docs_last_ts = None
+
+        conn.close()
+
+        # Build action descriptions for recent activity
+        _tool_action = {
+            'test-case-generate': 'Test cases generated for',
+            'api-test-generate':  'API tests generated for',
+            'test-data-generate': 'Test data generated for',
+            'bug-log-analyze':    'Bug log analyzed for',
+            'screenshot-analyze': 'Screenshot analyzed for',
+            'root-cause-detect':  'Root cause detected for',
+            'regression-impact':  'Regression impact analyzed for',
+            'risk-advisor':       'Risk assessed for',
+            'sec-threat-model':   'Threat model created for',
+            'sec-test-cases':     'Security tests generated for',
+            'sec-vuln-advisor':   'Vulnerability analyzed for',
+            'sec-auth-review':    'Auth flow reviewed for',
+            'sec-api-check':      'API security checked for',
+        }
+        recent_list = []
+        for r in recent:
+            action = _tool_action.get(r['tool'], 'Analysis saved for')
+            subject = (r['title'] or r['input_text'] or '').strip()[:60]
+            recent_list.append({
+                'tool': r['tool'], 'category': r['category'],
+                'action': action, 'subject': subject, 'ts': r['ts']
+            })
+
+        return jsonify({
+            'success': True,
+            'total_saved': total,
+            'this_week': this_week,
+            'chat_messages': chat_total,
+            'by_category': [{'category': r['category'], 'count': r['cnt']} for r in by_category],
+            'by_tool': [{'tool': r['tool'], 'count': r['cnt']} for r in by_tool],
+            'recent': recent_list,
+            'key_stats': {
+                'test_cases':   test_cases_stat,
+                'test_data':    test_data_stat,
+                'bug_analysis': bug_analysis_stat,
+                'security':     security_stat,
+                'strategy':     strategy_stat,
+                'documents':    {'count': docs_count, 'last_ts': docs_last_ts},
+                'chats':        {'count': chat_total, 'last_ts': None},
+            }
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 def db_all_sessions(user_id=None):
     """Return list of {session_id, count, last_ts} for the history view. Filter by user_id for isolation."""
     try:
