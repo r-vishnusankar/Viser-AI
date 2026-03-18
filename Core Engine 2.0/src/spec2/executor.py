@@ -1,6 +1,9 @@
 import asyncio
+import base64
 import os
-from typing import List, Dict, Any
+import shutil
+import time
+from typing import List, Dict, Any, Optional, Tuple
 from loguru import logger
 
 # Import settings
@@ -15,8 +18,43 @@ try:
 except Exception:
     PLAYWRIGHT_OK = False
 
-async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> str:
-    """Run browser automation using browser-use with OpenAI API. Returns the agent's final result text."""
+def _save_final_screenshot(agent_history, ui_logger=None) -> Optional[str]:
+    """Extract final screenshot from browser-use history and save to uploads/automation/. Returns filename or None."""
+    if not agent_history:
+        return None
+    dest_dir = Path.cwd() / "uploads" / "automation"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    fn = f"final_{int(time.time() * 1000)}.png"
+    try:
+        paths = getattr(agent_history, 'screenshot_paths', None)
+        if callable(paths):
+            paths = paths()
+        if paths and len(paths) > 0:
+            src = paths[-1]
+            if isinstance(src, str) and os.path.isfile(src):
+                shutil.copy2(src, dest_dir / fn)
+                return fn
+    except Exception:
+        pass
+    try:
+        screenshots = getattr(agent_history, 'screenshots', None)
+        if callable(screenshots):
+            screenshots = screenshots()
+        if screenshots and len(screenshots) > 0:
+            raw = screenshots[-1]
+            if isinstance(raw, bytes):
+                (dest_dir / fn).write_bytes(raw)
+                return fn
+            if isinstance(raw, str):
+                (dest_dir / fn).write_bytes(base64.b64decode(raw))
+                return fn
+    except Exception:
+        pass
+    return None
+
+
+async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> Tuple[str, Optional[str]]:
+    """Run browser automation using browser-use with OpenAI API. Returns (result_text, screenshot_path)."""
     # browser_use 0.12+ ships its own ChatOpenAI in browser_use.llm.models.
     # That class carries the required `.provider = 'openai'` attribute that
     # Agent.__init__ inspects. The old path (browser_use.llm.openai.chat) and
@@ -30,7 +68,7 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return ""
+        return ("", None)
 
     # OpenAI key from .env only
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -40,7 +78,7 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return ""
+        return ("", None)
 
     # Default to gpt-4o-mini — a real, available OpenAI model suitable for browser tasks
     openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
@@ -93,12 +131,17 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             final = None
         result_text = str(final).strip() if final else "Task completed. No text result returned by the agent."
 
+        # Extract and save final screenshot (before closing agent)
+        screenshot_path = _save_final_screenshot(agent_history, ui_logger)
+        if screenshot_path and ui_logger:
+            ui_logger.log('SUCCESS', f'📸 Final screenshot saved')
+
         if ui_logger:
             ui_logger.log('SUCCESS', '✅ Browser task completed')
         else:
             print("✅ Browser task completed")
 
-        return result_text
+        return (result_text, screenshot_path)
 
     except Exception as e:
         error_msg = f'Browser-use execution failed: {str(e)}'
