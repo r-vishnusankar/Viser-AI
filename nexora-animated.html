@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexora — AI Assistant for QA, HR & BA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;900&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F2EC;
+  --bg2:#EDE9E0;
+  --bg3:#E6E1D6;
+  --surface:#FFFFFF;
+  --border:#DDD8CE;
+  --border2:#C8C2B5;
+  --text:#1E1B17;
+  --muted:#7A7469;
+  --sage:#3D7A6E;
+  --sage-lt:#E8F4F2;
+  --sage-md:#B2D8D3;
+  --rose:#C0574E;
+  --rose-lt:#FAEAE9;
+  --sky:#3A6FA8;
+  --sky-lt:#E8EFF8;
+  --amber:#B87333;
+  --amber-lt:#FAF0E6;
+  --violet:#6B5B9E;
+  --violet-lt:#F0EEF8;
+  --grad:linear-gradient(135deg,#3D7A6E 0%,#3A6FA8 100%);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;overflow-x:hidden}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;cursor:none;}
+
+#cursor{position:fixed;width:10px;height:10px;background:var(--sage);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .25s,height .25s;}
+#cursor-ring{position:fixed;width:36px;height:36px;border:1.5px solid rgba(61,122,110,.35);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:transform .4s cubic-bezier(.23,1,.32,1),width .3s,height .3s;}
+body:has(a:hover) #cursor{width:18px;height:18px;}
+body:has(a:hover) #cursor-ring{width:54px;height:54px;}
+
+#particles{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.45;}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 64px;display:flex;align-items:center;justify-content:space-between;transition:background .4s,padding .4s,box-shadow .4s;}
+nav.scrolled{background:rgba(245,242,236,.96);backdrop-filter:blur(20px);padding:13px 64px;box-shadow:0 1px 0 var(--border);}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.7rem;letter-spacing:.05em;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px;}
+.logo-mark{width:34px;height:34px;background:var(--sage);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;flex-shrink:0;}
+.logo-mark::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.35) 50%,transparent 60%);transform:translateX(-100%);animation:shimmer 3.5s infinite 1s;}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(220%)}}
+.nav-links{display:flex;gap:34px;list-style:none;}
+.nav-links a{font-size:.8rem;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s;position:relative;}
+.nav-links a::after{content:'';position:absolute;bottom:-3px;left:0;right:0;height:1.5px;background:var(--sage);transform:scaleX(0);transform-origin:left;transition:transform .3s;}
+.nav-links a:hover{color:var(--text);}
+.nav-links a:hover::after{transform:scaleX(1);}
+.nav-btn{background:var(--sage);color:#fff;padding:9px 22px;border-radius:6px;font-family:'Sora',sans-serif;font-size:.8rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;transition:transform .2s,box-shadow .2s;box-shadow:0 2px 12px rgba(61,122,110,.25);}
+.nav-btn:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(61,122,110,.35);}
+
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:130px 40px 90px;position:relative;overflow:hidden;}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:56px 56px;opacity:.5;mask-image:radial-gradient(ellipse 85% 85% at 50% 45%,black 0%,transparent 72%);}
+.hero-orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;animation:orb-drift 9s ease-in-out infinite;}
+.orb1{width:480px;height:480px;background:rgba(61,122,110,.13);top:-100px;left:-80px;animation-delay:0s;}
+.orb2{width:380px;height:380px;background:rgba(58,111,168,.11);bottom:-60px;right:-80px;animation-delay:3.5s;}
+.orb3{width:280px;height:280px;background:rgba(184,115,51,.09);top:35%;left:8%;animation-delay:6s;}
+@keyframes orb-drift{0%,100%{transform:translate(0,0);}33%{transform:translate(28px,-18px);}66%{transform:translate(-18px,28px);}}
+
+.hero-badge{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:50px;padding:7px 18px;margin-bottom:28px;font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--sage);box-shadow:0 2px 14px rgba(0,0,0,.07);opacity:0;animation:fadeUp .7s .15s ease forwards;}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--sage);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+
+h1.hero-title{position:relative;z-index:1;font-family:'Barlow Condensed',sans-serif;font-size:clamp(3.8rem,10vw,8.5rem);font-weight:900;line-height:.9;letter-spacing:-.02em;text-transform:uppercase;margin-bottom:28px;opacity:0;animation:fadeUp .85s .3s ease forwards;}
+.line1{display:block;color:var(--text);}
+.line2{display:block;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.line3{display:block;color:var(--muted);font-weight:300;}
+
+.hero-sub{position:relative;z-index:1;font-size:.98rem;color:var(--muted);max-width:460px;line-height:1.8;margin:0 auto 44px;opacity:0;animation:fadeUp .8s .45s ease forwards;}
+.hero-actions{position:relative;z-index:1;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;opacity:0;animation:fadeUp .8s .6s ease forwards;}
+.btn-primary{background:var(--sage);color:#fff;padding:14px 32px;border-radius:6px;font-family:'Sora',sans-serif;font-size:.88rem;font-weight:600;letter-spacing:.05em;text-decoration:none;position:relative;overflow:hidden;transition:transform .2s,box-shadow .3s;box-shadow:0 4px 16px rgba(61,122,110,.3);}
+.btn-primary::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.3) 50%,transparent 60%);transform:translateX(-100%);transition:transform .5s;}
+.btn-primary:hover{transform:translateY(-3px);box-shadow:0 10px 32px rgba(61,122,110,.4);}
+.btn-primary:hover::after{transform:translateX(200%);}
+.btn-ghost{background:var(--surface);color:var(--text);border:1.5px solid var(--border);padding:14px 32px;border-radius:6px;font-family:'Sora',sans-serif;font-size:.88rem;font-weight:600;letter-spacing:.05em;text-decoration:none;transition:border-color .2s,transform .2s,box-shadow .2s;}
+.btn-ghost:hover{border-color:var(--sage);transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.08);}
+
+.scroll-hint{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);opacity:0;animation:fadeUp .8s 1.1s ease forwards;}
+.scroll-mouse{width:20px;height:32px;border:1.5px solid var(--border2);border-radius:10px;display:flex;justify-content:center;padding-top:5px;}
+.scroll-dot{width:3px;height:5px;background:var(--sage);border-radius:2px;animation:scroll-bob 1.9s ease infinite;}
+@keyframes scroll-bob{0%,100%{transform:translateY(0);opacity:1}60%{transform:translateY(9px);opacity:0}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:translateY(0);}}
+
+.reveal{opacity:0;transform:translateY(36px);transition:opacity .65s ease,transform .65s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+section{padding:110px 64px;position:relative;z-index:1;}
+.container{max-width:1160px;margin:0 auto;}
+.s-label{font-size:.68rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--sage);margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.s-label::before{content:'';width:18px;height:1.5px;background:var(--sage);}
+h2.s-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(2.2rem,4.5vw,3.6rem);font-weight:900;letter-spacing:-.01em;text-transform:uppercase;line-height:.95;margin-bottom:16px;}
+.s-sub{font-size:.93rem;color:var(--muted);max-width:480px;line-height:1.8;margin-bottom:60px;}
+
+.marquee-wrap{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:14px 0;overflow:hidden;background:var(--surface);}
+.marquee-track{display:flex;gap:48px;width:max-content;animation:marquee 24s linear infinite;}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.m-item{font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:48px;}
+.m-dot{width:5px;height:5px;border-radius:50%;background:var(--sage);flex-shrink:0;}
+
+/* FEATURES */
+.feat-section{background:var(--surface);}
+.feat-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:52px;flex-wrap:wrap;gap:28px;}
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.feat-card{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:36px 28px;position:relative;overflow:hidden;transition:transform .3s,box-shadow .3s,border-color .3s,background .3s;cursor:default;}
+.feat-card:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.09);border-color:var(--sage-md);background:var(--surface);}
+.feat-card.wide{grid-column:span 2;}
+
+.feat-num{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.18em;color:var(--muted);margin-bottom:20px;}
+.icon-box{width:50px;height:50px;border-radius:12px;margin-bottom:18px;display:flex;align-items:center;justify-content:center;transition:transform .3s;}
+.feat-card:hover .icon-box{transform:scale(1.09) rotate(-4deg);}
+.icon-box.qa{background:var(--sage-lt);}
+.icon-box.sec{background:var(--sky-lt);}
+.icon-box.hr{background:var(--rose-lt);}
+.icon-box.ba{background:var(--amber-lt);}
+.icon-box.auto{background:var(--violet-lt);}
+.icon-box.chat{background:#EFF4EF;}
+
+.feat-name{font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;margin-bottom:10px;}
+.feat-desc{font-size:.83rem;color:var(--muted);line-height:1.74;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px;}
+.chip{font-size:.66rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:4px 10px;border-radius:4px;border:1px solid transparent;}
+.chip.qa{background:var(--sage-lt);color:#266058;border-color:var(--sage-md);}
+.chip.sec{background:var(--sky-lt);color:#265285;border-color:#B3C9E8;}
+.chip.hr{background:var(--rose-lt);color:#9A3C34;border-color:#EAB8B5;}
+.chip.ba{background:var(--amber-lt);color:#8A5522;border-color:#DDBF9A;}
+.chip.auto{background:var(--violet-lt);color:#4E3D7A;border-color:#C4BCE8;}
+.chip.def{background:var(--bg2);color:var(--muted);border-color:var(--border);}
+
+/* STEPS */
+.steps-section{background:var(--bg2);}
+.steps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:var(--border);}
+.step{background:var(--bg2);padding:44px 28px;text-align:center;transition:background .3s;}
+.step:hover{background:var(--surface);}
+.step-ring{width:56px;height:56px;border-radius:50%;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;background:var(--surface);font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:900;color:var(--sage);transition:border-color .3s,background .3s,color .3s;}
+.step:hover .step-ring{border-color:var(--sage);background:var(--sage);color:#fff;}
+.step-t{font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+.step-d{font-size:.82rem;color:var(--muted);line-height:1.7;}
+
+/* STATS */
+.stats-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}
+.stat{padding:56px 36px;text-align:center;border-right:1px solid var(--border);transition:background .3s;}
+.stat:last-child{border-right:none;}
+.stat:hover{background:var(--bg);}
+.stat-n{font-family:'Barlow Condensed',sans-serif;font-size:4.2rem;font-weight:900;line-height:1;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;}
+.stat-l{font-size:.76rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-weight:500;}
+
+/* USE CASES */
+.uc-section{background:var(--bg);}
+.uc-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.uc-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:38px 34px;position:relative;overflow:hidden;transition:transform .3s,box-shadow .3s,border-color .3s;}
+.uc-card:hover{transform:translateY(-4px);box-shadow:0 14px 40px rgba(0,0,0,.08);border-color:var(--sage-md);}
+.uc-card::after{content:'';position:absolute;bottom:0;left:0;height:2.5px;width:0;background:var(--grad);transition:width .5s cubic-bezier(.23,1,.32,1);}
+.uc-card:hover::after{width:100%;}
+.uc-who{font-size:.66rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--sage);margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.uc-dot{width:5px;height:5px;border-radius:50%;background:var(--sage);}
+.uc-t{font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:700;text-transform:uppercase;letter-spacing:.01em;margin-bottom:12px;line-height:1.15;}
+.uc-d{font-size:.83rem;color:var(--muted);line-height:1.74;}
+.uc-arrow{position:absolute;top:34px;right:34px;width:34px;height:34px;background:var(--bg2);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .3s,transform .3s;}
+.uc-card:hover .uc-arrow{background:var(--sage);transform:translate(3px,-3px);}
+
+/* CTA */
+.cta-section{background:var(--text);color:#F5F2EC;text-align:center;padding:140px 64px;position:relative;overflow:hidden;}
+.cta-section::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 65% 55% at 50% 50%,rgba(61,122,110,.22) 0%,transparent 65%);}
+.cta-section::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px;}
+.cta-h{font-family:'Barlow Condensed',sans-serif;font-size:clamp(2.8rem,7vw,6rem);font-weight:900;text-transform:uppercase;letter-spacing:-.02em;line-height:.92;position:relative;z-index:1;margin-bottom:28px;}
+.cta-h span{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.cta-p{font-size:.95rem;color:rgba(245,242,236,.6);max-width:400px;margin:0 auto 44px;line-height:1.8;position:relative;z-index:1;}
+.btn-light{background:#F5F2EC;color:var(--text);padding:15px 38px;border-radius:6px;font-family:'Sora',sans-serif;font-size:.9rem;font-weight:700;letter-spacing:.04em;text-decoration:none;display:inline-flex;align-items:center;gap:8px;position:relative;z-index:1;transition:transform .2s,box-shadow .3s;box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.btn-light:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.3);}
+
+/* FOOTER */
+footer{background:var(--text);color:rgba(245,242,236,.5);padding:56px 64px 32px;border-top:1px solid rgba(255,255,255,.05);}
+.footer-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:56px;padding-bottom:44px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:28px;}
+.f-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.06em;color:#F5F2EC;display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.f-desc{font-size:.83rem;line-height:1.72;max-width:210px;}
+.f-col h5{font-size:.65rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(245,242,236,.28);margin-bottom:18px;}
+.f-col a{display:block;font-size:.83rem;color:rgba(245,242,236,.48);text-decoration:none;margin-bottom:11px;transition:color .2s;}
+.f-col a:hover{color:var(--sage-md);}
+.footer-bt{display:flex;justify-content:space-between;align-items:center;font-size:.75rem;color:rgba(245,242,236,.2);}
+
+.chat-fab{position:fixed;bottom:32px;right:32px;z-index:200;width:52px;height:52px;background:var(--sage);border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 24px rgba(61,122,110,.4);transition:transform .3s,box-shadow .3s;animation:pop-in .6s 1.6s cubic-bezier(.34,1.56,.64,1) both;color:#fff;}
+.chat-fab:hover{transform:scale(1.12);box-shadow:0 12px 36px rgba(61,122,110,.5);}
+@keyframes pop-in{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* Chat popup */
+.nexora-chat-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;display:none;align-items:flex-end;justify-content:flex-end;padding:16px;opacity:0;transition:opacity .25s;}
+.nexora-chat-overlay.open{display:flex;opacity:1;}
+.nexora-chat-panel{width:100%;max-width:420px;max-height:85vh;background:var(--surface);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;transform:translateY(20px);transition:transform .3s cubic-bezier(.23,1,.32,1);cursor:default;}
+.nexora-chat-overlay.open .nexora-chat-panel{transform:translateY(0);}
+.nexora-chat-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg);}
+.nexora-chat-header h3{font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.05em;color:var(--text);margin:0;}
+.nexora-chat-close{width:36px;height:36px;border:none;background:var(--bg2);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:background .2s,color .2s;}
+.nexora-chat-close:hover{background:var(--border);color:var(--text);}
+.nexora-chat-messages{flex:1;overflow-y:auto;padding:20px;min-height:180px;max-height:320px;display:flex;flex-direction:column;gap:14px;}
+.nexora-chat-msg{max-width:90%;padding:12px 16px;border-radius:12px;font-size:.88rem;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;}
+.nexora-chat-msg.user{align-self:flex-end;background:var(--sage);color:#fff;white-space:pre-wrap;}
+.nexora-chat-msg.ai{align-self:flex-start;background:var(--bg2);color:var(--text);border:1px solid var(--border);}
+.nexora-chat-msg.loading{align-self:flex-start;color:var(--muted);}
+.nexora-chat-chips{display:flex;flex-wrap:wrap;gap:10px;padding:12px 16px 16px;}
+.nexora-chat-chip{font-size:.75rem;padding:8px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;cursor:pointer;color:var(--text);transition:background .2s,border-color .2s;}
+.nexora-chat-chip:hover{background:var(--sage-lt);border-color:var(--sage-md);}
+.nexora-chat-input-wrap{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg);}
+.nexora-chat-input{flex:1;padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;font-family:'Sora',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;}
+.nexora-chat-input:focus{border-color:var(--sage);}
+.nexora-chat-send{width:44px;height:44px;background:var(--sage);color:#fff;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s,transform .2s;}
+.nexora-chat-send:hover{background:var(--sage-md);transform:scale(1.05);}
+.nexora-chat-send:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+@media(max-width:960px){
+  nav{padding:16px 28px;}nav.scrolled{padding:12px 28px;}
+  .nav-links{display:none;}
+  section{padding:80px 28px;}
+  .feat-grid{grid-template-columns:1fr;}
+  .feat-card.wide{grid-column:span 1;}
+  .steps-grid{grid-template-columns:1fr 1fr;}
+  .stats-row{grid-template-columns:1fr 1fr;}
+  .stat{border-right:none;border-bottom:1px solid var(--border);}
+  .uc-grid{grid-template-columns:1fr;}
+  .footer-grid{grid-template-columns:1fr 1fr;gap:32px;}
+}
+@media(max-width:600px){
+  h1.hero-title{font-size:3.4rem;}
+  .footer-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<canvas id="particles"></canvas>
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="/" class="logo">
+    <div class="logo-mark">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 14L9 4L15 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10.5H12.5" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </div>
+    NEXORA
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#cases">Use Cases</a></li>
+  </ul>
+  <a href="/login" class="nav-btn">Get Access →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-orb orb1"></div>
+  <div class="hero-orb orb2"></div>
+  <div class="hero-orb orb3"></div>
+  <div class="hero-badge"><span class="badge-dot"></span>AI-Powered Productivity Platform</div>
+  <h1 class="hero-title">
+    <span class="line1">One AI</span>
+    <span class="line2">Three Roles</span>
+    <span class="line3">Infinite Impact</span>
+  </h1>
+  <p class="hero-sub">Nexora unifies QA intelligence, HR automation, and business analysis into a single workspace that thinks as fast as your team moves.</p>
+  <div class="hero-actions">
+    <a href="/login" class="btn-primary">Start for Free →</a>
+    <a href="#features" class="btn-ghost">Explore Features</a>
+  </div>
+  <div class="scroll-hint">
+    <div class="scroll-mouse"><div class="scroll-dot"></div></div>
+    Scroll
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track">
+    <div class="m-item">QA Intelligence <span class="m-dot"></span></div>
+    <div class="m-item">Security Testing <span class="m-dot"></span></div>
+    <div class="m-item">Resume Analysis <span class="m-dot"></span></div>
+    <div class="m-item">User Story Generation <span class="m-dot"></span></div>
+    <div class="m-item">AI Browser Automation <span class="m-dot"></span></div>
+    <div class="m-item">OWASP Threat Modeling <span class="m-dot"></span></div>
+    <div class="m-item">Candidate Screening <span class="m-dot"></span></div>
+    <div class="m-item">Flow Diagram Builder <span class="m-dot"></span></div>
+    <div class="m-item">QA Intelligence <span class="m-dot"></span></div>
+    <div class="m-item">Security Testing <span class="m-dot"></span></div>
+    <div class="m-item">Resume Analysis <span class="m-dot"></span></div>
+    <div class="m-item">User Story Generation <span class="m-dot"></span></div>
+    <div class="m-item">AI Browser Automation <span class="m-dot"></span></div>
+    <div class="m-item">OWASP Threat Modeling <span class="m-dot"></span></div>
+    <div class="m-item">Candidate Screening <span class="m-dot"></span></div>
+    <div class="m-item">Flow Diagram Builder <span class="m-dot"></span></div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="feat-section" id="features">
+  <div class="container">
+    <div class="feat-header reveal">
+      <div>
+        <div class="s-label">Platform Modules</div>
+        <h2 class="s-title">Everything Your<br>Team Needs</h2>
+      </div>
+      <p class="s-sub" style="margin-bottom:0">Five purpose-built AI modules. One login. Zero context switching.</p>
+    </div>
+    <div class="feat-grid">
+
+      <!-- 01 QA — wide card -->
+      <div class="feat-card wide">
+        <div class="feat-num">01</div>
+        <div class="icon-box qa">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3D7A6E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 11 12 14 22 4"/>
+            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+          </svg>
+        </div>
+        <div class="feat-name">QA Intelligence</div>
+        <div class="feat-desc">Generate test cases, analyze bugs with root cause AI, assess regression impact, and build risk strategies — all from natural language descriptions of your system.</div>
+        <div class="chips">
+          <span class="chip qa">Test Cases</span><span class="chip qa">Bug Log</span>
+          <span class="chip qa">Root Cause</span><span class="chip qa">Regression</span>
+          <span class="chip qa">Risk Advisor</span><span class="chip qa">API Tests</span>
+          <span class="chip qa">Test Data</span>
+        </div>
+      </div>
+
+      <!-- 02 Security -->
+      <div class="feat-card">
+        <div class="feat-num">02</div>
+        <div class="icon-box sec">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3A6FA8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+        </div>
+        <div class="feat-name">Security Intelligence</div>
+        <div class="feat-desc">OWASP threat models, auth flow reviews, vulnerability analysis, and API security checks — without a dedicated SecOps team.</div>
+        <div class="chips">
+          <span class="chip sec">OWASP</span><span class="chip sec">Vulnerability</span>
+          <span class="chip sec">Auth Review</span><span class="chip sec">API Security</span>
+        </div>
+      </div>
+
+      <!-- 03 HR -->
+      <div class="feat-card">
+        <div class="feat-num">03</div>
+        <div class="icon-box hr">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C0574E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <polyline points="16 11 18 13 22 9"/>
+          </svg>
+        </div>
+        <div class="feat-name">HR Automation</div>
+        <div class="feat-desc">Upload resumes, rank candidates by match percentage, and auto-draft interview, rejection, or offer emails in minutes.</div>
+        <div class="chips">
+          <span class="chip hr">Resume AI</span><span class="chip hr">Screening</span>
+          <span class="chip hr">Mail Drafts</span>
+        </div>
+      </div>
+
+      <!-- 04 BA -->
+      <div class="feat-card">
+        <div class="feat-num">04</div>
+        <div class="icon-box ba">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B87333" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+        </div>
+        <div class="feat-name">Business Analysis</div>
+        <div class="feat-desc">Transform raw requirements into acceptance criteria, epics, user stories, and Mermaid flow diagrams instantly.</div>
+        <div class="chips">
+          <span class="chip ba">Requirements</span><span class="chip ba">User Stories</span>
+          <span class="chip ba">Flow Diagrams</span>
+        </div>
+      </div>
+
+      <!-- 05 Automation -->
+      <div class="feat-card">
+        <div class="feat-num">05</div>
+        <div class="icon-box auto">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B5B9E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+          </svg>
+        </div>
+        <div class="feat-name">AI Automation</div>
+        <div class="feat-desc">Give Nexora a URL and a plain-English task. It plans, executes the browser scenario, and returns a screenshot — no scripting required.</div>
+        <div class="chips">
+          <span class="chip auto">Browser-Use</span><span class="chip auto">Playwright</span>
+          <span class="chip auto">Screenshots</span>
+        </div>
+      </div>
+
+      <!-- 06 Chat -->
+      <div class="feat-card">
+        <div class="feat-num">06</div>
+        <div class="icon-box chat">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4A7262" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            <line x1="8" y1="10" x2="16" y2="10"/>
+            <line x1="8" y1="14" x2="13" y2="14"/>
+          </svg>
+        </div>
+        <div class="feat-name">Unified AI Chat</div>
+        <div class="feat-desc">Context-aware assistant supporting Groq, OpenAI, and Gemini — with document upload, slash commands, and session memory.</div>
+        <div class="chips">
+          <span class="chip def">Multi-Provider</span><span class="chip def">Doc Analysis</span>
+          <span class="chip def">Slash Commands</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="steps-section" id="how">
+  <div class="container">
+    <div class="s-label reveal">Workflow</div>
+    <h2 class="s-title reveal">From Login to Insight<br>in 4 Steps</h2>
+    <p class="s-sub reveal">Nexora adapts the moment you log in — zero configuration, instant value.</p>
+  </div>
+  <div class="steps-grid reveal" style="max-width:1160px;margin:0 auto;">
+    <div class="step"><div class="step-ring">01</div><div class="step-t">Choose Your Role</div><div class="step-d">Sign in as QA Engineer, HR Professional, or Business Analyst. Your workspace loads tailored tools and history.</div></div>
+    <div class="step"><div class="step-ring">02</div><div class="step-t">Describe Your Task</div><div class="step-d">Chat naturally or pick a tool. Upload a document, paste requirements, or type a goal in plain English.</div></div>
+    <div class="step"><div class="step-ring">03</div><div class="step-t">Nexora Executes</div><div class="step-d">Powered by Groq, OpenAI, or Gemini — the AI analyzes, generates, or automates on your behalf.</div></div>
+    <div class="step"><div class="step-ring">04</div><div class="step-t">Save &amp; Ship</div><div class="step-d">Export results, send emails directly, save to your workspace, and track everything in the analytics dashboard.</div></div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-section">
+  <div class="stats-row">
+    <div class="stat reveal" style="transition-delay:.0s"><div class="stat-n" data-count="9">0</div><div class="stat-l">QA Intelligence Tools</div></div>
+    <div class="stat reveal" style="transition-delay:.1s"><div class="stat-n" data-count="5">0</div><div class="stat-l">Security Modules</div></div>
+    <div class="stat reveal" style="transition-delay:.2s"><div class="stat-n" data-count="3">0</div><div class="stat-l">AI Providers</div></div>
+    <div class="stat reveal" style="transition-delay:.3s"><div class="stat-n" data-count="3">0</div><div class="stat-l">Role Workspaces</div></div>
+  </div>
+</div>
+
+<!-- USE CASES -->
+<section class="uc-section" id="cases">
+  <div class="container">
+    <div class="s-label reveal">Real Scenarios</div>
+    <h2 class="s-title reveal">What Teams Actually<br>Use Nexora For</h2>
+    <p class="s-sub reveal">Practical, time-saving workflows that make a real difference daily.</p>
+    <div class="uc-grid">
+
+      <div class="uc-card reveal" style="transition-delay:.0s">
+        <div class="uc-who"><span class="uc-dot"></span>QA Engineer</div>
+        <div class="uc-t">Generate Test Cases From a PRD in 30 Seconds</div>
+        <div class="uc-d">Paste your product requirements and Nexora produces structured test cases with steps, expected results, and priority labels.</div>
+        <div class="uc-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7A7469" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12L12 2M12 2H5M12 2v7"/></svg></div>
+      </div>
+
+      <div class="uc-card reveal" style="transition-delay:.1s">
+        <div class="uc-who"><span class="uc-dot"></span>HR Team</div>
+        <div class="uc-t">Screen 50 Resumes Against a Job Description</div>
+        <div class="uc-d">Upload your JD and resume batch. Nexora ranks candidates with match percentages and drafts personalised emails.</div>
+        <div class="uc-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7A7469" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12L12 2M12 2H5M12 2v7"/></svg></div>
+      </div>
+
+      <div class="uc-card reveal" style="transition-delay:.15s">
+        <div class="uc-who"><span class="uc-dot"></span>Business Analyst</div>
+        <div class="uc-t">Turn a Feature Brief Into Epics &amp; User Stories</div>
+        <div class="uc-d">Drop in a rough feature description; Nexora extracts acceptance criteria, dependencies, and generates Jira-ready stories.</div>
+        <div class="uc-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7A7469" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12L12 2M12 2H5M12 2v7"/></svg></div>
+      </div>
+
+      <div class="uc-card reveal" style="transition-delay:.2s">
+        <div class="uc-who"><span class="uc-dot"></span>Security</div>
+        <div class="uc-t">Threat Model Your API in Minutes</div>
+        <div class="uc-d">Describe your endpoints and auth flows. Nexora generates an OWASP-aligned threat model with mitigations and security test cases.</div>
+        <div class="uc-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7A7469" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12L12 2M12 2H5M12 2v7"/></svg></div>
+      </div>
+
+      <div class="uc-card reveal" style="transition-delay:.25s">
+        <div class="uc-who"><span class="uc-dot"></span>QA Automation</div>
+        <div class="uc-t">Automate Checkout Testing With Plain English</div>
+        <div class="uc-d">Type your scenario in natural language and Nexora navigates your app, executes it, and returns a screenshot with a pass/fail.</div>
+        <div class="uc-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7A7469" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12L12 2M12 2H5M12 2v7"/></svg></div>
+      </div>
+
+      <div class="uc-card reveal" style="transition-delay:.3s">
+        <div class="uc-who"><span class="uc-dot"></span>Team Lead</div>
+        <div class="uc-t">Assess Regression Impact Before a Release</div>
+        <div class="uc-d">Describe the code changes going out. Nexora identifies which test suites are at risk and recommends a regression pack.</div>
+        <div class="uc-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#7A7469" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12L12 2M12 2H5M12 2v7"/></svg></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2 class="cta-h reveal">Ready to Meet<br>Your <span>AI Teammate?</span></h2>
+  <p class="cta-p reveal">Join QA engineers, HR teams, and business analysts who've made Nexora part of their daily workflow.</p>
+  <div class="reveal">
+    <a href="/app" class="btn-light">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Launch Nexora
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer id="footer">
+  <div class="footer-grid">
+    <div>
+      <div class="f-logo">
+        <div class="logo-mark" style="width:30px;height:30px;">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M3 14L9 4L15 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10.5H12.5" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        NEXORA
+      </div>
+      <p class="f-desc">AI Assistant for QA, HR & Business Analysis. One platform. Three workspaces. Built for teams that move fast.</p>
+    </div>
+    <div class="f-col">
+      <h5>Product</h5>
+      <a href="/login">QA Intelligence</a><a href="/login">Security Tools</a>
+      <a href="/login">HR Automation</a><a href="/login">BA Workspace</a>
+      <a href="/login">AI Automation</a>
+    </div>
+    <div class="f-col">
+      <h5>Resources</h5>
+      <a href="#">Documentation</a><a href="#">API Reference</a>
+      <a href="#">Changelog</a><a href="#">Support</a>
+    </div>
+    <div class="f-col">
+      <h5>Company</h5>
+      <a href="#">About</a><a href="#">Contact</a>
+      <a href="#">Privacy</a><a href="#">Terms</a>
+    </div>
+  </div>
+  <div class="footer-bt">
+    <span>© 2025 Nexora. All rights reserved.</span>
+    <span>Built with AI. Designed for humans.</span>
+  </div>
+</footer>
+
+<button type="button" class="chat-fab" id="chatFab" title="Ask about Nexora" aria-label="Open Nexora chatbot">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+</button>
+
+<!-- Nexora Chat Popup -->
+<div class="nexora-chat-overlay" id="nexoraChatOverlay">
+  <div class="nexora-chat-panel">
+    <div class="nexora-chat-header">
+      <h3>Ask Nexora</h3>
+      <button type="button" class="nexora-chat-close" id="nexoraChatClose" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="nexora-chat-messages" id="nexoraChatMessages">
+      <div class="nexora-chat-msg ai">Hi! I'm Nexora. Ask me about our platform — QA, HR, BA, or security tools.</div>
+    </div>
+    <div class="nexora-chat-chips" id="nexoraChatChips">
+      <button type="button" class="nexora-chat-chip" data-q="What is Nexora?">What is Nexora?</button>
+      <button type="button" class="nexora-chat-chip" data-q="What QA tools does Nexora offer?">QA tools</button>
+      <button type="button" class="nexora-chat-chip" data-q="What HR features does Nexora have?">HR features</button>
+      <button type="button" class="nexora-chat-chip" data-q="What can Business Analysts do with Nexora?">BA features</button>
+      <button type="button" class="nexora-chat-chip" data-q="How do I get started with Nexora?">Get started</button>
+      <button type="button" class="nexora-chat-chip" data-q="What security tools does Nexora provide?">Security tools</button>
+    </div>
+    <div class="nexora-chat-input-wrap">
+      <input type="text" class="nexora-chat-input" id="nexoraChatInput" placeholder="Ask about Nexora..." autocomplete="off">
+      <button type="button" class="nexora-chat-send" id="nexoraChatSend" aria-label="Send">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});
+(function anim(){rx+=(mx-rx)*.12;ry+=(my-ry)*.12;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(anim);})();
+
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>nav.classList.toggle('scrolled',window.scrollY>60));
+
+const canvas=document.getElementById('particles'),ctx=canvas.getContext('2d');
+let W,H,pts=[];
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+const cols=['rgba(61,122,110,','rgba(58,111,168,','rgba(184,115,51,'];
+for(let i=0;i<52;i++){
+  pts.push({x:Math.random()*1920,y:Math.random()*1080,
+    vx:(Math.random()-.5)*.22,vy:(Math.random()-.5)*.22,
+    r:Math.random()*1.3+.5,c:cols[Math.floor(Math.random()*cols.length)]});
+}
+(function draw(){
+  ctx.clearRect(0,0,W,H);
+  pts.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=p.c+'0.5)';ctx.fill();
+  });
+  pts.forEach((a,i)=>pts.slice(i+1).forEach(b=>{
+    const dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<108){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+      ctx.strokeStyle=`rgba(61,122,110,${.1*(1-d/108)})`;ctx.lineWidth=.6;ctx.stroke();}
+  }));
+  requestAnimationFrame(draw);
+})();
+
+const obs=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting)x.target.classList.add('visible');});},{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+document.querySelectorAll('.feat-card').forEach((el,i)=>{
+  el.style.transitionDelay=(i*.09)+'s';el.classList.add('reveal');obs.observe(el);
+});
+
+const cobs=new IntersectionObserver(e=>{
+  e.forEach(x=>{
+    if(!x.isIntersecting)return;
+    const el=x.target,tgt=+el.dataset.count,dur=1100,s=performance.now();
+    (function tick(n){const p=Math.min((n-s)/dur,1),ease=1-Math.pow(1-p,3);
+      el.textContent=Math.round(ease*tgt)+(tgt>=9?'+':'');if(p<1)requestAnimationFrame(tick);})(s);
+    cobs.unobserve(el);
+  });
+},{threshold:.5});
+document.querySelectorAll('[data-count]').forEach(el=>cobs.observe(el));
+
+window.addEventListener('scroll',()=>{
+  const y=window.scrollY;
+  document.querySelector('.orb1').style.transform=`translate(${y*.035}px,${y*.055}px)`;
+  document.querySelector('.orb2').style.transform=`translate(${-y*.025}px,${-y*.04}px)`;
+});
+
+/* Nexora Chatbot */
+const _api=(p)=>(window.API_BASE||'')+p;
+const overlay=document.getElementById('nexoraChatOverlay');
+const messagesEl=document.getElementById('nexoraChatMessages');
+const inputEl=document.getElementById('nexoraChatInput');
+const sendBtn=document.getElementById('nexoraChatSend');
+const chipsEl=document.getElementById('nexoraChatChips');
+
+document.getElementById('chatFab').addEventListener('click',()=>{overlay.classList.add('open');inputEl.focus();});
+document.getElementById('nexoraChatClose').addEventListener('click',()=>overlay.classList.remove('open'));
+overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open');});
+
+function formatAiResponse(text){
+  const esc=document.createElement('div');
+  esc.textContent=text;
+  let html=esc.innerHTML;
+  html=html.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  html=html.replace(/(^|\n)\* /gm,'$1• ');
+  html=html.replace(/(^|\n)- /gm,'$1• ');
+  html=html.replace(/\n/g,'<br>');
+  return html;
+}
+
+function addMsg(role,text,isLoading=false){
+  const div=document.createElement('div');
+  div.className='nexora-chat-msg '+(isLoading?'loading':role);
+  if(isLoading)div.textContent='Thinking...';
+  else if(role==='ai')div.innerHTML=formatAiResponse(text);
+  else div.textContent=text;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop=messagesEl.scrollHeight;
+  return div;
+}
+
+async function ask(question){
+  if(!question.trim())return;
+  addMsg('user',question);
+  inputEl.value='';
+  const loading=addMsg('ai','',true);
+  sendBtn.disabled=true;
+  try{
+    const res=await fetch(_api('/api/nexora-ask'),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({question:question.trim()})
+    });
+    const data=await res.json();
+    loading.remove();
+    if(data.success)addMsg('ai',data.answer);
+    else addMsg('ai','Sorry, I could not answer. '+(data.error||'Please try again.'));
+  }catch(e){
+    loading.remove();
+    addMsg('ai','Connection error. Please try again or sign in to use the full app.');
+  }finally{
+    sendBtn.disabled=false;
+    messagesEl.scrollTop=messagesEl.scrollHeight;
+  }
+}
+
+chipsEl.querySelectorAll('.nexora-chat-chip').forEach(btn=>{
+  btn.addEventListener('click',()=>ask(btn.dataset.q));
+});
+sendBtn.addEventListener('click',()=>ask(inputEl.value));
+inputEl.addEventListener('keydown',e=>{if(e.key==='Enter')ask(inputEl.value);});
+</script>
+</body>
+</html>

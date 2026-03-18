@@ -401,10 +401,16 @@ def run_core_engine_task(url, prompt, provider):
             })
             
             result_text = ""
+            screenshot_filename = None
             if plan.get('execution_type') == 'browser_use':
                 ui_logger.log('SUCCESS', f'✅ Task planned: {plan.get("task_description", prompt)}')
                 ui_logger.log('INFO', '🔄 Executing with AI agent...')
-                result_text = loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger)) or ""
+                out = loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger))
+                if isinstance(out, (list, tuple)) and len(out) >= 2:
+                    result_text = out[0] or ""
+                    screenshot_filename = out[1]
+                else:
+                    result_text = (out or "") if isinstance(out, str) else ""
             else:
                 steps = plan.get('steps', [])
                 ui_logger.log('SUCCESS', f'✅ Plan created: {len(steps)} steps')
@@ -412,12 +418,15 @@ def run_core_engine_task(url, prompt, provider):
                 loop.run_until_complete(run_async(url, steps, socketio, ui_logger))
 
             ui_logger.log('SUCCESS', '✅ Automation task completed successfully')
-            socketio.emit('task_success', {
+            payload = {
                 'message': 'Task completed successfully',
                 'result': result_text,
                 'task': plan.get('task_description', prompt),
                 'url': url
-            })
+            }
+            if screenshot_filename:
+                payload['screenshot'] = screenshot_filename
+            socketio.emit('task_success', payload)
             
         except Exception as e:
             ui_logger.log('ERROR', f'💥 Automation failed: {str(e)}')
@@ -1869,12 +1878,38 @@ def serve_automation():
 
 
 # Enhanced static file serving
+@app.route('/login')
+@app.route('/login/')
+def serve_login():
+    """Serve the Nexora login page."""
+    try:
+        response = send_file('nexora-login.html')
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return "HTML file not found", 404
+
+@app.route('/app')
+@app.route('/app/')
+def serve_app():
+    """Serve the main Nexora app (viser-ai-modern)."""
+    try:
+        response = send_file('viser-ai-modern.html')
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return "HTML file not found", 404
+
 @app.route('/')
 @app.route('/index.html')
 def serve_index():
+    """Serve the Nexora landing page (nexora-animated)."""
     try:
-        response = send_file('viser-ai-modern.html')
-        # Prevent caching so UI updates are always visible after refresh
+        response = send_file('nexora-animated.html')
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -1890,6 +1925,17 @@ def serve_assets(subpath):
         return send_from_directory(assets_dir, subpath)
     except Exception as e:
         print(f"❌ Asset serve error: {e}")
+        return "Not found", 404
+
+
+@app.route('/uploads/automation/<path:filename>')
+def serve_automation_screenshot(filename):
+    """Serve automation screenshots (final screenshot from browser-use)"""
+    try:
+        uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'automation')
+        return send_from_directory(uploads_dir, filename)
+    except Exception as e:
+        print(f"❌ Screenshot serve error: {e}")
         return "Not found", 404
 
 
@@ -1959,6 +2005,75 @@ def auth_verify():
     """Check if auth is configured (for frontend to know whether to show login)."""
     cfg = _load_users_config()
     return jsonify({"configured": cfg is not None})
+
+
+# ─── Nexora Landing Chatbot (knowledge-based Q&A) ──────────────────────────────
+
+_NEXORA_KNOWLEDGE_PATH = _PROJECT_ROOT / "docs" / "NEXORA_OVERVIEW_AND_WEBSITE_PROMPT.md"
+
+def _load_nexora_knowledge():
+    """Load Nexora knowledge for chatbot context."""
+    if _NEXORA_KNOWLEDGE_PATH.exists():
+        with open(_NEXORA_KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
+            return f.read()
+    return "Nexora is an AI-powered productivity platform for QA, HR, and Business Analysis."
+
+
+@app.route('/api/nexora-ask', methods=['POST'])
+def nexora_ask():
+    """Answer questions about Nexora using Groq, grounded in Nexora docs."""
+    try:
+        data = request.get_json(silent=True) or {}
+        question = (data.get("question") or "").strip()
+        if not question:
+            return jsonify({"success": False, "error": "Question is required"}), 400
+
+        groq_key = CONFIG.get("GROQ_API_KEY")
+        if not groq_key:
+            return jsonify({"success": False, "error": "Groq API key not configured"}), 503
+
+        knowledge = _load_nexora_knowledge()
+        system_prompt = f"""You are Nexora, a helpful AI assistant for the Nexora platform. Answer based ONLY on the knowledge below.
+
+FORMATTING RULES (strict):
+- Keep answers SHORT: 2–4 sentences OR 3–5 bullet points max
+- Use bullet points (• or -) for lists; put each item on its own line
+- Be professional and concise—no long paragraphs
+- If the question is outside this context, say: "I can only answer about Nexora. Sign in to explore the full app."
+
+## Nexora Knowledge
+{knowledge}
+"""
+
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question}
+            ],
+            "temperature": 0.5,
+            "max_tokens": 512
+        }
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        if response.status_code != 200:
+            return jsonify({"success": False, "error": f"AI service error: {response.status_code}"}), 502
+
+        result = response.json()
+        answer = result["choices"][0]["message"]["content"]
+        return jsonify({"success": True, "answer": answer})
+    except Exception as e:
+        print(f"❌ nexora-ask error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ─── HR Module APIs ───────────────────────────────────────────────────────────
