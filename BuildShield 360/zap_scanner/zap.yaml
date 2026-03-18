@@ -1,0 +1,36 @@
+
+env:
+  contexts:
+  - name: Default Context
+    urls:
+    - https://practicetestautomation.com/practice-test-login//
+    includePaths:
+    - https://practicetestautomation.com/practice-test-login//.*
+
+jobs:
+- type: spider
+  parameters:
+    maxDuration: 5
+
+- type: spiderAjax
+  parameters:
+    browserId: chrome-headless
+    maxDuration: 5
+
+- type: passiveScan-wait
+  parameters:
+    maxDuration: 5
+
+- type: activeScan
+
+- type: report
+  parameters:
+    template: traditional-json
+    reportDir: C:/Users/Vishnu/Desktop/AI_Product_Lab/03_Research/BuildShield 360/zap_scanner
+    reportFile: zap_report.json
+
+- type: report
+  parameters:
+    template: traditional-html
+    reportDir: C:/Users/Vishnu/Desktop/AI_Product_Lab/03_Research/BuildShield 360/zap_scanner
+    reportFile: zap_report.html

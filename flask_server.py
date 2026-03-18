@@ -401,10 +401,16 @@ def run_core_engine_task(url, prompt, provider):
             })
             
             result_text = ""
+            screenshot_filename = None
             if plan.get('execution_type') == 'browser_use':
                 ui_logger.log('SUCCESS', f'✅ Task planned: {plan.get("task_description", prompt)}')
                 ui_logger.log('INFO', '🔄 Executing with AI agent...')
-                result_text = loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger)) or ""
+                out = loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger))
+                if isinstance(out, (list, tuple)) and len(out) >= 2:
+                    result_text = out[0] or ""
+                    screenshot_filename = out[1]
+                else:
+                    result_text = (out or "") if isinstance(out, str) else ""
             else:
                 steps = plan.get('steps', [])
                 ui_logger.log('SUCCESS', f'✅ Plan created: {len(steps)} steps')
@@ -412,12 +418,15 @@ def run_core_engine_task(url, prompt, provider):
                 loop.run_until_complete(run_async(url, steps, socketio, ui_logger))
 
             ui_logger.log('SUCCESS', '✅ Automation task completed successfully')
-            socketio.emit('task_success', {
+            payload = {
                 'message': 'Task completed successfully',
                 'result': result_text,
                 'task': plan.get('task_description', prompt),
                 'url': url
-            })
+            }
+            if screenshot_filename:
+                payload['screenshot'] = screenshot_filename
+            socketio.emit('task_success', payload)
             
         except Exception as e:
             ui_logger.log('ERROR', f'💥 Automation failed: {str(e)}')
@@ -1356,6 +1365,227 @@ def db_clear_session(session_id: str):
     except Exception as e:
         print(f"⚠️ DB clear error: {e}")
 
+# ─── Saved Items DB helpers ───────────────────────────────────────────────────
+
+def _ensure_saved_items_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS saved_items (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id   TEXT NOT NULL DEFAULT 'anonymous',
+            tool      TEXT NOT NULL,
+            category  TEXT NOT NULL,
+            title     TEXT NOT NULL,
+            content   TEXT NOT NULL,
+            input_text TEXT NOT NULL DEFAULT '',
+            ts        REAL NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_items(user_id, ts)")
+    conn.commit()
+
+
+@app.route('/api/items/save', methods=['POST', 'OPTIONS'])
+def items_save():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        tool       = (data.get('tool') or '').strip()
+        category   = (data.get('category') or 'General').strip()
+        title      = (data.get('title') or tool or 'Untitled').strip()[:200]
+        content    = json.dumps(data.get('content') or {})
+        input_text = str(data.get('input_text') or '')[:2000]
+        user_id    = request.headers.get('X-User-Id') or 'anonymous'
+        if not tool:
+            return jsonify({'success': False, 'error': 'tool is required'}), 400
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        cur = conn.execute(
+            "INSERT INTO saved_items(user_id,tool,category,title,content,input_text,ts) VALUES(?,?,?,?,?,?,?)",
+            (user_id, tool, category, title, content, input_text, time.time())
+        )
+        item_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'id': item_id})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/items/list', methods=['GET', 'OPTIONS'])
+def items_list():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id  = request.headers.get('X-User-Id') or 'anonymous'
+        category = (request.args.get('category') or '').strip()
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        if category:
+            rows = conn.execute(
+                "SELECT id,tool,category,title,input_text,ts FROM saved_items WHERE user_id=? AND category=? ORDER BY ts DESC LIMIT 200",
+                (user_id, category)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id,tool,category,title,input_text,ts FROM saved_items WHERE user_id=? ORDER BY ts DESC LIMIT 200",
+                (user_id,)
+            ).fetchall()
+        conn.close()
+        items = [{'id': r['id'], 'tool': r['tool'], 'category': r['category'],
+                  'title': r['title'], 'input_text': r['input_text'], 'ts': r['ts']} for r in rows]
+        return jsonify({'success': True, 'items': items})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/items/<int:item_id>', methods=['GET', 'DELETE', 'OPTIONS'])
+def items_detail(item_id):
+    if request.method == 'OPTIONS':
+        return '', 204
+    user_id = request.headers.get('X-User-Id') or 'anonymous'
+    try:
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        if request.method == 'DELETE':
+            conn.execute("DELETE FROM saved_items WHERE id=? AND user_id=?", (item_id, user_id))
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True})
+        row = conn.execute(
+            "SELECT * FROM saved_items WHERE id=? AND user_id=?", (item_id, user_id)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return jsonify({'success': False, 'error': 'Not found'}), 404
+        return jsonify({'success': True, 'item': {
+            'id': row['id'], 'tool': row['tool'], 'category': row['category'],
+            'title': row['title'], 'content': json.loads(row['content']),
+            'input_text': row['input_text'], 'ts': row['ts']
+        }})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/summary', methods=['GET', 'OPTIONS'])
+def analytics_summary():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id = request.headers.get('X-User-Id') or 'anonymous'
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+
+        total = conn.execute("SELECT COUNT(*) FROM saved_items WHERE user_id=?", (user_id,)).fetchone()[0]
+
+        week_ago = time.time() - 7 * 86400
+        this_week = conn.execute(
+            "SELECT COUNT(*) FROM saved_items WHERE user_id=? AND ts>=?", (user_id, week_ago)
+        ).fetchone()[0]
+
+        by_category = conn.execute(
+            "SELECT category, COUNT(*) as cnt FROM saved_items WHERE user_id=? GROUP BY category ORDER BY cnt DESC",
+            (user_id,)
+        ).fetchall()
+
+        by_tool = conn.execute(
+            "SELECT tool, COUNT(*) as cnt FROM saved_items WHERE user_id=? GROUP BY tool ORDER BY cnt DESC LIMIT 10",
+            (user_id,)
+        ).fetchall()
+
+        recent = conn.execute(
+            "SELECT tool,category,title,input_text,ts FROM saved_items WHERE user_id=? ORDER BY ts DESC LIMIT 20",
+            (user_id,)
+        ).fetchall()
+
+        # Chat messages count
+        chat_total = conn.execute(
+            "SELECT COUNT(*) FROM chat_messages WHERE session_id LIKE ?",
+            (f"{user_id}:%",)
+        ).fetchone()[0]
+
+        # Key stat cards: count + last activity timestamp per tool group
+        def _stat(tools):
+            placeholders = ','.join('?' * len(tools))
+            row = conn.execute(
+                f"SELECT COUNT(*) as cnt, MAX(ts) as last_ts FROM saved_items WHERE user_id=? AND tool IN ({placeholders})",
+                [user_id] + list(tools)
+            ).fetchone()
+            return {'count': row['cnt'] or 0, 'last_ts': row['last_ts']}
+
+        test_cases_stat  = _stat(['test-case-generate', 'api-test-generate'])
+        test_data_stat   = _stat(['test-data-generate'])
+        bug_analysis_stat = _stat(['bug-log-analyze', 'screenshot-analyze', 'root-cause-detect'])
+        security_stat    = _stat(['sec-threat-model', 'sec-test-cases', 'sec-vuln-advisor', 'sec-auth-review', 'sec-api-check'])
+        strategy_stat    = _stat(['regression-impact', 'risk-advisor'])
+
+        # Documents analyzed from documents table (if available) - fall back to chat count
+        try:
+            docs_count = conn.execute(
+                "SELECT COUNT(*) FROM documents WHERE user_id=?", (user_id,)
+            ).fetchone()[0]
+            docs_last_ts = conn.execute(
+                "SELECT MAX(uploaded_at) FROM documents WHERE user_id=?", (user_id,)
+            ).fetchone()[0]
+        except Exception:
+            docs_count = 0
+            docs_last_ts = None
+
+        conn.close()
+
+        # Build action descriptions for recent activity
+        _tool_action = {
+            'test-case-generate': 'Test cases generated for',
+            'api-test-generate':  'API tests generated for',
+            'test-data-generate': 'Test data generated for',
+            'bug-log-analyze':    'Bug log analyzed for',
+            'screenshot-analyze': 'Screenshot analyzed for',
+            'root-cause-detect':  'Root cause detected for',
+            'regression-impact':  'Regression impact analyzed for',
+            'risk-advisor':       'Risk assessed for',
+            'sec-threat-model':   'Threat model created for',
+            'sec-test-cases':     'Security tests generated for',
+            'sec-vuln-advisor':   'Vulnerability analyzed for',
+            'sec-auth-review':    'Auth flow reviewed for',
+            'sec-api-check':      'API security checked for',
+        }
+        recent_list = []
+        for r in recent:
+            action = _tool_action.get(r['tool'], 'Analysis saved for')
+            subject = (r['title'] or r['input_text'] or '').strip()[:60]
+            recent_list.append({
+                'tool': r['tool'], 'category': r['category'],
+                'action': action, 'subject': subject, 'ts': r['ts']
+            })
+
+        return jsonify({
+            'success': True,
+            'total_saved': total,
+            'this_week': this_week,
+            'chat_messages': chat_total,
+            'by_category': [{'category': r['category'], 'count': r['cnt']} for r in by_category],
+            'by_tool': [{'tool': r['tool'], 'count': r['cnt']} for r in by_tool],
+            'recent': recent_list,
+            'key_stats': {
+                'test_cases':   test_cases_stat,
+                'test_data':    test_data_stat,
+                'bug_analysis': bug_analysis_stat,
+                'security':     security_stat,
+                'strategy':     strategy_stat,
+                'documents':    {'count': docs_count, 'last_ts': docs_last_ts},
+                'chats':        {'count': chat_total, 'last_ts': None},
+            }
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 def db_all_sessions(user_id=None):
     """Return list of {session_id, count, last_ts} for the history view. Filter by user_id for isolation."""
     try:
@@ -1648,12 +1878,38 @@ def serve_automation():
 
 
 # Enhanced static file serving
+@app.route('/login')
+@app.route('/login/')
+def serve_login():
+    """Serve the Nexora login page."""
+    try:
+        response = send_file('nexora-login.html')
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return "HTML file not found", 404
+
+@app.route('/app')
+@app.route('/app/')
+def serve_app():
+    """Serve the main Nexora app (viser-ai-modern)."""
+    try:
+        response = send_file('viser-ai-modern.html')
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return "HTML file not found", 404
+
 @app.route('/')
 @app.route('/index.html')
 def serve_index():
+    """Serve the Nexora landing page (nexora-animated)."""
     try:
-        response = send_file('viser-ai-modern.html')
-        # Prevent caching so UI updates are always visible after refresh
+        response = send_file('nexora-animated.html')
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -1669,6 +1925,17 @@ def serve_assets(subpath):
         return send_from_directory(assets_dir, subpath)
     except Exception as e:
         print(f"❌ Asset serve error: {e}")
+        return "Not found", 404
+
+
+@app.route('/uploads/automation/<path:filename>')
+def serve_automation_screenshot(filename):
+    """Serve automation screenshots (final screenshot from browser-use)"""
+    try:
+        uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'automation')
+        return send_from_directory(uploads_dir, filename)
+    except Exception as e:
+        print(f"❌ Screenshot serve error: {e}")
         return "Not found", 404
 
 
@@ -1738,6 +2005,75 @@ def auth_verify():
     """Check if auth is configured (for frontend to know whether to show login)."""
     cfg = _load_users_config()
     return jsonify({"configured": cfg is not None})
+
+
+# ─── Nexora Landing Chatbot (knowledge-based Q&A) ──────────────────────────────
+
+_NEXORA_KNOWLEDGE_PATH = _PROJECT_ROOT / "docs" / "NEXORA_OVERVIEW_AND_WEBSITE_PROMPT.md"
+
+def _load_nexora_knowledge():
+    """Load Nexora knowledge for chatbot context."""
+    if _NEXORA_KNOWLEDGE_PATH.exists():
+        with open(_NEXORA_KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
+            return f.read()
+    return "Nexora is an AI-powered productivity platform for QA, HR, and Business Analysis."
+
+
+@app.route('/api/nexora-ask', methods=['POST'])
+def nexora_ask():
+    """Answer questions about Nexora using Groq, grounded in Nexora docs."""
+    try:
+        data = request.get_json(silent=True) or {}
+        question = (data.get("question") or "").strip()
+        if not question:
+            return jsonify({"success": False, "error": "Question is required"}), 400
+
+        groq_key = CONFIG.get("GROQ_API_KEY")
+        if not groq_key:
+            return jsonify({"success": False, "error": "Groq API key not configured"}), 503
+
+        knowledge = _load_nexora_knowledge()
+        system_prompt = f"""You are Nexora, a helpful AI assistant for the Nexora platform. Answer based ONLY on the knowledge below.
+
+FORMATTING RULES (strict):
+- Keep answers SHORT: 2–4 sentences OR 3–5 bullet points max
+- Use bullet points (• or -) for lists; put each item on its own line
+- Be professional and concise—no long paragraphs
+- If the question is outside this context, say: "I can only answer about Nexora. Sign in to explore the full app."
+
+## Nexora Knowledge
+{knowledge}
+"""
+
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question}
+            ],
+            "temperature": 0.5,
+            "max_tokens": 512
+        }
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        if response.status_code != 200:
+            return jsonify({"success": False, "error": f"AI service error: {response.status_code}"}), 502
+
+        result = response.json()
+        answer = result["choices"][0]["message"]["content"]
+        return jsonify({"success": True, "answer": answer})
+    except Exception as e:
+        print(f"❌ nexora-ask error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ─── HR Module APIs ───────────────────────────────────────────────────────────
@@ -2219,18 +2555,35 @@ def ba_flow_diagram_generate():
         diagram_type = (data.get("diagram_type") or "flowchart").strip().lower()
         if not description:
             return jsonify({"success": False, "error": "Process description required"}), 400
-        prompt = f"""Convert this process/flow description into a Mermaid diagram. Return ONLY the Mermaid code, no markdown fences, no explanation.
+        prompt = f"""Convert this process/flow description into a valid Mermaid flowchart diagram.
+Return ONLY the raw Mermaid code — no markdown fences, no explanation, no comments.
 
-Use flowchart TB (top-bottom) or LR (left-right) as appropriate. Use standard Mermaid syntax:
-- flowchart TB / flowchart LR
-- A[Step] --> B[Next]
-- {{}} for decisions
-- (()) for start/end
+STRICT MERMAID SYNTAX RULES (follow exactly):
+1. First line MUST be: flowchart TB  (or flowchart LR for wide flows)
+2. Every node needs an alphanumeric ID followed by its shape:
+   - Process box:   A[Step label]
+   - Decision:      D{{Yes or No?}}
+   - Start/End:     ST([Start])   EN([End])
+   - Circle:        id((text))
+3. Arrows:  A --> B   or   A -->|Yes| B   or   A -->|No| C
+4. NEVER use bare parentheses as a node — (Start) is INVALID. Use ST([Start]) instead.
+5. Node IDs must start with a letter (A-Z, a-z) — no punctuation or spaces in IDs.
+6. Keep labels short. Wrap long labels in quotes: A["Long label here"]
 
-Description:
+EXAMPLE (login flow):
+flowchart TB
+    ST([Start])
+    ST --> A[User enters credentials]
+    A --> B{{Valid credentials?}}
+    B -->|Yes| C[Dashboard]
+    B -->|No| D[Show error]
+    D --> A
+    C --> EN([End])
+
+Now generate the diagram for:
 {description[:3000]}
 """
-        result = _ba_llm_completion(prompt, max_tokens=800)
+        result = _ba_llm_completion(prompt, max_tokens=1000)
         result = result.strip()
         if result.startswith("```"):
             result = result.split("\n", 1)[1] if "\n" in result else result[3:]
@@ -2238,6 +2591,17 @@ Description:
             result = result.rsplit("```", 1)[0].strip()
         if "flowchart" not in result.lower() and "graph" not in result.lower():
             result = "flowchart TB\n" + result
+        # Sanitise common AI mistakes: bare (Start) / (End) nodes without an ID prefix
+        import re as _re
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(Start\)', 'ST([Start])', result, flags=_re.IGNORECASE)
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(End\)', 'EN([End])', result, flags=_re.IGNORECASE)
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(Stop\)', 'EN([End])', result, flags=_re.IGNORECASE)
+        # Fix arrows to bare (...) targets: --> (Word) → --> Word([Word])
+        def _fix_bare_paren_target(m):
+            label = m.group(1)
+            safe_id = _re.sub(r'\W+', '', label)[:12] or 'N'
+            return f'--> {safe_id}([{label}])'
+        result = _re.sub(r'-->\s*\(([^)]+)\)', _fix_bare_paren_target, result)
         return jsonify({"success": True, "mermaid": result})
     except Exception as e:
         traceback.print_exc()
