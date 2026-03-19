@@ -1,8 +1,8 @@
 {
 	"@programName": "ZAP",
 	"@version": "2.17.0",
-	"@generated": "Wed, 18 Mar 2026 21:07:00",
-	"created": "2026-03-18T15:37:00.822237700Z",
+	"@generated": "Thu, 19 Mar 2026 21:05:30",
+	"created": "2026-03-19T15:35:30.554302100Z",
 	"insights":[
 		{
 			"level": "Low",
@@ -18,68 +18,12 @@
 			"site": "",
 			"key": "insight.log.warn",
 			"description": "ZAP warnings logged - see the zap.log file for details",
-			"statistic": "4"
-		},
-		{
-			"level": "Info",
-			"reason": "Informational",
-			"site": "https://practicetestautomation.com",
-			"key": "insight.code.2xx",
-			"description": "Percentage of responses with status code 2xx",
-			"statistic": "100"
-		},
-		{
-			"level": "Info",
-			"reason": "Informational",
-			"site": "https://practicetestautomation.com",
-			"key": "insight.endpoint.ctype.text/css",
-			"description": "Percentage of endpoints with content type text/css",
-			"statistic": "33"
-		},
-		{
-			"level": "Info",
-			"reason": "Informational",
-			"site": "https://practicetestautomation.com",
-			"key": "insight.endpoint.ctype.text/html",
-			"description": "Percentage of endpoints with content type text/html",
 			"statistic": "11"
 		},
 		{
 			"level": "Info",
 			"reason": "Informational",
-			"site": "https://practicetestautomation.com",
-			"key": "insight.endpoint.ctype.text/javascript",
-			"description": "Percentage of endpoints with content type text/javascript",
-			"statistic": "55"
-		},
-		{
-			"level": "Info",
-			"reason": "Informational",
-			"site": "https://practicetestautomation.com",
-			"key": "insight.endpoint.method.GET",
-			"description": "Percentage of endpoints with method GET",
-			"statistic": "100"
-		},
-		{
-			"level": "Info",
-			"reason": "Informational",
-			"site": "https://practicetestautomation.com",
-			"key": "insight.endpoint.total",
-			"description": "Count of total endpoints",
-			"statistic": "9"
-		},
-		{
-			"level": "Info",
-			"reason": "Informational",
-			"site": "https://practicetestautomation.com",
-			"key": "insight.response.slow",
-			"description": "Percentage of slow responses",
-			"statistic": "100"
-		},
-		{
-			"level": "Info",
-			"reason": "Informational",
-			"site": "https://stats.wp.com",
+			"site": "https://dazzling-puppy-900bdb.netlify.app",
 			"key": "insight.code.2xx",
 			"description": "Percentage of responses with status code 2xx",
 			"statistic": "100"
@@ -87,15 +31,15 @@
 		{
 			"level": "Info",
 			"reason": "Informational",
-			"site": "https://stats.wp.com",
-			"key": "insight.endpoint.ctype.application/javascript",
-			"description": "Percentage of endpoints with content type application/javascript",
+			"site": "https://dazzling-puppy-900bdb.netlify.app",
+			"key": "insight.endpoint.ctype.text/html",
+			"description": "Percentage of endpoints with content type text/html",
 			"statistic": "100"
 		},
 		{
 			"level": "Info",
 			"reason": "Informational",
-			"site": "https://stats.wp.com",
+			"site": "https://dazzling-puppy-900bdb.netlify.app",
 			"key": "insight.endpoint.method.GET",
 			"description": "Percentage of endpoints with method GET",
 			"statistic": "100"
@@ -103,7 +47,7 @@
 		{
 			"level": "Info",
 			"reason": "Informational",
-			"site": "https://stats.wp.com",
+			"site": "https://dazzling-puppy-900bdb.netlify.app",
 			"key": "insight.endpoint.total",
 			"description": "Count of total endpoints",
 			"statistic": "1"
@@ -111,24 +55,16 @@
 		{
 			"level": "Info",
 			"reason": "Informational",
-			"site": "https://stats.wp.com",
+			"site": "https://dazzling-puppy-900bdb.netlify.app",
 			"key": "insight.response.slow",
 			"description": "Percentage of slow responses",
-			"statistic": "16"
+			"statistic": "100"
 		}
 	],
 	"site":[ 
 		{
-			"@name": "https://stats.wp.com",
-			"@host": "stats.wp.com",
-			"@port": "443",
-			"@ssl": "true",
-			"alerts": [ 
-			]
-		},
-		{
-			"@name": "https://practicetestautomation.com",
-			"@host": "practicetestautomation.com",
+			"@name": "https://dazzling-puppy-900bdb.netlify.app",
+			"@host": "dazzling-puppy-900bdb.netlify.app",
 			"@port": "443",
 			"@ssl": "true",
 			"alerts": [ 
@@ -144,8 +80,8 @@
 					"instances":[ 
 						{
 							"id": "2",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
 							"method": "GET",
 							"param": "",
 							"attack": "",
@@ -174,8 +110,8 @@
 					"instances":[ 
 						{
 							"id": "0",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
 							"method": "GET",
 							"param": "x-frame-options",
 							"attack": "",
@@ -203,13 +139,13 @@
 					"desc": "<p>The integrity attribute is missing on a script or link tag served by an external server. The integrity tag prevents an attacker who have gained access to this server from injecting a malicious content.</p>",
 					"instances":[ 
 						{
-							"id": "7",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
+							"id": "5",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
 							"method": "GET",
 							"param": "",
 							"attack": "",
-							"evidence": "<script type=\"text/javascript\" src=\"https://stats.wp.com/e-202612.js\" id=\"jetpack-stats-js\" defer=\"defer\" data-wp-strategy=\"defer\"></script>",
+							"evidence": "<link href=\"https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700&family=JetBrains+Mono:wght@300;400;500&display=swap\" rel=\"stylesheet\">",
 							"otherinfo": ""
 						}
 					],
@@ -219,96 +155,6 @@
 					"otherinfo": "",
 					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity</p>",
 					"cweid": "345",
-					"wascid": "15",
-					"sourceid": "1"
-				},
-				{
-					"pluginid": "10017",
-					"alertRef": "10017",
-					"alert": "Cross-Domain JavaScript Source File Inclusion",
-					"name": "Cross-Domain JavaScript Source File Inclusion",
-					"riskcode": "1",
-					"confidence": "2",
-					"riskdesc": "Low (Medium)",
-					"desc": "<p>The page includes one or more script files from a third-party domain.</p>",
-					"instances":[ 
-						{
-							"id": "3",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
-							"method": "GET",
-							"param": "https://stats.wp.com/e-202612.js",
-							"attack": "",
-							"evidence": "<script type=\"text/javascript\" src=\"https://stats.wp.com/e-202612.js\" id=\"jetpack-stats-js\" defer=\"defer\" data-wp-strategy=\"defer\"></script>",
-							"otherinfo": ""
-						}
-					],
-					"count": "1",
-					"systemic": true,
-					"solution": "<p>Ensure JavaScript source files are loaded from only trusted sources, and the sources can't be controlled by end users of the application.</p>",
-					"otherinfo": "",
-					"reference": "",
-					"cweid": "829",
-					"wascid": "15",
-					"sourceid": "1"
-				},
-				{
-					"pluginid": "10036",
-					"alertRef": "10036-2",
-					"alert": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
-					"name": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
-					"riskcode": "1",
-					"confidence": "3",
-					"riskdesc": "Low (High)",
-					"desc": "<p>The web/application server is leaking version information via the \"Server\" HTTP response header. Access to such information may facilitate attackers identifying other vulnerabilities your web/application server is subject to.</p>",
-					"instances":[ 
-						{
-							"id": "5",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
-							"method": "GET",
-							"param": "",
-							"attack": "",
-							"evidence": "nginx/1.27.2",
-							"otherinfo": ""
-						}
-					],
-					"count": "1",
-					"systemic": true,
-					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to suppress the \"Server\" header or provide generic details.</p>",
-					"otherinfo": "",
-					"reference": "<p>https://httpd.apache.org/docs/current/mod/core.html#servertokens</p><p>https://learn.microsoft.com/en-us/previous-versions/msp-n-p/ff648552(v=pandp.10)</p><p>https://www.troyhunt.com/shhh-dont-let-your-response-headers/</p>",
-					"cweid": "497",
-					"wascid": "13",
-					"sourceid": "1"
-				},
-				{
-					"pluginid": "10035",
-					"alertRef": "10035-1",
-					"alert": "Strict-Transport-Security Header Not Set",
-					"name": "Strict-Transport-Security Header Not Set",
-					"riskcode": "1",
-					"confidence": "3",
-					"riskdesc": "Low (High)",
-					"desc": "<p>HTTP Strict Transport Security (HSTS) is a web security policy mechanism whereby a web server declares that complying user agents (such as a web browser) are to interact with it using only secure HTTPS connections (i.e. HTTP layered over TLS/SSL). HSTS is an IETF standards track protocol and is specified in RFC 6797.</p>",
-					"instances":[ 
-						{
-							"id": "6",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
-							"method": "GET",
-							"param": "",
-							"attack": "",
-							"evidence": "",
-							"otherinfo": ""
-						}
-					],
-					"count": "1",
-					"systemic": true,
-					"solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to enforce Strict-Transport-Security.</p>",
-					"otherinfo": "",
-					"reference": "<p>https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html</p><p>https://owasp.org/www-community/Security_Headers</p><p>https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security</p><p>https://caniuse.com/stricttransportsecurity</p><p>https://datatracker.ietf.org/doc/html/rfc6797</p>",
-					"cweid": "319",
 					"wascid": "15",
 					"sourceid": "1"
 				},
@@ -323,9 +169,9 @@
 					"desc": "<p>The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'. This allows older versions of Internet Explorer and Chrome to perform MIME-sniffing on the response body, potentially causing the response body to be interpreted and displayed as a content type other than the declared content type. Current (early 2014) and legacy versions of Firefox will use the declared content type (if one is set), rather than performing MIME-sniffing.</p>",
 					"instances":[ 
 						{
-							"id": "8",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
+							"id": "6",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
 							"method": "GET",
 							"param": "x-content-type-options",
 							"attack": "",
@@ -343,33 +189,33 @@
 					"sourceid": "1"
 				},
 				{
-					"pluginid": "10027",
-					"alertRef": "10027",
-					"alert": "Information Disclosure - Suspicious Comments",
-					"name": "Information Disclosure - Suspicious Comments",
+					"pluginid": "10109",
+					"alertRef": "10109",
+					"alert": "Modern Web Application",
+					"name": "Modern Web Application",
 					"riskcode": "0",
-					"confidence": "1",
-					"riskdesc": "Informational (Low)",
-					"desc": "<p>The response appears to contain suspicious comments which may help an attacker.</p>",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The application appears to be a modern web application. If you need to explore it automatically then the Ajax Spider may well be more effective than the standard one.</p>",
 					"instances":[ 
 						{
-							"id": "4",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
+							"id": "3",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
 							"method": "GET",
 							"param": "",
 							"attack": "",
-							"evidence": "query",
-							"otherinfo": "The following pattern was used: \\bQUERY\\b and was detected in likely comment: \"//schema.org\",\"@graph\":[{\"@type\":\"WebPage\",\"@id\":\"https://practicetestautomation.com/practice-test-login/\",\"url\":\"https://practi\", see evidence field for the suspicious comment/snippet."
+							"evidence": "<a href=\"#\" class=\"sb\">\n            <div class=\"sico sli\"><svg viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z\"/><circle cx=\"4\" cy=\"4\" r=\"2\"/></svg></div>\n            <div class=\"stxt\"><strong>LinkedIn</strong><span>Connect professionally</span></div>\n          </a>",
+							"otherinfo": "Links have been found that do not have traditional href attributes, which is an indication that this is a modern web application."
 						}
 					],
 					"count": "1",
-					"systemic": false,
-					"solution": "<p>Remove all comments that return information that may help an attacker and fix any underlying problems they refer to.</p>",
-					"otherinfo": "<p>The following pattern was used: \\bQUERY\\b and was detected in likely comment: \"//schema.org\",\"@graph\":[{\"@type\":\"WebPage\",\"@id\":\"https://practicetestautomation.com/practice-test-login/\",\"url\":\"https://practi\", see evidence field for the suspicious comment/snippet.</p>",
+					"systemic": true,
+					"solution": "<p>This is an informational alert and so no changes are required.</p>",
+					"otherinfo": "<p>Links have been found that do not have traditional href attributes, which is an indication that this is a modern web application.</p>",
 					"reference": "",
-					"cweid": "615",
-					"wascid": "13",
+					"cweid": "-1",
+					"wascid": "-1",
 					"sourceid": "1"
 				},
 				{
@@ -384,12 +230,12 @@
 					"instances":[ 
 						{
 							"id": "1",
-							"uri": "https://practicetestautomation.com/practice-test-login//",
-							"nodeName": "https:\/\/practicetestautomation.com\/practice-test-login\/",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
 							"method": "GET",
 							"param": "cache-control",
 							"attack": "",
-							"evidence": "max-age=3, must-revalidate",
+							"evidence": "public,max-age=0,must-revalidate",
 							"otherinfo": ""
 						}
 					],
@@ -400,6 +246,76 @@
 					"reference": "<p>https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#web-content-caching</p><p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control</p><p>https://grayduck.mn/2021/09/13/cache-control-recommendations/</p>",
 					"cweid": "525",
 					"wascid": "13",
+					"sourceid": "1"
+				},
+				{
+					"pluginid": "10050",
+					"alertRef": "10050-2",
+					"alert": "Retrieved from Cache",
+					"name": "Retrieved from Cache",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The content was retrieved from a shared cache. If the response data is sensitive, personal or user-specific, this may result in sensitive information being leaked. In some cases, this may even result in a user gaining complete control of the session of another user, depending on the configuration of the caching components in use in their environment. This is primarily an issue where caching servers such as \"proxy\" caches are configured on the local network. This configuration is typically found in corporate or educational environments, for instance.</p>",
+					"instances":[ 
+						{
+							"id": "4",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Age: 1",
+							"otherinfo": "The presence of the 'Age' header indicates that a HTTP/1.1 compliant caching server is in use."
+						},
+						{
+							"id": "40",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Age: 11",
+							"otherinfo": "The presence of the 'Age' header indicates that a HTTP/1.1 compliant caching server is in use."
+						},
+						{
+							"id": "11",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Age: 4",
+							"otherinfo": "The presence of the 'Age' header indicates that a HTTP/1.1 compliant caching server is in use."
+						},
+						{
+							"id": "22",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Age: 7",
+							"otherinfo": "The presence of the 'Age' header indicates that a HTTP/1.1 compliant caching server is in use."
+						},
+						{
+							"id": "42",
+							"uri": "https://dazzling-puppy-900bdb.netlify.app//",
+							"nodeName": "https:\/\/dazzling-puppy-900bdb.netlify.app\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "Age: 8",
+							"otherinfo": "The presence of the 'Age' header indicates that a HTTP/1.1 compliant caching server is in use."
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>Validate that the response does not contain sensitive, personal or user-specific information. If it does, consider the use of the following HTTP response headers, to limit, or prevent the content being stored and retrieved from the cache by another user:</p><p>Cache-Control: no-cache, no-store, must-revalidate, private</p><p>Pragma: no-cache</p><p>Expires: 0</p><p>This configuration directs both HTTP 1.0 and HTTP 1.1 compliant caching servers to not store the response, and to not retrieve the response (without validation) from the cache, in response to a similar request.</p>",
+					"otherinfo": "<p>The presence of the 'Age' header indicates that a HTTP/1.1 compliant caching server is in use.</p>",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.rfc-editor.org/rfc/rfc9110.html</p>",
+					"cweid": "525",
+					"wascid": "-1",
 					"sourceid": "1"
 				}
 			]

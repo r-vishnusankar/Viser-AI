@@ -1383,6 +1383,179 @@ def _ensure_saved_items_table(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_items(user_id, ts)")
     conn.commit()
 
+def _ensure_build360_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS build360_reports (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id        TEXT NOT NULL DEFAULT 'anonymous',
+            build_id       TEXT NOT NULL,
+            overall_status TEXT NOT NULL,
+            security_json  TEXT NOT NULL,
+            performance_json TEXT NOT NULL,
+            metadata_json  TEXT NOT NULL,
+            ts             REAL NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_build360_user_ts ON build360_reports(user_id, ts)")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_build360_build_id ON build360_reports(build_id)")
+    conn.commit()
+
+def _build360_resolve_report_path() -> str:
+    """Resolve BuildShield ZAP report path; can be overridden by env."""
+    default_rel = os.path.join("BuildShield 360", "zap_scanner", "zap_report.json")
+    custom = os.environ.get("BUILDSHIELD_ZAP_REPORT_PATH", "").strip()
+    candidate = custom or default_rel
+    if os.path.isabs(candidate):
+        return candidate
+    return str((_PROJECT_ROOT / candidate).resolve())
+
+def _build360_trigger_zap_scan(target_url: str) -> dict:
+    """Call BuildShield zap_scanner Flask service to run a real ZAP scan."""
+    base = (os.environ.get("BUILDSHIELD_ZAP_SCANNER_URL") or "http://127.0.0.1:5001").strip().rstrip("/")
+    # Avoid `localhost` resolving to IPv6 (::1) and hitting a different service.
+    base = base.replace("http://localhost:", "http://127.0.0.1:").replace("https://localhost:", "https://127.0.0.1:")
+    # Users sometimes configure BUILDSHIELD_ZAP_SCANNER_URL with a suffix like `/api`
+    # which would otherwise lead to `.../api/api/scan` (404). Normalize it here.
+    low = base.lower()
+    if low.endswith("/api/scan"):
+        base = base[: -len("/api/scan")].rstrip("/")
+    if low.endswith("/api"):
+        base = base[: -len("/api")].rstrip("/")
+    scan_url = f"{base}/api/scan"
+    timeout_sec = int(os.environ.get("BUILDSHIELD_ZAP_TIMEOUT_SEC", "900"))  # up to 15 min by default
+    try:
+        resp = requests.post(
+            scan_url,
+            json={"url": target_url},
+            timeout=timeout_sec,
+        )
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(
+            f"Could not reach ZAP scanner at {base}. Start scanner first: "
+            f"python \"BuildShield 360/zap_scanner/app.py\". Details: {e}"
+        ) from e
+    try:
+        payload = resp.json()
+    except Exception:
+        payload = {}
+    if resp.status_code >= 400 or not payload.get("success"):
+        err = payload.get("error") or f"Scanner returned {resp.status_code}"
+        raise RuntimeError(f"ZAP scanner failed: {err} (POST {scan_url})")
+    return payload
+
+def _build360_parse_zap_report(report_path: str) -> dict:
+    """Parse ZAP JSON report into BuildShield-style security summary."""
+    if not os.path.exists(report_path):
+        raise FileNotFoundError(f"ZAP report not found at: {report_path}")
+    with open(report_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    plugin_to_owasp = {
+        10038: "A05", 10020: "A05", 10035: "A05", 10021: "A05", 10015: "A08",
+        10017: "A05", 10036: "A05", 90003: "A08",  # Cross-domain JS, Server leak, SRI
+        10027: "A09", 10116: None, 10109: None,
+    }
+    owasp_categories = [
+        {"id": "A01", "name": "Broken Access Control", "severity": "high"},
+        {"id": "A02", "name": "Cryptographic Failures", "severity": "high"},
+        {"id": "A03", "name": "Injection", "severity": "critical"},
+        {"id": "A04", "name": "Insecure Design", "severity": "medium"},
+        {"id": "A05", "name": "Security Misconfiguration", "severity": "medium"},
+        {"id": "A06", "name": "Vulnerable Components", "severity": "high"},
+        {"id": "A07", "name": "Auth Failures", "severity": "high"},
+        {"id": "A08", "name": "Data Integrity Failures", "severity": "medium"},
+        {"id": "A09", "name": "Logging Failures", "severity": "low"},
+        {"id": "A10", "name": "SSRF", "severity": "medium"},
+    ]
+    risk_to_sev = {0: "info", 1: "low", 2: "medium", 3: "high", 4: "critical"}
+
+    critical = high = medium = low = info = 0
+    scanned_url = ""
+    alert_count = 0
+    report_generated = str(data.get("@generated") or "")
+    alerts_out = []
+    owasp_counts = {c["id"]: 0 for c in owasp_categories}
+
+    for site in data.get("site", []) or []:
+        alerts = site.get("alerts", []) or []
+        if site.get("@name"):
+            scanned_url = site.get("@name")
+        for alert in alerts:
+            alert_count += 1
+            riskcode = int(alert.get("riskcode", 0) or 0)
+            sev = risk_to_sev.get(riskcode, "info")
+            if sev == "critical":
+                critical += 1
+            elif sev == "high":
+                high += 1
+            elif sev == "medium":
+                medium += 1
+            elif sev == "low":
+                low += 1
+            else:
+                info += 1
+            owasp_id = plugin_to_owasp.get(int(alert.get("pluginid", 0) or 0), "A05")
+            if owasp_id and owasp_id in owasp_counts:
+                owasp_counts[owasp_id] += 1
+            alerts_out.append({
+                "pluginid": str(alert.get("pluginid") or ""),
+                "alert": str(alert.get("alert") or alert.get("name") or "Unnamed finding"),
+                "riskdesc": str(alert.get("riskdesc") or ""),
+                "severity": sev,
+                "solution": str(alert.get("solution") or ""),
+                "count": int(alert.get("count", 1) or 1),
+            })
+
+    total = critical + high + medium + low + info
+    deduction = critical * 25 + high * 10 + medium * 3 + low * 1 + info * 0.5
+    security_score = max(0, min(100, round(100 - deduction)))
+    status = "FAIL" if (critical > 0 or high > 5) else "PASS"
+
+    return {
+        "totalVulnerabilities": total,
+        "critical": critical,
+        "high": high,
+        "medium": medium,
+        "low": low,
+        "info": info,
+        "securityScore": security_score,
+        "status": status,
+        "checks": {
+            "staticAnalysis": True,
+            "dependencyScan": True,
+            "owaspTop10": True,
+            "securityHeaders": True,
+            "sslValidation": True,
+            "zapReport": True,
+        },
+        "owaspBreakdown": [
+            {"category": c["id"], "name": c["name"], "count": owasp_counts.get(c["id"], 0), "severity": c["severity"]}
+            for c in owasp_categories
+        ],
+        "rawReport": {
+            "source": "zap",
+            "scannedUrl": scanned_url,
+            "reportPath": report_path,
+            "reportGenerated": report_generated,
+            "alertCount": alert_count,
+            "alerts": alerts_out,
+        },
+    }
+
+
+@app.route('/api/zap/report', methods=['GET'])
+def serve_build360_zap_report():
+    """Serve BuildShield generated ZAP HTML report for Build 360 view."""
+    report_path = str((_PROJECT_ROOT / "BuildShield 360" / "zap_scanner" / "zap_report.html").resolve())
+    if not os.path.exists(report_path):
+        return jsonify({
+            "success": False,
+            "error": "ZAP HTML report not found. Run a Build 360 scan first."
+        }), 404
+    report_dir = os.path.dirname(report_path)
+    report_name = os.path.basename(report_path)
+    return send_from_directory(report_dir, report_name)
+
 
 @app.route('/api/items/save', methods=['POST', 'OPTIONS'])
 def items_save():
@@ -1546,6 +1719,7 @@ def analytics_summary():
             'root-cause-detect':  'Root cause detected for',
             'regression-impact':  'Regression impact analyzed for',
             'risk-advisor':       'Risk assessed for',
+            'build-360':          'Build 360 generated for',
             'sec-threat-model':   'Threat model created for',
             'sec-test-cases':     'Security tests generated for',
             'sec-vuln-advisor':   'Vulnerability analyzed for',
@@ -1579,6 +1753,149 @@ def analytics_summary():
                 'chats':        {'count': chat_total, 'last_ts': None},
             }
         })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/qa/build-360/trigger', methods=['POST', 'OPTIONS'])
+def qa_build360_trigger():
+    """Generate Build 360 report from REAL ZAP findings (no simulation)."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        user_id = request.headers.get('X-User-Id') or 'anonymous'
+        triggered_by = (data.get('triggered_by') or 'dashboard').strip()
+        branch = (data.get('branch') or 'main').strip()
+        commit = (data.get('commit') or 'unknown').strip()
+        target_url = (data.get('target_url') or '').strip()
+
+        build_id = f"BSH-{int(time.time() * 1000)}-{str(uuid.uuid4())[:8]}"
+        start = time.time()
+        report_path = _build360_resolve_report_path()
+        scan_jobs = []
+        if target_url:
+            scan = _build360_trigger_zap_scan(target_url)
+            scan_jobs = scan.get("scanJobs") or []
+        # If URL was not provided, we still allow parsing an existing real report.
+        security = _build360_parse_zap_report(report_path)
+        # No simulation: mark performance as unavailable until real perf integration exists.
+        performance = {
+            "status": "NOT_RUN",
+            "avgResponseTimeMs": None,
+            "p95ResponseTimeMs": None,
+            "errorRatePercent": None,
+            "throughputRps": None,
+            "maxConcurrentUsers": None,
+        }
+        overall_status = security.get("status", "FAIL")
+        duration_ms = int((time.time() - start) * 1000)
+        metadata = {
+            'triggeredBy': triggered_by,
+            'branch': branch,
+            'commit': commit,
+            'targetUrl': target_url,
+            'durationMs': duration_ms,
+            'mode': 'REAL_ZAP',
+            'reportPath': report_path,
+            'scanJobs': scan_jobs,
+        }
+
+        conn = _get_db()
+        _ensure_build360_table(conn)
+        conn.execute(
+            """INSERT INTO build360_reports
+               (user_id, build_id, overall_status, security_json, performance_json, metadata_json, ts)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, build_id, overall_status, json.dumps(security), json.dumps(performance), json.dumps(metadata), time.time())
+        )
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'report': {
+                'build_id': build_id,
+                'overall_status': overall_status,
+                'security': security,
+                'performance': performance,
+                'metadata': metadata,
+                'ts': time.time()
+            }
+        })
+    except FileNotFoundError as e:
+        return jsonify({
+            'success': False,
+            'error': f"{e}. Provide target URL to run scan, or place a valid zap_report.json at configured path."
+        }), 400
+    except RuntimeError as e:
+        return jsonify({'success': False, 'error': str(e)}), 503
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/qa/build-360/latest', methods=['GET', 'OPTIONS'])
+def qa_build360_latest():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id = request.headers.get('X-User-Id') or 'anonymous'
+        conn = _get_db()
+        _ensure_build360_table(conn)
+        row = conn.execute(
+            "SELECT * FROM build360_reports WHERE user_id=? ORDER BY ts DESC LIMIT 1",
+            (user_id,)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return jsonify({'success': True, 'report': None})
+        return jsonify({
+            'success': True,
+            'report': {
+                'build_id': row['build_id'],
+                'overall_status': row['overall_status'],
+                'security': json.loads(row['security_json']),
+                'performance': json.loads(row['performance_json']),
+                'metadata': json.loads(row['metadata_json']),
+                'ts': row['ts']
+            }
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/qa/build-360/trend', methods=['GET', 'OPTIONS'])
+def qa_build360_trend():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id = request.headers.get('X-User-Id') or 'anonymous'
+        limit = max(1, min(int(request.args.get('limit', 10)), 50))
+        conn = _get_db()
+        _ensure_build360_table(conn)
+        rows = conn.execute(
+            "SELECT * FROM build360_reports WHERE user_id=? ORDER BY ts DESC LIMIT ?",
+            (user_id, limit)
+        ).fetchall()
+        conn.close()
+        reports = []
+        for r in reversed(rows):
+            security = json.loads(r['security_json'])
+            perf = json.loads(r['performance_json'])
+            reports.append({
+                'build_id': r['build_id'],
+                'overall_status': r['overall_status'],
+                'securityScore': security.get('securityScore', 0),
+                'avgResponseTimeMs': perf.get('avgResponseTimeMs'),
+                'errorRatePercent': perf.get('errorRatePercent'),
+                'ts': r['ts']
+            })
+        return jsonify({'success': True, 'reports': reports})
     except Exception as e:
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500

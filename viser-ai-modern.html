@@ -4096,6 +4096,53 @@
             </div>
 
             <!-- ═══ SAVED ITEMS VIEW ══════════════════════════════════════════ -->
+            <div id="build-360View" class="view-container" style="display:none;flex-direction:column;">
+                <div class="chat-header">
+                    <div style="display:flex;align-items:center;">
+                        <h1 class="chat-title">Build 360</h1>
+                        <span style="margin-left:10px;background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">QA OPS</span>
+                        <span class="page-info-icon" data-page-id="build-360" title="Page info"><i class="fas fa-info-circle"></i></span>
+                    </div>
+                </div>
+                <div style="flex:1;overflow:auto;background:var(--main-bg);padding:24px;">
+                    <div style="max-width:1100px;margin:0 auto;">
+                        <div style="background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 60%,#553c9a 100%);border-radius:16px;padding:24px 28px;margin-bottom:20px;color:#fff;">
+                            <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">BuildShield 360</h2>
+                            <p style="margin:0;font-size:13px;opacity:.9;max-width:760px;">Trigger a build quality report that combines security and performance signals into one release readiness status.</p>
+                        </div>
+
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin-bottom:18px;">
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end;">
+                                <div>
+                                    <label style="display:block;font-size:12px;font-weight:700;color:#718096;margin-bottom:6px;">Branch</label>
+                                    <input id="build360Branch" type="text" value="main" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                </div>
+                                <div>
+                                    <label style="display:block;font-size:12px;font-weight:700;color:#718096;margin-bottom:6px;">Commit</label>
+                                    <input id="build360Commit" type="text" value="unknown" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                </div>
+                                <div>
+                                    <label style="display:block;font-size:12px;font-weight:700;color:#718096;margin-bottom:6px;">Target URL <span style="font-weight:400;color:#a0aec0;">(optional)</span></label>
+                                    <input id="build360TargetUrl" type="url" placeholder="https://example.com" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button type="button" class="btn btn-primary" onclick="viseAI.triggerBuild360()"><i class="fas fa-play"></i> Trigger Build</button>
+                                    <button type="button" class="btn btn-secondary" onclick="viseAI.loadBuild360()"><i class="fas fa-rotate"></i> Refresh</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="build360Loading" style="display:none;text-align:center;padding:24px;color:#718096;">
+                            <div class="loading-spinner" style="margin:0 auto 10px;"></div>Generating Build 360 report...
+                        </div>
+
+                        <div id="build360Latest"></div>
+                        <div id="build360Trend" style="margin-top:16px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SAVED ITEMS VIEW ══════════════════════════════════════════ -->
             <div id="savedView" class="view-container" style="display:none;flex-direction:column;">
                 <div class="chat-header">
                     <div style="display:flex;align-items:center;">
@@ -4559,6 +4606,7 @@
             documents: { title: 'My Documents', desc: 'View and manage uploaded documents. Reuse documents in chat, analyze, or delete. Files are stored per user—only you can see your documents.' },
             settings: { title: 'Settings', desc: 'Configure API keys (Groq/OpenAI), repository settings, and theme. Keys are stored locally.' },
             'qa-analytics': { title: 'QA Analytics', desc: 'Analytics dashboard for QA metrics. (Coming soon)' },
+            'build-360': { title: 'Build 360', desc: 'Unified build health report with security score, performance status, and release readiness.' },
             'resume-analyzer': { title: 'Resume Analyzer', desc: 'Upload multiple resumes (PDF, DOCX, TXT). AI extracts name, email, skills, experience, education, and strengths. Use /resume in chat with an attached file for same analysis.' },
             'candidate-screening': { title: 'Candidate Screening', desc: 'Paste job description, upload resumes or paste profiles. AI ranks candidates with match %, skill color coding (green=has, red=missing). Select candidates and use Bulk Accept/Reject for emails. Use /screen in chat to open.' },
             'mail-automation': { title: 'Mail Automation', desc: 'Generate HR emails from templates (Interview Invite, Rejection, Follow-up, Offer). Fill in name, role, date, time. Use /mail in chat to open.' },
@@ -4580,7 +4628,7 @@
                     { cmd: '/files', desc: 'Load all uploaded files into AI context' },
                     { cmd: '/email', desc: 'Write and send an email' }
                 ],
-                pages: ['chat', 'testcases', 'automation', 'documents', 'qa-analytics', 'history', 'help', 'settings']
+                pages: ['chat', 'testcases', 'automation', 'build-360', 'documents', 'qa-analytics', 'history', 'help', 'settings']
             },
             hr: {
                 commands: [
@@ -4598,6 +4646,9 @@
             ba: {
                 commands: [
                     { cmd: '/help', desc: 'Show commands or open Help page' },
+                    { cmd: '/req', desc: 'Analyze requirements text (Requirement Analyzer)' },
+                    { cmd: '/story', desc: 'Generate user stories (User Story Generator)' },
+                    { cmd: '/flow', desc: 'Generate Mermaid flow diagram (Flow Diagram Builder)' },
                     { cmd: '/analyze', desc: 'Analyze most recently uploaded file' },
                     { cmd: '/clear', desc: 'Clear conversation' },
                     { cmd: '/files', desc: 'Load all uploaded files into AI context' },
@@ -4643,6 +4694,9 @@
                 this.uploadedFiles = [];
                 // Holds the most-recent analysis result for client-side context
                 this.lastAnalysis = null;
+                // Holds the most recent BA result so we can "Save to Saved Items"
+                this._lastBAResult = null;
+                this._lastBuild360Report = null;
 
                 // Chat session persistence (per-user when logged in)
                 this.STORAGE_KEY = (() => {
@@ -4805,6 +4859,13 @@
                     if (data.success && data.analysis) {
                         const a = data.analysis;
                         const renderList = (arr, title) => Array.isArray(arr) && arr.length ? `<div style="margin-bottom:16px;"><strong>${title}</strong><ul style="margin:4px 0 0 20px;">${arr.map(x => `<li>${String(x).replace(/</g,'&lt;')}</li>`).join('')}</ul></div>` : '';
+                        this._lastBAResult = {
+                            tool: 'ba-requirement-analyze',
+                            category: 'BA',
+                            content: a,
+                            input_text: requirements,
+                            titleDefault: 'Requirement Analysis'
+                        };
                         result.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                             ${a.summary ? `<p style="margin-bottom:16px;">${String(a.summary).replace(/</g,'&lt;')}</p>` : ''}
                             ${renderList(a.features, 'Features')}
@@ -4813,6 +4874,14 @@
                             ${renderList(a.assumptions, 'Assumptions')}
                             ${renderList(a.risks, 'Risks')}
                             ${renderList(a.stakeholders, 'Stakeholders')}
+                        </div>
+                        <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #e2e8f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;" data-ba-save-bar="1">
+                            <label style="font-size:12px;color:#718096;font-weight:700;">Title (optional)</label>
+                            <input data-ba-save-title="1" type="text" placeholder="e.g. Login requirements" style="flex:1;min-width:220px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                            <button type="button" class="btn btn-primary" style="padding:10px 18px;" onclick="viseAI.saveCurrentBAResult(this)">
+                                <i class="fas fa-bookmark"></i> Save to Saved
+                            </button>
+                            <span data-ba-saved-msg="1" style="display:none;font-size:12px;color:#276749;font-weight:800;background:#f0fff4;border:1px solid #9ae6b4;padding:6px 12px;border-radius:999px;">Saved!</span>
                         </div>`;
                         result.style.display = 'block';
                     } else {
@@ -4851,6 +4920,13 @@
                     }
                     if (loading) loading.style.display = 'none';
                     if (data.success && data.stories && data.stories.length) {
+                        this._lastBAResult = {
+                            tool: 'ba-user-story-generate',
+                            category: 'BA',
+                            content: { stories: data.stories, story_type: typeSel?.value || 'user_story' },
+                            input_text: requirements,
+                            titleDefault: 'User Stories'
+                        };
                         result.innerHTML = data.stories.map((s, i) => {
                             const desc = (s.description || s.title || '').replace(/</g,'&lt;');
                             const ac = Array.isArray(s.acceptance_criteria) ? s.acceptance_criteria.map(x => `<li>${String(x).replace(/</g,'&lt;')}</li>`).join('') : '';
@@ -4861,7 +4937,15 @@
                                 ${ac ? `<p style="font-weight:600;margin-top:8px;">Acceptance Criteria:</p><ul style="margin:4px 0 0 20px;">${ac}</ul>` : ''}
                                 ${priority ? `<span style="font-size:12px;color:#718096;">Priority: ${priority}</span>` : ''}
                             </div>`;
-                        }).join('');
+                        }).join('') + `
+                        <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #e2e8f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;" data-ba-save-bar="1">
+                            <label style="font-size:12px;color:#718096;font-weight:700;">Title (optional)</label>
+                            <input data-ba-save-title="1" type="text" placeholder="e.g. User stories for Login" style="flex:1;min-width:220px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                            <button type="button" class="btn btn-primary" style="padding:10px 18px;" onclick="viseAI.saveCurrentBAResult(this)">
+                                <i class="fas fa-bookmark"></i> Save to Saved
+                            </button>
+                            <span data-ba-saved-msg="1" style="display:none;font-size:12px;color:#276749;font-weight:800;background:#f0fff4;border:1px solid #9ae6b4;padding:6px 12px;border-radius:999px;">Saved!</span>
+                        </div>`;
                         result.style.display = 'block';
                     } else {
                         result.innerHTML = `<p style="color:#e53e3e;">${(data.error||'Generation failed').replace(/</g,'&lt;')}</p>`;
@@ -4900,14 +4984,23 @@
                     if (data.success && data.mermaid) {
                         // JS-side sanitiser: fix any remaining bare (Start)/(End) the backend missed
                         let code = data.mermaid;
-                        code = code.replace(/(?<![A-Za-z0-9_])\(Start\)/gi, 'ST([Start])');
-                        code = code.replace(/(?<![A-Za-z0-9_])\(End\)/gi,   'EN([End])');
-                        code = code.replace(/(?<![A-Za-z0-9_])\(Stop\)/gi,  'EN([End])');
-                        code = code.replace(/-->\s*\(([^)]+)\)/g, (_, lbl) => {
+                        // Avoid negative lookbehind for parser compatibility: match start or a non-identifier char.
+                        code = code.replace(/(^|[^A-Za-z0-9_])\(Start\)/gi, '$1ST([Start])');
+                        code = code.replace(/(^|[^A-Za-z0-9_])\(End\)/gi,   '$1EN([End])');
+                        code = code.replace(/(^|[^A-Za-z0-9_])\(Stop\)/gi,  '$1EN([End])');
+                        // Note: use escaped hyphens to avoid the literal `-->` substring confusing HTML/JS parsers.
+                        code = code.replace(/\-\->\s*\(([^)]+)\)/g, (_, lbl) => {
                             const id = lbl.replace(/\W+/g,'').slice(0,12) || 'N';
                             return `--> ${id}([${lbl}])`;
                         });
                         const codeEscaped = code.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        this._lastBAResult = {
+                            tool: 'ba-flow-diagram-generate',
+                            category: 'BA',
+                            content: { mermaid: code },
+                            input_text: description,
+                            titleDefault: 'Flow Diagram'
+                        };
                         result.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
                             <div id="flowMermaidSvg" style="text-align:center;min-height:120px;margin-bottom:16px;overflow:auto;"></div>
                             <details style="margin-top:4px;">
@@ -4915,6 +5008,14 @@
                                 <pre id="flowMermaidCode" style="background:#f7fafc;padding:12px;border-radius:8px;font-size:12px;overflow:auto;margin-top:8px;">${codeEscaped}</pre>
                             </details>
                             <button type="button" class="btn btn-secondary" style="margin-top:12px;" onclick="navigator.clipboard.writeText(document.getElementById('flowMermaidCode').innerText).then(()=>this.textContent='Copied!')"><i class="fas fa-copy"></i> Copy Mermaid Code</button>
+                        </div>
+                        <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #e2e8f0;display:flex;align-items:center;gap:12px;flex-wrap:wrap;" data-ba-save-bar="1">
+                            <label style="font-size:12px;color:#718096;font-weight:700;">Title (optional)</label>
+                            <input data-ba-save-title="1" type="text" placeholder="e.g. Login flow diagram" style="flex:1;min-width:220px;padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                            <button type="button" class="btn btn-primary" style="padding:10px 18px;" onclick="viseAI.saveCurrentBAResult(this)">
+                                <i class="fas fa-bookmark"></i> Save to Saved
+                            </button>
+                            <span data-ba-saved-msg="1" style="display:none;font-size:12px;color:#276749;font-weight:800;background:#f0fff4;border:1px solid #9ae6b4;padding:6px 12px;border-radius:999px;">Saved!</span>
                         </div>`;
                         result.style.display = 'block';
                         const svgEl = document.getElementById('flowMermaidSvg');
@@ -4938,6 +5039,50 @@
                     if (loading) loading.style.display = 'none';
                     result.innerHTML = `<p style="color:#e53e3e;">Error: ${String(e.message).replace(/</g,'&lt;')}</p>`;
                     result.style.display = 'block';
+                }
+            }
+
+            async saveCurrentBAResult(btnEl) {
+                const r = this._lastBAResult;
+                if (!r) { alert('Nothing to save yet. Generate BA output first.'); return; }
+                const btn = btnEl || null;
+                const root = btnEl?.closest('[data-ba-save-bar]') || null;
+                const titleInput = root?.querySelector('input[data-ba-save-title]') || null;
+                const msg = root?.querySelector('[data-ba-saved-msg]') || null;
+                const title = (titleInput?.value || '').trim() || r.titleDefault || r.tool;
+
+                const oldBtnHtml = btn ? btn.innerHTML : null;
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                }
+                if (msg) msg.style.display = 'none';
+
+                try {
+                    const resp = await fetch(_api('/api/items/save'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tool: r.tool,
+                            category: 'BA',
+                            title: title,
+                            content: r.content,
+                            input_text: r.input_text || ''
+                        })
+                    });
+                    const data = await resp.json();
+                    if (!data.success) throw new Error(data.error || 'Save failed');
+                    if (msg) {
+                        msg.style.display = 'inline-flex';
+                        setTimeout(() => { if (msg) msg.style.display = 'none'; }, 2500);
+                    }
+                } catch (e) {
+                    alert('Save error: ' + e.message);
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = oldBtnHtml || '<i class="fas fa-bookmark"></i> Save to Saved';
+                    }
                 }
             }
 
@@ -6140,9 +6285,13 @@
                     'test-data-generate': 'Test Data', 'bug-log-analyze': 'Bug Log',
                     'screenshot-analyze': 'Screenshot', 'root-cause-detect': 'Root Cause',
                     'regression-impact': 'Regression', 'risk-advisor': 'Risk Advisor',
+                    'build-360': 'Build 360',
                     'sec-threat-model': 'Threat Model', 'sec-test-cases': 'Sec Tests',
                     'sec-vuln-advisor': 'Vulnerability', 'sec-auth-review': 'Auth Review',
-                    'sec-api-check': 'API Security'
+                    'sec-api-check': 'API Security',
+                    'ba-requirement-analyze': 'Requirement Analyzer',
+                    'ba-user-story-generate': 'User Story Generator',
+                    'ba-flow-diagram-generate': 'Flow Diagram Builder'
                 };
                 listEl.innerHTML = items.map(item => {
                     const cc = catColors[item.category] || '#718096';
@@ -6207,7 +6356,9 @@
                     if (!data.success) { alert(data.error || 'Load failed'); return; }
                     const item = data.item;
                     const tool = this._qaTools?.[item.tool];
-                    if (!tool) { alert('Preview not available for this tool type.'); return; }
+                    const isBA = String(item.tool || '').startsWith('ba-');
+                    const isBuild360 = item.tool === 'build-360';
+                    if (!tool && !isBA && !isBuild360) { alert('Preview not available for this tool type.'); return; }
                     // Re-open modal with the saved result
                     this._activeQATool = item.tool;
                     const modal = document.getElementById('qaToolModal');
@@ -6219,15 +6370,121 @@
                     const resultEl = document.getElementById('qaModalResult');
                     const loading = document.getElementById('qaModalLoading');
                     const saveBar = document.getElementById('qaModalSaveBar');
-                    if (icon) icon.innerHTML = tool.icon;
-                    if (title) title.textContent = item.title || tool.title;
+                    const baIconMap = {
+                        'ba-requirement-analyze': '<i class="fas fa-search"></i>',
+                        'ba-user-story-generate': '<i class="fas fa-book"></i>',
+                        'ba-flow-diagram-generate': '<i class="fas fa-project-diagram"></i>'
+                    };
+                    const baTitleMap = {
+                        'ba-requirement-analyze': 'Requirement Analyzer',
+                        'ba-user-story-generate': 'User Story Generator',
+                        'ba-flow-diagram-generate': 'Flow Diagram Builder'
+                    };
+                    if (icon) icon.innerHTML = tool?.icon || (baIconMap[item.tool] || '<i class="fas fa-star"></i>');
+                    if (title) title.textContent = item.title || baTitleMap[item.tool] || tool?.title || item.tool;
                     if (subtitle) subtitle.textContent = `Saved result · ${new Date(item.ts*1000).toLocaleDateString()}`;
                     if (inputArea) inputArea.innerHTML = '';
                     if (runBtn) runBtn.style.display = 'none';
                     if (loading) loading.style.display = 'none';
                     if (saveBar) saveBar.style.display = 'none';
                     if (resultEl) {
-                        resultEl.innerHTML = tool.renderResult(item.content);
+                        if (tool) {
+                            resultEl.innerHTML = tool.renderResult(item.content);
+                        } else if (isBA) {
+                            // BA preview rendering for saved BA tools
+                            if (item.tool === 'ba-requirement-analyze') {
+                                const a = item.content || {};
+                                const renderList = (arr, section) => Array.isArray(arr) && arr.length
+                                    ? `<div style="margin-bottom:16px;"><strong>${section}</strong><ul style="margin:4px 0 0 20px;">${arr.map(x => `<li>${String(x).replace(/</g,'&lt;')}</li>`).join('')}</ul></div>`
+                                    : '';
+                                resultEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                                    ${a.summary ? `<p style="margin-bottom:16px;">${String(a.summary).replace(/</g,'&lt;')}</p>` : ''}
+                                    ${renderList(a.features, 'Features')}
+                                    ${renderList(a.acceptance_criteria, 'Acceptance Criteria')}
+                                    ${renderList(a.dependencies, 'Dependencies')}
+                                    ${renderList(a.assumptions, 'Assumptions')}
+                                    ${renderList(a.risks, 'Risks')}
+                                    ${renderList(a.stakeholders, 'Stakeholders')}
+                                </div>`;
+                            } else if (item.tool === 'ba-user-story-generate') {
+                                const content = item.content || {};
+                                const stories = Array.isArray(content.stories) ? content.stories : (Array.isArray(content) ? content : []);
+                                resultEl.innerHTML = stories.map((s, i) => {
+                                    const desc = (s.description || s.title || '').replace(/</g,'&lt;');
+                                    const ac = Array.isArray(s.acceptance_criteria) ? s.acceptance_criteria.map(x => `<li>${String(x).replace(/</g,'&lt;')}</li>`).join('') : '';
+                                    const priority = (s.priority || '').replace(/</g,'&lt;');
+                                    return `<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                                        <div style="font-weight:600;color:var(--accent);margin-bottom:8px;">${(s.id||'US-'+(i+1)).replace(/</g,'&lt;')} ${(s.title||'').replace(/</g,'&lt;')}</div>
+                                        <p style="margin:8px 0;">${desc}</p>
+                                        ${ac ? `<p style="font-weight:600;margin-top:8px;">Acceptance Criteria:</p><ul style="margin:4px 0 0 20px;">${ac}</ul>` : ''}
+                                        ${priority ? `<span style="font-size:12px;color:#718096;">Priority: ${priority}</span>` : ''}
+                                    </div>`;
+                                }).join('') || '<p style="color:#718096;">No stories found in this saved item.</p>';
+                            } else if (item.tool === 'ba-flow-diagram-generate') {
+                                const content = item.content || {};
+                                let code = content.mermaid || '';
+                                // Same sanitiser approach as the live generator
+                                // Avoid negative lookbehind for parser compatibility: match start or a non-identifier char.
+                                code = code.replace(/(^|[^A-Za-z0-9_])\(Start\)/gi, '$1ST([Start])');
+                                code = code.replace(/(^|[^A-Za-z0-9_])\(End\)/gi,   '$1EN([End])');
+                                code = code.replace(/(^|[^A-Za-z0-9_])\(Stop\)/gi,  '$1EN([End])');
+                                // Note: use escaped hyphens to avoid the literal `-->` substring confusing HTML/JS parsers.
+                                code = code.replace(/\-\->\s*\(([^)]+)\)/g, (_, lbl) => {
+                                    const id = String(lbl).replace(/\W+/g,'').slice(0,12) || 'N';
+                                    return `--> ${id}([${lbl}])`;
+                                });
+                                const suffix = Date.now();
+                                const svgId = 'flowMermaidSvgSaved_' + suffix;
+                                const codeId = 'flowMermaidCodeSaved_' + suffix;
+                                const codeEscaped = code.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                                resultEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                                    <div id="${svgId}" style="text-align:center;min-height:120px;margin-bottom:16px;overflow:auto;"></div>
+                                    <details style="margin-top:4px;">
+                                        <summary style="cursor:pointer;font-size:12px;color:#718096;font-weight:600;"><i class="fas fa-code" style="margin-right:5px;"></i>View Mermaid Code</summary>
+                                        <pre id="${codeId}" style="background:#f7fafc;padding:12px;border-radius:8px;font-size:12px;overflow:auto;margin-top:8px;">${codeEscaped}</pre>
+                                    </details>
+                                    <button type="button" class="btn btn-secondary" style="margin-top:12px;" onclick="navigator.clipboard.writeText(document.getElementById('${codeId}').innerText).then(()=>this.textContent='Copied!')">
+                                        <i class="fas fa-copy"></i> Copy Mermaid Code
+                                    </button>
+                                </div>`;
+                                const svgEl = document.getElementById(svgId);
+                                if (window.mermaid && svgEl && code) {
+                                    (async () => {
+                                        try {
+                                            const renderId = 'flowDiagramSaved_' + Date.now();
+                                            const { svg } = await window.mermaid.render(renderId, code);
+                                            svgEl.innerHTML = svg;
+                                        } catch (m) {
+                                            svgEl.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;padding:14px;color:#c53030;font-size:13px;"><i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>Diagram render failed: ${String(m.message||m).replace(/</g,'&lt;')}</div>`;
+                                        }
+                                    })();
+                                }
+                            }
+                        } else if (isBuild360) {
+                            const r = item.content || {};
+                            const s = r.security || {};
+                            const p = r.performance || {};
+                            const statusColor = r.overall_status === 'PASS' ? '#276749' : '#c53030';
+                            const statusBg = r.overall_status === 'PASS' ? '#f0fff4' : '#fff5f5';
+                            const mode = (r?.metadata?.mode || '').toString();
+                            const fmtPerf = (v, suffix = '') => (v == null ? 'N/A' : `${v}${suffix}`);
+                            resultEl.innerHTML = `
+                                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                                        <div style="font-size:14px;color:#4a5568;font-weight:700;">Build: ${(r.build_id || 'N/A').replace(/</g,'&lt;')}</div>
+                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                            ${mode ? `<span style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;">${mode.replace(/</g,'&lt;')}</span>` : ''}
+                                            <span style="background:${statusBg};color:${statusColor};border:1px solid ${statusColor};border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;">${(r.overall_status || 'UNKNOWN').replace(/</g,'&lt;')}</span>
+                                        </div>
+                                    </div>
+                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+                                        <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Security Score</div><div style="font-size:26px;font-weight:800;color:#2b6cb0;">${s.securityScore ?? 0}</div></div>
+                                        <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Critical / High</div><div style="font-size:22px;font-weight:800;color:#c53030;">${s.critical ?? 0} / ${s.high ?? 0}</div></div>
+                                        <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Avg Response</div><div style="font-size:22px;font-weight:800;color:#553c9a;">${fmtPerf(p.avgResponseTimeMs, ' ms')}</div></div>
+                                        <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Error Rate</div><div style="font-size:22px;font-weight:800;color:#d69e2e;">${fmtPerf(p.errorRatePercent, '%')}</div></div>
+                                    </div>
+                                </div>`;
+                        }
                         resultEl.style.display = 'block';
                     }
                     if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
@@ -6261,6 +6518,239 @@
                 }
             }
 
+            async triggerBuild360() {
+                const loading = document.getElementById('build360Loading');
+                const branch = (document.getElementById('build360Branch')?.value || 'main').trim();
+                const commit = (document.getElementById('build360Commit')?.value || 'unknown').trim();
+                const targetUrl = (document.getElementById('build360TargetUrl')?.value || '').trim();
+                if (loading) loading.style.display = 'block';
+                try {
+                    const resp = await fetch(_api('/api/qa/build-360/trigger'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            branch: branch || 'main',
+                            commit: commit || 'simulated',
+                            target_url: targetUrl,
+                            triggered_by: 'dashboard'
+                        })
+                    });
+                    const data = await resp.json();
+                    if (!data.success) throw new Error(data.error || 'Build trigger failed');
+                    this._lastBuild360Report = data.report || null;
+                    await this.loadBuild360();
+                } catch (e) {
+                    const latest = document.getElementById('build360Latest');
+                    if (latest) {
+                        latest.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:16px;color:#c53030;">
+                            <i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>${String(e.message).replace(/</g,'&lt;')}
+                        </div>`;
+                    }
+                } finally {
+                    if (loading) loading.style.display = 'none';
+                }
+            }
+
+            async loadBuild360() {
+                const latestEl = document.getElementById('build360Latest');
+                const trendEl = document.getElementById('build360Trend');
+                const loading = document.getElementById('build360Loading');
+                if (!latestEl || !trendEl) return;
+                if (loading) loading.style.display = 'block';
+                try {
+                    const [latestResp, trendResp] = await Promise.all([
+                        fetch(_api('/api/qa/build-360/latest'), { headers: _apiHeaders() }),
+                        fetch(_api('/api/qa/build-360/trend?limit=10'), { headers: _apiHeaders() })
+                    ]);
+                    const latestData = await latestResp.json();
+                    const trendData = await trendResp.json();
+                    if (!latestData.success) throw new Error(latestData.error || 'Failed to load latest report');
+                    if (!trendData.success) throw new Error(trendData.error || 'Failed to load trend');
+
+                    const r = latestData.report;
+                    this._lastBuild360Report = r || null;
+                    if (!r) {
+                        latestEl.innerHTML = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:26px;text-align:center;color:#718096;">
+                            No Build 360 report yet. Trigger a build to generate one.
+                        </div>`;
+                    } else {
+                        const s = r.security || {};
+                        const p = r.performance || {};
+                        const raw = s.rawReport || {};
+                        const statusColor = r.overall_status === 'PASS' ? '#276749' : '#c53030';
+                        const statusBg = r.overall_status === 'PASS' ? '#f0fff4' : '#fff5f5';
+                        const mode = (r?.metadata?.mode || '').toString();
+                        const perfAvailable = p && p.status && p.status !== 'NOT_RUN' && p.avgResponseTimeMs != null;
+                        const fmtPerf = (v, suffix = '') => (v == null ? 'N/A' : `${v}${suffix}`);
+                        const sevOrder = ['critical', 'high', 'medium', 'low', 'info'];
+                        const sevLabel = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low', info: 'Info' };
+                        const sevColor = { critical: '#f85149', high: '#da3633', medium: '#d29922', low: '#3182ce', info: '#718096' };
+                        const sevCounts = [
+                            { key: 'critical', val: s.critical ?? 0 },
+                            { key: 'high', val: s.high ?? 0 },
+                            { key: 'medium', val: s.medium ?? 0 },
+                            { key: 'low', val: s.low ?? 0 },
+                            { key: 'info', val: s.info ?? 0 }
+                        ].filter(x => x.val > 0);
+                        const maxSev = Math.max(1, ...sevCounts.map(x => x.val));
+                        const owasp = Array.isArray(s.owaspBreakdown) ? s.owaspBreakdown : [];
+                        const owaspFiltered = owasp.filter(x => Number(x.count || 0) > 0);
+                        const maxOwasp = Math.max(1, ...owaspFiltered.map(x => Number(x.count || 0)));
+                        const alerts = Array.isArray(raw.alerts) ? [...raw.alerts] : [];
+                        alerts.sort((a, b) => sevOrder.indexOf(String(a.severity || 'info')) - sevOrder.indexOf(String(b.severity || 'info')));
+                        const jobs = Array.isArray(r?.metadata?.scanJobs) ? r.metadata.scanJobs : [];
+
+                        latestEl.innerHTML = `
+                            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                                    <div style="font-size:14px;color:#4a5568;font-weight:700;">Latest Build: ${this.escapeHtml(r.build_id || '-')}</div>
+                                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                        ${mode ? `<span style="background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;">${this.escapeHtml(mode)}</span>` : ''}
+                                        ${(raw.source || '').toLowerCase() === 'zap' ? `<span style="background:#f0fff4;color:#276749;border:1px solid #9ae6b4;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;">FROM ZAP SCAN</span>` : ''}
+                                        <span style="background:${statusBg};color:${statusColor};border:1px solid ${statusColor};border-radius:999px;padding:3px 10px;font-size:11px;font-weight:800;letter-spacing:.04em;">${this.escapeHtml(r.overall_status || 'UNKNOWN')}</span>
+                                    </div>
+                                </div>
+
+                                ${jobs.length ? `<div style="margin-bottom:10px;padding:10px 12px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                                    <div style="font-size:12px;font-weight:700;color:#4a5568;margin-bottom:6px;">ZAP scan jobs</div>
+                                    ${jobs.map(j => `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#4a5568;margin-bottom:4px;">
+                                        <span style="color:${j.status === 'completed' ? '#276749' : '#a0aec0'};font-weight:800;">${j.status === 'completed' ? '✓' : '○'}</span>
+                                        <span style="min-width:90px;font-weight:700;">${this.escapeHtml(j.name || 'job')}</span>
+                                        <span style="color:#718096;">${this.escapeHtml(j.detail || '')}</span>
+                                        <span style="margin-left:auto;color:#a0aec0;">${this.escapeHtml(j.duration || '')}</span>
+                                    </div>`).join('')}
+                                </div>` : ''}
+
+                                ${(raw.scannedUrl || raw.reportGenerated) ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:#4a5568;">
+                                    ${raw.scannedUrl ? `<strong>Target:</strong> <a href="${this.escapeHtml(raw.scannedUrl)}" target="_blank" rel="noopener noreferrer" style="color:#2b6cb0;text-decoration:none;">${this.escapeHtml(raw.scannedUrl)}</a>` : ''}
+                                    ${raw.reportGenerated ? `<span style="color:#718096;">· Report: ${this.escapeHtml(raw.reportGenerated)}</span>` : ''}
+                                    <a href="${_api('/api/zap/report')}" target="_blank" rel="noopener noreferrer" style="margin-left:auto;background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;border-radius:8px;padding:4px 8px;font-weight:700;text-decoration:none;">View full ZAP report →</a>
+                                </div>` : ''}
+
+                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+                                    <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Security Score</div><div style="font-size:26px;font-weight:800;color:#2b6cb0;">${s.securityScore ?? 0}</div></div>
+                                    <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Critical / High</div><div style="font-size:22px;font-weight:800;color:#c53030;">${s.critical ?? 0} / ${s.high ?? 0}</div></div>
+                                    <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Avg Response</div><div style="font-size:22px;font-weight:800;color:#553c9a;">${fmtPerf(p.avgResponseTimeMs, ' ms')}</div></div>
+                                    <div style="background:#f7fafc;border-radius:10px;padding:12px;"><div style="font-size:11px;color:#718096;">Error Rate</div><div style="font-size:22px;font-weight:800;color:#d69e2e;">${fmtPerf(p.errorRatePercent, '%')}</div></div>
+                                </div>
+                                ${!perfAvailable ? `<div style="margin-top:10px;font-size:12px;color:#718096;"><i class="fas fa-info-circle" style="margin-right:6px;"></i>Performance is not simulated. It will remain N/A until a real perf engine is integrated.</div>` : ''}
+
+                                ${sevCounts.length ? `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                                    ${sevCounts.map(x => `<span style="font-size:12px;background:${sevColor[x.key]}22;color:${sevColor[x.key]};padding:4px 8px;border-radius:999px;border:1px solid ${sevColor[x.key]}55;">${sevLabel[x.key]}: <strong>${x.val}</strong></span>`).join('')}
+                                </div>` : ''}
+
+                                <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;">
+                                        <div style="font-size:12px;font-weight:700;color:#4a5568;margin-bottom:8px;">Vulnerability count by severity</div>
+                                        ${sevCounts.length ? sevCounts.map(x => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                            <div style="width:68px;font-size:11px;color:#718096;">${sevLabel[x.key]}</div>
+                                            <div style="flex:1;height:8px;background:#edf2f7;border-radius:6px;overflow:hidden;"><div style="height:100%;width:${Math.max(6, Math.round((x.val / maxSev) * 100))}%;background:${sevColor[x.key]};"></div></div>
+                                            <div style="width:24px;text-align:right;font-size:11px;font-weight:700;color:#4a5568;">${x.val}</div>
+                                        </div>`).join('') : `<div style="font-size:12px;color:#718096;">No vulnerability counts.</div>`}
+                                    </div>
+                                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;">
+                                        <div style="font-size:12px;font-weight:700;color:#4a5568;margin-bottom:8px;">OWASP breakdown</div>
+                                        ${owaspFiltered.length ? owaspFiltered.map(x => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                            <div style="width:52px;font-size:11px;color:#718096;">${this.escapeHtml(x.category || '')}</div>
+                                            <div style="flex:1;height:8px;background:#edf2f7;border-radius:6px;overflow:hidden;"><div style="height:100%;width:${Math.max(6, Math.round((Number(x.count || 0) / maxOwasp) * 100))}%;background:#2b6cb0;"></div></div>
+                                            <div style="width:24px;text-align:right;font-size:11px;font-weight:700;color:#4a5568;">${Number(x.count || 0)}</div>
+                                        </div>`).join('') : `<div style="font-size:12px;color:#718096;">No OWASP findings mapped.</div>`}
+                                    </div>
+                                </div>
+
+                                ${alerts.length ? `<div style="margin-top:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;">
+                                    <div style="font-size:12px;font-weight:700;color:#4a5568;margin-bottom:8px;">Findings (${alerts.length} total)</div>
+                                    <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;">
+                                        ${alerts.map((a, i) => {
+                                            const sev = String(a.severity || 'info').toLowerCase();
+                                            const color = sevColor[sev] || '#718096';
+                                            const title = this.escapeHtml(a.alert || 'Finding');
+                                            const fix = this.escapeHtml((a.solution || '').replace(/<[^>]+>/g, ' ').trim());
+                                            const count = Number(a.count || 1);
+                                            return `<details style="background:#fff;border:1px solid #e2e8f0;border-left:4px solid ${color};border-radius:8px;padding:8px 10px;">
+                                                <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;">
+                                                    <span style="font-size:10px;background:${color};color:#fff;padding:2px 6px;border-radius:999px;font-weight:700;">${this.escapeHtml(sevLabel[sev] || sev)}</span>
+                                                    <span style="font-size:12px;font-weight:700;color:#2d3748;flex:1;">${title}</span>
+                                                    ${count > 1 ? `<span style="font-size:11px;color:#718096;">×${count}</span>` : ''}
+                                                </summary>
+                                                ${fix ? `<div style="font-size:12px;color:#4a5568;margin-top:8px;"><strong>Fix:</strong> ${fix}</div>` : ''}
+                                            </details>`;
+                                        }).join('')}
+                                    </div>
+                                </div>` : ''}
+
+                                <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                                    <button type="button" class="btn btn-secondary" onclick="viseAI.saveBuild360ToSaved()"><i class="fas fa-bookmark"></i> Save Result</button>
+                                </div>
+                            </div>`;
+                    }
+
+                    const reports = trendData.reports || [];
+                    if (!reports.length) {
+                        trendEl.innerHTML = '';
+                    } else {
+                        trendEl.innerHTML = `
+                            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;">
+                                <h3 style="margin:0 0 10px;font-size:14px;font-weight:800;color:#2d3748;">Build trend (Last ${reports.length} builds)</h3>
+                                <div style="overflow:auto;">
+                                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                                        <thead>
+                                            <tr style="text-align:left;color:#718096;border-bottom:1px solid #edf2f7;">
+                                                <th style="padding:8px 6px;">Build ID</th>
+                                                <th style="padding:8px 6px;">Time</th>
+                                                <th style="padding:8px 6px;">Status</th>
+                                                <th style="padding:8px 6px;">Security</th>
+                                                <th style="padding:8px 6px;">Avg Resp</th>
+                                                <th style="padding:8px 6px;">Error %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${reports.map(x => `<tr style="border-bottom:1px solid #f7fafc;">
+                                                <td style="padding:8px 6px;font-weight:700;color:#2d3748;">${this.escapeHtml(x.build_id || '-')}</td>
+                                                <td style="padding:8px 6px;color:#4a5568;">${x.ts ? this.escapeHtml(new Date(x.ts * 1000).toLocaleString()) : '-'}</td>
+                                                <td style="padding:8px 6px;color:${x.overall_status === 'PASS' ? '#276749' : '#c53030'};font-weight:700;">${this.escapeHtml(x.overall_status || '-')}</td>
+                                                <td style="padding:8px 6px;">${x.securityScore ?? 0}</td>
+                                                <td style="padding:8px 6px;">${x.avgResponseTimeMs == null ? 'N/A' : `${x.avgResponseTimeMs} ms`}</td>
+                                                <td style="padding:8px 6px;">${x.errorRatePercent == null ? 'N/A' : `${x.errorRatePercent}%`}</td>
+                                            </tr>`).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>`;
+                    }
+                } catch (e) {
+                    latestEl.innerHTML = `<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:16px;color:#c53030;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>${String(e.message).replace(/</g,'&lt;')}
+                    </div>`;
+                    trendEl.innerHTML = '';
+                } finally {
+                    if (loading) loading.style.display = 'none';
+                }
+            }
+
+            async saveBuild360ToSaved() {
+                const r = this._lastBuild360Report;
+                if (!r) { alert('No Build 360 report to save yet.'); return; }
+                try {
+                    const resp = await fetch(_api('/api/items/save'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tool: 'build-360',
+                            category: 'QA',
+                            title: `Build 360 ${r.build_id || ''}`.trim(),
+                            content: r,
+                            input_text: `${r?.metadata?.branch || 'main'} ${r?.metadata?.commit || ''}`.trim()
+                        })
+                    });
+                    const data = await resp.json();
+                    if (!data.success) throw new Error(data.error || 'Save failed');
+                    alert('Build 360 report saved.');
+                } catch (e) {
+                    alert('Save failed: ' + e.message);
+                }
+            }
+
             _relTime(ts) {
                 if (!ts) return null;
                 const diff = Math.floor(Date.now() / 1000 - ts);
@@ -6281,6 +6771,7 @@
                     'test-data-generate':'Test Data','bug-log-analyze':'Bug Log',
                     'screenshot-analyze':'Screenshot','root-cause-detect':'Root Cause',
                     'regression-impact':'Regression','risk-advisor':'Risk Advisor',
+                    'build-360':'Build 360',
                     'sec-threat-model':'Threat Model','sec-test-cases':'Sec Tests',
                     'sec-vuln-advisor':'Vulnerability','sec-auth-review':'Auth Review',
                     'sec-api-check':'API Security'
@@ -6387,6 +6878,7 @@
                             'test-data-generate':'fa-database','bug-log-analyze':'fa-terminal',
                             'screenshot-analyze':'fa-image','root-cause-detect':'fa-search-minus',
                             'regression-impact':'fa-code-branch','risk-advisor':'fa-shield-alt',
+                            'build-360':'fa-cube',
                             'sec-threat-model':'fa-project-diagram','sec-test-cases':'fa-flask',
                             'sec-vuln-advisor':'fa-bug','sec-auth-review':'fa-user-shield',
                             'sec-api-check':'fa-plug'
@@ -7280,6 +7772,9 @@
                     '/resume':   'Analyze attached resume or open Resume Analyzer',
                     '/screen':   'Open Candidate Screening',
                     '/mail':     'Open Mail Automation',
+                    '/req':      'Analyze requirements text (Requirement Analyzer)',
+                    '/story':    'Generate user stories (User Story Generator)',
+                    '/flow':     'Generate Mermaid flow diagram (Flow Diagram Builder)',
                     '/clear':     'Clear conversation history',
                     '/analyze':   'Analyze the most recently uploaded file',
                     '/summarize': 'Summarize the current conversation',
@@ -7338,6 +7833,47 @@
                     this.addMessage('user', raw);
                     this.switchView('mail-automation');
                     this.addMessage('ai', '<i class="fas fa-info-circle"></i> Opened Mail Automation. Choose template and fill variables.', true);
+                    return true;
+                }
+
+                if (cmd === '/req') {
+                    this.addMessage('user', raw);
+                    this.switchView('requirement-analyzer');
+                    const input = document.getElementById('reqAnalyzerInput');
+                    const fileInput = document.getElementById('reqAnalyzerFile');
+                    if (fileInput) fileInput.value = '';
+                    if (input && arg) {
+                        input.value = arg;
+                        await this._analyzeRequirements();
+                    } else {
+                        this.addMessage('ai', '<i class="fas fa-info-circle"></i> Paste requirements in Requirement Analyzer (or use <code>/req &lt;text&gt;</code>).', true);
+                    }
+                    return true;
+                }
+
+                if (cmd === '/story') {
+                    this.addMessage('user', raw);
+                    this.switchView('user-story-generator');
+                    const input = document.getElementById('userStoryInput');
+                    if (input && arg) {
+                        input.value = arg;
+                        await this._generateUserStories();
+                    } else {
+                        this.addMessage('ai', '<i class="fas fa-info-circle"></i> Paste requirements in User Story Generator (or use <code>/story &lt;text&gt;</code>).', true);
+                    }
+                    return true;
+                }
+
+                if (cmd === '/flow') {
+                    this.addMessage('user', raw);
+                    this.switchView('flow-diagram');
+                    const input = document.getElementById('flowDiagramInput');
+                    if (input && arg) {
+                        input.value = arg;
+                        await this._generateFlowDiagram();
+                    } else {
+                        this.addMessage('ai', '<i class="fas fa-info-circle"></i> Paste process description in Flow Diagram Builder (or use <code>/flow &lt;text&gt;</code>).', true);
+                    }
                     return true;
                 }
 
@@ -7420,6 +7956,9 @@
                     { cmd: '/resume',   desc: 'Analyze attached resume or open Resume Analyzer' },
                     { cmd: '/screen',   desc: 'Open Candidate Screening' },
                     { cmd: '/mail',     desc: 'Open Mail Automation' },
+                    { cmd: '/req',      desc: 'Analyze requirements (Requirement Analyzer)' },
+                    { cmd: '/story',    desc: 'Generate user stories (User Story Generator)' },
+                    { cmd: '/flow',     desc: 'Generate Mermaid flow diagram (Flow Diagram Builder)' },
                     { cmd: '/clear',     desc: 'Clear conversation' },
                     { cmd: '/analyze',   desc: 'Analyze uploaded file' },
                     { cmd: '/summarize', desc: 'Summarize conversation' },
@@ -8618,6 +9157,8 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                     this.loadSavedItems();
                 } else if (viewName === 'analytics') {
                     this.loadAnalytics();
+                } else if (viewName === 'build-360') {
+                    this.loadBuild360();
                 }
             }
 
@@ -10076,6 +10617,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'testcases', label: 'Testcases', icon: 'fa-folder-open' },
                 { view: 'automation', label: 'Automation', icon: 'fa-robot' },
                 { view: 'qa-intelligence', label: 'QA Intelligence', icon: 'fa-brain' },
+                { view: 'build-360', label: 'Build 360', icon: 'fa-cube' },
                 { view: 'security', label: 'Security', icon: 'fa-shield-alt' },
                 { view: 'saved', label: 'Saved', icon: 'fa-bookmark' },
                 { view: 'analytics', label: 'Analytics', icon: 'fa-chart-bar' },
@@ -10100,6 +10642,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'requirement-analyzer', label: 'Requirement Analyzer', icon: 'fa-search' },
                 { view: 'user-story-generator', label: 'User Story Generator', icon: 'fa-book' },
                 { view: 'flow-diagram', label: 'Flow Diagram Builder', icon: 'fa-project-diagram' },
+                { view: 'saved', label: 'Saved', icon: 'fa-bookmark' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
                 { view: 'help', label: 'Help', icon: 'fa-question-circle' },

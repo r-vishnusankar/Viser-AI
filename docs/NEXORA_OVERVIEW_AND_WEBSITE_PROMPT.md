@@ -64,6 +64,7 @@
 | **Automation** | AI Automation Workbench — URL + task → plan → execute with browser-use (AI agent) or Playwright; final screenshot on completion |
 | **QA Intelligence** | 9 AI tools in 3 groups: Test (Test Case, API Test, Test Data), Bug (Bug Log, Screenshot, Root Cause), Strategy (Regression Impact, Risk Advisor) |
 | **Security** | 5 AI tools: OWASP Threat Modeler, Security Test Cases, Vulnerability Advisor, Auth Flow Reviewer, API Security Checker |
+| **Build 360** | BuildShield 360: run an automated OWASP ZAP security scan and generate a release-readiness report with security score, PASS/FAIL, severity + OWASP breakdown, and access to the full ZAP report. |
 | **Saved** | Saved results from QA/Security/BA tools — filter, search, view, delete |
 | **Analytics** | Dashboard: stat cards (Test Cases, Documents, etc.), tool usage bars, category breakdown, recent activity |
 | **Documents** | User-uploaded documents — view, analyze, delete |
