@@ -1,0 +1,79 @@
+{
+  "@programName": "ZAP",
+  "@version": "2.16.1",
+  "@generated": "Wed, 18 Mar 2026 18:45:00",
+  "site": [{
+    "@name": "https://practicetestautomation.com/practice-test-login/",
+    "@host": "practicetestautomation.com",
+    "@port": "443",
+    "@ssl": "true",
+    "alerts": [
+      {
+        "pluginid": "10038",
+        "alert": "Content Security Policy (CSP) Header Not Set",
+        "name": "Content Security Policy (CSP) Header Not Set",
+        "riskcode": "2",
+        "riskdesc": "Medium (High)",
+        "count": "1",
+        "solution": "Ensure that your web server is configured to set the Content-Security-Policy header to mitigate XSS and data injection attacks.",
+        "cweid": "693",
+        "wascid": "15"
+      },
+      {
+        "pluginid": "10020",
+        "alert": "Missing Anti-clickjacking Header",
+        "name": "Missing Anti-clickjacking Header",
+        "riskcode": "2",
+        "riskdesc": "Medium (Medium)",
+        "count": "1",
+        "solution": "Set X-Frame-Options or Content-Security-Policy frame-ancestors to prevent clickjacking.",
+        "cweid": "1021",
+        "wascid": "15"
+      },
+      {
+        "pluginid": "10035",
+        "alert": "Strict-Transport-Security Header Not Set",
+        "name": "Strict-Transport-Security Header Not Set",
+        "riskcode": "1",
+        "riskdesc": "Low (High)",
+        "count": "1",
+        "solution": "Configure HSTS header to enforce HTTPS connections.",
+        "cweid": "319",
+        "wascid": "15"
+      },
+      {
+        "pluginid": "10021",
+        "alert": "X-Content-Type-Options Header Missing",
+        "name": "X-Content-Type-Options Header Missing",
+        "riskcode": "1",
+        "riskdesc": "Low (Medium)",
+        "count": "1",
+        "solution": "Set X-Content-Type-Options: nosniff to prevent MIME-sniffing.",
+        "cweid": "693",
+        "wascid": "15"
+      },
+      {
+        "pluginid": "10015",
+        "alert": "Re-examine Cache-control Directives",
+        "name": "Re-examine Cache-control Directives",
+        "riskcode": "0",
+        "riskdesc": "Informational (Low)",
+        "count": "1",
+        "solution": "For login pages, set cache-control: no-cache, no-store, must-revalidate to prevent credential caching.",
+        "cweid": "525",
+        "wascid": "13"
+      },
+      {
+        "pluginid": "10109",
+        "alert": "Modern Web Application",
+        "name": "Modern Web Application",
+        "riskcode": "0",
+        "riskdesc": "Informational (Medium)",
+        "count": "1",
+        "solution": "Informational only - no action required.",
+        "cweid": "-1",
+        "wascid": "-1"
+      }
+    ]
+  }]
+}

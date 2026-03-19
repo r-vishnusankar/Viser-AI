@@ -1,0 +1,9 @@
+{
+  "password": "Valoriz@123",
+  "users": [
+    {"email": "vishnu.sankar@valoriz.com", "name": "Vishnu Sankar", "workspace": "qa"},
+    {"email": "aju.joseph@valoriz.com", "name": "Aju Joseph", "workspace": "hr"},
+    {"email": "shilpa.s.nair@valoriz.com", "name": "Shilpa S Nair", "workspace": "hr"},
+    {"email": "joel.antony@valoriz.com", "name": "Joel Antony", "workspace": "ba"}
+  ]
+}

@@ -1,6 +1,9 @@
 import asyncio
+import base64
 import os
-from typing import List, Dict, Any
+import shutil
+import time
+from typing import List, Dict, Any, Optional, Tuple
 from loguru import logger
 
 # Import settings
@@ -15,47 +18,100 @@ try:
 except Exception:
     PLAYWRIGHT_OK = False
 
-async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> None:
-    """Run browser automation using browser-use with OpenAI API"""
-    # Import Agent lazily to avoid stale availability checks
+def _save_final_screenshot(agent_history, ui_logger=None) -> Optional[str]:
+    """Extract final screenshot from browser-use history and save to uploads/automation/. Returns filename or None."""
+    if not agent_history:
+        return None
+    dest_dir = Path.cwd() / "uploads" / "automation"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    fn = f"final_{int(time.time() * 1000)}.png"
+    try:
+        paths = getattr(agent_history, 'screenshot_paths', None)
+        if callable(paths):
+            paths = paths()
+        if paths and len(paths) > 0:
+            src = paths[-1]
+            if isinstance(src, str) and os.path.isfile(src):
+                shutil.copy2(src, dest_dir / fn)
+                return fn
+    except Exception:
+        pass
+    try:
+        screenshots = getattr(agent_history, 'screenshots', None)
+        if callable(screenshots):
+            screenshots = screenshots()
+        if screenshots and len(screenshots) > 0:
+            raw = screenshots[-1]
+            if isinstance(raw, bytes):
+                (dest_dir / fn).write_bytes(raw)
+                return fn
+            if isinstance(raw, str):
+                (dest_dir / fn).write_bytes(base64.b64decode(raw))
+                return fn
+    except Exception:
+        pass
+    return None
+
+
+async def run_with_browser_use(url: str, task_description: str, socketio=None, ui_logger=None) -> Tuple[str, Optional[str]]:
+    """Run browser automation using browser-use with OpenAI API. Returns (result_text, screenshot_path)."""
+    # browser_use 0.12+ ships its own ChatOpenAI in browser_use.llm.models.
+    # That class carries the required `.provider = 'openai'` attribute that
+    # Agent.__init__ inspects. The old path (browser_use.llm.openai.chat) and
+    # langchain_openai.ChatOpenAI both lack this attribute and cause crashes.
     try:
         from browser_use import Agent  # type: ignore
-        from browser_use.llm.openai.chat import ChatOpenAI  # type: ignore
-    except Exception:
-        error_msg = "⚠️ browser-use not installed. pip install browser-use"
+        from browser_use.llm.models import ChatOpenAI  # type: ignore
+    except ImportError as e:
+        error_msg = f"⚠️ Missing dependency: {e}. Run: pip install browser-use"
         if ui_logger:
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return
-    
-    # Check if OpenAI API key is available
-    openai_key = settings.openai_api_key
+        return ("", None)
+
+    # OpenAI key from .env only
+    openai_key = os.getenv("OPENAI_API_KEY")
     if not openai_key:
-        error_msg = "⚠️ OpenAI API key not configured. Run 'python setup_api_keys.py' to configure."
+        error_msg = "⚠️ OPENAI_API_KEY not set. Add it to .env file."
         if ui_logger:
             ui_logger.log('ERROR', error_msg)
         else:
             print(error_msg)
-        return
+        return ("", None)
+
+    # Default to gpt-4o-mini — a real, available OpenAI model suitable for browser tasks
+    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     
     try:
         if ui_logger:
             ui_logger.log('INFO', f'🌐 Opening browser to: {url}')
             ui_logger.log('INFO', f'🎯 Task: {task_description}')
+            ui_logger.log('INFO', f'🤖 Using OpenAI model: {openai_model} (key: ...{openai_key[-4:] if len(openai_key) > 4 else "****"})')
         else:
             print(f"🌐 Opening: {url}")
             print(f"🎯 Task: {task_description}")
+            print(f"🤖 Using OpenAI model: {openai_model}")
         
-        # Set OpenAI API key for browser-use
+        # Ensure env var is set (browser-use may read it internally too)
         os.environ['OPENAI_API_KEY'] = openai_key
-        
-        # Initialize browser-use with proper LLM instance and a dedicated profile
+
+        # browser-use 0.12 internally calls `uvx` for certain operations.
+        # On servers like Render, uv is installed to $HOME/.local/bin but that
+        # directory is not on PATH at runtime.  Inject it now so any subprocess
+        # that browser-use spawns can find uvx.
+        _uv_bin = str(Path.home() / ".local" / "bin")
+        if _uv_bin not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = _uv_bin + os.pathsep + os.environ.get("PATH", "")
+
+        # Initialize browser-use with a real langchain_openai LLM and a dedicated profile
         from browser_use.browser.profile import BrowserProfile  # type: ignore
-        llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_key)
+        llm = ChatOpenAI(model=openai_model, api_key=openai_key)
         profile_dir = str(Path.cwd() / "browser_use_profile")
         os.makedirs(profile_dir, exist_ok=True)
-        browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=False)
+        # headless=True required on servers (no display available)
+        is_server = not os.environ.get("DISPLAY") and sys.platform != "win32"
+        browser_profile = BrowserProfile(user_data_dir=profile_dir, headless=is_server)
         # Include URL in the task so the agent navigates first
         full_task = f"Open {url} and then {task_description}"
         agent = Agent(task=full_task, llm=llm, browser_profile=browser_profile)
@@ -66,22 +122,34 @@ async def run_with_browser_use(url: str, task_description: str, socketio=None, u
             print("✅ Browser-use initialized")
         
         # Run agent
-        result = await agent.run()
-        
+        agent_history = await agent.run()
+
+        # Extract the final text result from the agent history
+        try:
+            final = agent_history.final_result() if agent_history else None
+        except Exception:
+            final = None
+        result_text = str(final).strip() if final else "Task completed. No text result returned by the agent."
+
+        # Extract and save final screenshot (before closing agent)
+        screenshot_path = _save_final_screenshot(agent_history, ui_logger)
+        if screenshot_path and ui_logger:
+            ui_logger.log('SUCCESS', f'📸 Final screenshot saved')
+
         if ui_logger:
             ui_logger.log('SUCCESS', '✅ Browser task completed')
-            ui_logger.log('INFO', f'Result: {result}')
         else:
             print("✅ Browser task completed")
-            print(f"Result: {result}")
-            
+
+        return (result_text, screenshot_path)
+
     except Exception as e:
         error_msg = f'Browser-use execution failed: {str(e)}'
         if ui_logger:
             ui_logger.log('ERROR', f'💥 {error_msg}')
         else:
             print(f"❌ {error_msg}")
-        raise
+        raise  # re-raise so flask_server catches it and emits task_error
     finally:
         try:
             if 'agent' in locals():

@@ -14,40 +14,19 @@ if sys.platform == "win32":
 
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
+from werkzeug.routing import PathConverter, BaseConverter
 import os
 import json
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load environment variables from .env file (if present)
-load_dotenv()
-
-def _load_viser_config():
-    """
-    Fall back to ~/.viser_ai/config.json (written by setup_api_keys.py / settings.py)
-    for any API keys that were not already set by .env or the OS environment.
-    This keeps a single source-of-truth for keys across the whole project.
-    """
-    for config_dir in (Path.home() / ".viser_ai", Path.home() / ".spec2"):
-        cfg_file = config_dir / "config.json"
-        if not cfg_file.exists():
-            continue
-        try:
-            with open(cfg_file, "r") as f:
-                cfg = json.load(f)
-            mapping = {
-                "groq_api_key":   "GROQ_API_KEY",
-                "gemini_api_key": "GEMINI_API_KEY",
-                "openai_api_key": "OPENAI_API_KEY",
-            }
-            for cfg_key, env_key in mapping.items():
-                if cfg.get(cfg_key) and not os.environ.get(env_key):
-                    os.environ[env_key] = cfg[cfg_key]
-            break  # use the first config file found
-        except Exception as e:
-            print(f"Warning: could not read {cfg_file}: {e}")
-
-_load_viser_config()
+# Single source of truth: .env only. No config file override for API keys.
+_PROJECT_ROOT = Path(__file__).parent
+_env_path = _PROJECT_ROOT / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
+else:
+    load_dotenv()  # fallback to cwd
 import uuid
 import time
 import requests
@@ -97,6 +76,14 @@ try:
 except ImportError:
     DOCX_AVAILABLE = False
 
+# Google Sheets integration (live testcase sync)
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    GOOGLE_SHEETS_AVAILABLE = True
+except ImportError:
+    GOOGLE_SHEETS_AVAILABLE = False
+
 # Core Engine 2.0 integration
 CORE_ENGINE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Core Engine 2.0")
 sys.path.insert(0, os.path.join(CORE_ENGINE_DIR, "src"))
@@ -119,9 +106,36 @@ except ImportError:
     TOON_AVAILABLE = False
     toon_encode = None
 
+
+def tonnify_preprocess(user_prompt: str) -> str:
+    """
+    TonniFy-style preprocessing: clean and structure user prompt before sending to LLM.
+    Reduces junk, normalizes whitespace, keeps only relevant content to lower token usage.
+    """
+    if not user_prompt or not isinstance(user_prompt, str):
+        return user_prompt or ""
+    import re
+    t = user_prompt.strip()
+    t = re.sub(r'\s+', ' ', t)
+    t = re.sub(r'^\s*(please|kindly|could you|can you|would you|i want|i need|i would like)\s+', '', t, flags=re.I)
+    t = re.sub(r'\s*(please|thanks|thank you|thx)\s*$', '', t, flags=re.I)
+    t = t.strip()
+    return t if t else user_prompt.strip()
+
+class StaticPathConverter(BaseConverter):
+    """Matches static file paths only. Excludes /api/* so API routes take precedence."""
+    regex = r'(?!api/).+'
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'viser-ai-secret-key'
+app.url_map.converters['staticpath'] = StaticPathConverter
 CORS(app)
+
+@app.before_request
+def _log_ba_requests():
+    path = request.path or ''
+    if 'ba-' in path and path.startswith('/api/'):
+        print(f"[BA] {request.method} {path}", flush=True)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # Spec2 Web UI Logger Bridge
@@ -146,6 +160,36 @@ last_openai_call = 0.0
 # Session storage for context awareness
 user_sessions = {}
 uploaded_files_context = {}
+
+
+def get_request_user_id():
+    """Get user_id (email) from request for data isolation. Documents, Chat, History are per-user."""
+    uid = request.headers.get("X-User-Id") or request.args.get("user_id")
+    if not uid and request.is_json:
+        try:
+            uid = (request.get_json(silent=True) or {}).get("user_id")
+        except Exception:
+            pass
+    if not uid and request.form:
+        uid = request.form.get("user_id")
+    return (uid or "").strip().lower() or None
+
+
+def get_effective_session_id(session_id, user_id=None):
+    """Scope session_id by user so Documents, Chat, History are isolated per user."""
+    if not user_id:
+        return (session_id or "default_session").strip()
+    sid = (session_id or "default_session").strip()
+    return f"{user_id}:{sid}"
+
+
+def strip_user_prefix(session_id, user_id=None):
+    """Return short session_id for frontend (without user prefix)."""
+    if not user_id or not session_id:
+        return session_id
+    prefix = f"{user_id}:"
+    return session_id[len(prefix):] if session_id.startswith(prefix) else session_id
+
 
 class ContextManager:
     """Manages conversation and file context for users"""
@@ -222,21 +266,23 @@ TABLE RULES (use tables ONLY when explicitly requested):
 """
         
         if include_files and session["uploaded_files"]:
-            files_for_context = [
-                {"filename": f["filename"], "status": "analyzed" if f["analyzed"] else "uploaded"}
-                for f in session["uploaded_files"][-5:]
-            ]
-            if TOON_AVAILABLE and toon_encode:
-                try:
-                    context_toon = toon_encode({"uploaded_files": files_for_context})
-                    system_message += f"\n\nContext (TOON):\n{context_toon}\nReference these files and offer to analyze if not already done."
-                except Exception:
-                    file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
-                    system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list) + "\nYou can reference these files in your responses and offer to analyze them if not already done."
-            else:
-                file_list = [f"- {f['filename']} ({f['status']})" for f in files_for_context]
-                system_message += f"\n\nContext: User has uploaded files:\n" + "\n".join(file_list)
-                system_message += "\nYou can reference these files in your responses and offer to analyze them if not already done."
+            analyzed = [f for f in session["uploaded_files"][-5:] if f.get("analyzed")]
+            pending  = [f for f in session["uploaded_files"][-5:] if not f.get("analyzed")]
+
+            context_lines = []
+            if analyzed:
+                context_lines.append("The following documents have already been analysed and their full analysis is in the conversation history above:")
+                for f in analyzed:
+                    context_lines.append(f"  - {f['filename']} (fully analysed)")
+                context_lines.append("When the user asks follow-up questions (e.g. create test cases, write a report, summarise), use the analysis from the conversation history to answer directly — do NOT say you haven't seen the document.")
+            if pending:
+                context_lines.append("The following files have been uploaded but not yet analysed:")
+                for f in pending:
+                    context_lines.append(f"  - {f['filename']} (awaiting analysis)")
+                context_lines.append("Offer to analyse them if the user hasn't already requested it.")
+
+            if context_lines:
+                system_message += "\n\nFILE CONTEXT:\n" + "\n".join(context_lines)
         
         # Build message history
         messages = [{"role": "system", "content": system_message}]
@@ -293,6 +339,8 @@ def handle_execute_task(data):
     url = data.get('url', '').strip()
     prompt = data.get('prompt', '').strip()
     provider = data.get('provider', 'groq')
+    if provider == 'gemini':
+        provider = 'groq'
     
     if not url or not prompt:
         emit('error', {'message': 'URL and Objective are required'})
@@ -306,15 +354,19 @@ def handle_execute_task(data):
     socketio.start_background_task(run_core_engine_task, url, prompt, provider)
 
 def run_core_engine_task(url, prompt, provider):
-    """Execute Core Engine 2.0 task following original logic exactly powder"""
+    """Execute Core Engine 2.0 task following original logic exactly."""
     global is_automation_running
     try:
         is_automation_running = True
-        ui_logger.log('INFO', f'🚀 Starting Core Engine 2.0...')
-        ui_logger.log('INFO', f'📍 Target URL: {url}')
-        ui_logger.log('INFO', f'🎯 Task: {prompt}')
-        
-        # We need to run the async automation in the background thread
+        ui_logger.log('INFO', 'Starting Core Engine 2.0...')
+        ui_logger.log('INFO', f'Target URL: {url}')
+        ui_logger.log('INFO', f'Task: {prompt}')
+
+        # On Windows, Playwright requires ProactorEventLoop — set the policy
+        # before creating the event loop so it takes effect in this thread.
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -328,13 +380,14 @@ def run_core_engine_task(url, prompt, provider):
             intent = infer_intent(prompt)
             ui_logger.log('INFO', f'📋 Detected intent: {intent}')
             
-            # Plan the task
+            # Plan the task (fallback to Groq if OpenAI returns 429)
             ui_logger.log('INFO', '🗂️ Planning objectives...')
             planner = AIPlanner(provider)
-            
-            # Use browser-use planning for all supported providers
             plan = planner.plan_for_browser_use(prompt, target_url=url)
-                
+            if plan.get('error') and ('429' in str(plan.get('error', '')) or 'insufficient_quota' in str(plan.get('error', '')).lower()) and provider == 'openai' and os.getenv('GROQ_API_KEY'):
+                ui_logger.log('INFO', '⚠️ OpenAI quota exceeded, retrying with Groq...')
+                planner = AIPlanner('groq')
+                plan = planner.plan_for_browser_use(prompt, target_url=url)
             if plan.get('error'):
                 ui_logger.log('ERROR', f'❌ Planning failed: {plan["error"]}')
                 socketio.emit('error', {'message': f'Planning failed: {plan["error"]}'})
@@ -347,18 +400,33 @@ def run_core_engine_task(url, prompt, provider):
                 'intent': intent
             })
             
+            result_text = ""
+            screenshot_filename = None
             if plan.get('execution_type') == 'browser_use':
                 ui_logger.log('SUCCESS', f'✅ Task planned: {plan.get("task_description", prompt)}')
                 ui_logger.log('INFO', '🔄 Executing with AI agent...')
-                loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger))
+                out = loop.run_until_complete(run_with_browser_use(url, plan.get('task_description', prompt), socketio, ui_logger))
+                if isinstance(out, (list, tuple)) and len(out) >= 2:
+                    result_text = out[0] or ""
+                    screenshot_filename = out[1]
+                else:
+                    result_text = (out or "") if isinstance(out, str) else ""
             else:
                 steps = plan.get('steps', [])
                 ui_logger.log('SUCCESS', f'✅ Plan created: {len(steps)} steps')
                 ui_logger.log('INFO', '🔄 Executing steps with real browser...')
                 loop.run_until_complete(run_async(url, steps, socketio, ui_logger))
-                
+
             ui_logger.log('SUCCESS', '✅ Automation task completed successfully')
-            socketio.emit('task_success', {'message': 'Task completed successfully'})
+            payload = {
+                'message': 'Task completed successfully',
+                'result': result_text,
+                'task': plan.get('task_description', prompt),
+                'url': url
+            }
+            if screenshot_filename:
+                payload['screenshot'] = screenshot_filename
+            socketio.emit('task_success', payload)
             
         except Exception as e:
             ui_logger.log('ERROR', f'💥 Automation failed: {str(e)}')
@@ -395,6 +463,8 @@ def handle_plan_task(data):
     prompt   = (data or {}).get('prompt',   '').strip()
     url      = (data or {}).get('url',      '').strip()
     provider = (data or {}).get('provider', 'groq')
+    if provider == 'gemini':
+        provider = 'groq'
 
     if not prompt:
         emit('error', {'message': 'Please provide a task prompt'})
@@ -427,7 +497,10 @@ def _plan_task_bg(prompt: str, url: str, provider: str) -> None:
 
         planner = AIPlanner(provider)
         plan = planner.plan(prompt, url)
-
+        if plan.get('error') and ('429' in str(plan.get('error', '')) or 'insufficient_quota' in str(plan.get('error', '')).lower()) and provider == 'openai' and os.getenv('GROQ_API_KEY'):
+            ui_logger.log('INFO', '⚠️ OpenAI quota exceeded, retrying with Groq...')
+            planner = AIPlanner('groq')
+            plan = planner.plan(prompt, url)
         if plan.get('error'):
             ui_logger.log('ERROR', f'❌ Planning failed: {plan["error"]}')
             socketio.emit('error', {'message': f'Planning failed: {plan["error"]}'})
@@ -473,6 +546,8 @@ def handle_enhance_plan(data):
     raw      = (data or {}).get('raw',      '').strip()
     filename = (data or {}).get('filename', 'uploaded_plan.txt')
     provider = (data or {}).get('provider', 'groq')
+    if provider == 'gemini':
+        provider = 'groq'
     url      = (data or {}).get('url',      '').strip()
 
     if not raw:
@@ -498,7 +573,10 @@ def _enhance_plan_bg(raw: str, filename: str, provider: str, url: str) -> None:
             f"return detailed JSON with a steps list.\n\nFile: {filename}\n\nContent:\n\n{raw}"
         )
         plan = planner.plan(prompt, url)
-
+        if plan.get('error') and ('429' in str(plan.get('error', '')) or 'insufficient_quota' in str(plan.get('error', '')).lower()) and provider == 'openai' and os.getenv('GROQ_API_KEY'):
+            ui_logger.log('INFO', '⚠️ OpenAI quota exceeded, retrying with Groq...')
+            planner = AIPlanner('groq')
+            plan = planner.plan(prompt, url)
         if plan.get('error'):
             ui_logger.log('ERROR', f'❌ Enhancement failed: {plan["error"]}')
             socketio.emit('error', {'message': f'Enhancement failed: {plan["error"]}'})
@@ -540,6 +618,83 @@ def load_repo_file(filename):
         return send_from_directory(repo_dir, filename)
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
+
+def _extract_sheet_id(url_or_id):
+    """Extract spreadsheet ID from URL or return as-is if already an ID."""
+    s = (url_or_id or '').strip()
+    if not s:
+        return None
+    # URL format: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit...
+    if 'spreadsheets/d/' in s:
+        start = s.find('spreadsheets/d/') + len('spreadsheets/d/')
+        end = len(s)
+        for i in range(start, len(s)):
+            if s[i] in '/?':
+                end = i
+                break
+        return s[start:end].strip()
+    # Assume it's already an ID (alphanumeric, dashes)
+    return s
+
+
+@app.route('/api/repo/gsheets-config', methods=['GET'])
+def repo_gsheets_config():
+    """Return default Google Sheet URL from env (for frontend to use when user hasn't set one)."""
+    default_url = os.environ.get('GOOGLE_SHEETS_URL', '').strip()
+    return jsonify({"defaultUrl": default_url or None})
+
+
+@app.route('/api/repo/gsheets', methods=['GET'])
+def repo_gsheets():
+    """Fetch testcase data from Google Sheets. Requires GOOGLE_SHEETS_CREDENTIALS_JSON env var."""
+    if not GOOGLE_SHEETS_AVAILABLE:
+        return jsonify({"success": False, "error": "Google Sheets API not available. Install google-auth and google-api-python-client."}), 503
+    sheet_id = request.args.get('sheet_id') or request.args.get('url') or os.environ.get('GOOGLE_SHEETS_URL', '').strip()
+    if not sheet_id:
+        return jsonify({"success": False, "error": "Missing sheet_id or url parameter"}), 400
+    spreadsheet_id = _extract_sheet_id(sheet_id)
+    if not spreadsheet_id:
+        return jsonify({"success": False, "error": "Invalid sheet URL or ID"}), 400
+    creds_json = os.environ.get('GOOGLE_SHEETS_CREDENTIALS_JSON')
+    if not creds_json:
+        return jsonify({"success": False, "error": "GOOGLE_SHEETS_CREDENTIALS_JSON not configured"}), 503
+    try:
+        creds_dict = json.loads(creds_json)
+    except json.JSONDecodeError:
+        try:
+            creds_dict = json.loads(base64.b64decode(creds_json).decode('utf-8'))
+        except Exception:
+            return jsonify({"success": False, "error": "Invalid GOOGLE_SHEETS_CREDENTIALS_JSON"}), 500
+    try:
+        credentials = service_account.Credentials.from_service_account_info(creds_dict)
+        service = build('sheets', 'v4', credentials=credentials)
+        spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheet_names = [s['properties']['title'] for s in spreadsheet.get('sheets', [])]
+        all_rows = []
+        for sheet_name in sheet_names:
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=f"'{sheet_name}'!A:Z"
+            ).execute()
+            values = result.get('values', [])
+            if not values:
+                continue
+            headers = values[0]
+            for row in values[1:]:
+                obj = {}
+                for i, h in enumerate(headers):
+                    obj[h] = row[i] if i < len(row) else ''
+                all_rows.append(obj)
+        return jsonify({
+            "success": True,
+            "data": all_rows,
+            "source": "gsheets",
+            "sheets": sheet_names
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/unsplash/random', methods=['GET'])
@@ -631,64 +786,35 @@ def extract_image_content(file_path):
         print(f"❌ Image extraction error: {str(e)}")
         return None
 
-def analyze_image_with_gemini(file_path, prompt="Analyze this image and describe what you see"):
-    """Analyze image using Gemini Vision API"""
+def analyze_image_with_vision(file_path, prompt="Analyze this image and describe what you see"):
+    """Analyze image using OpenAI Vision API (Gemini removed)"""
     try:
-        # Extract image content
+        import base64
         image_content = extract_image_content(file_path)
         if not image_content:
             return "❌ Failed to extract image content"
-        
-        # Prepare Gemini Vision API request
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-        
-        headers = {
-            'Content-Type': 'application/json',
-        }
-        
-        payload = {
-            "contents": [{
-                "parts": [
-                    {"text": prompt},
-                    {
-                        "inline_data": {
-                            "mime_type": image_content["mime_type"],
-                            "data": image_content["base64_data"]
-                        }
-                    }
+        openai_key = CONFIG.get("OPENAI_API_KEY")
+        if not openai_key:
+            return "❌ OpenAI API key not configured for image analysis"
+        import openai as _oai
+        client = _oai.OpenAI(api_key=openai_key)
+        with open(file_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        mime = image_content.get("mime_type", "image/jpeg")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
                 ]
-            }]
-        }
-        
-        print(f"🔍 Sending image analysis request to Gemini...")
-        print(f"📊 Image size: {image_content['file_size']} bytes")
-        print(f"📄 MIME type: {image_content['mime_type']}")
-        
-        response = requests.post(
-            f"{api_url}?key={CONFIG['GEMINI_API_KEY']}", 
-            headers=headers, 
-            json=payload, 
-            timeout=30
+            }],
+            max_tokens=1024
         )
-        
-        if response.status_code == 200:
-            result = response.json()
-            if 'candidates' in result and len(result['candidates']) > 0:
-                content = result['candidates'][0]['content']['parts'][0]['text']
-                print(f"✅ Image analysis completed: {len(content)} characters")
-                return content
-            else:
-                return "❌ No analysis result from Gemini API"
-        else:
-            error_msg = f"Gemini API error: {response.status_code}"
-            try:
-                error_detail = response.json()
-                error_msg += f" - {error_detail}"
-            except:
-                pass
-            print(f"❌ {error_msg}")
-            return f"❌ {error_msg}"
-            
+        content = response.choices[0].message.content
+        print(f"✅ Image analysis completed: {len(content)} characters")
+        return content
     except Exception as e:
         error_msg = f"Image analysis error: {str(e)}"
         print(f"❌ {error_msg}")
@@ -1141,6 +1267,7 @@ CONFIG = {
     # Which LLM answers chat and analysis: "groq" | "openai" | "gemini" | "fallback"
     "AI_PROVIDER": os.getenv("AI_PROVIDER", "groq"),
     "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+    "OPENAI_MODEL": os.getenv("OPENAI_MODEL", "o4-mini-2025-04-16"),
     "GROQ_API_KEY": os.getenv("GROQ_API_KEY", ""),
     "GROQ_MODEL": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
     "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
@@ -1160,10 +1287,15 @@ CONFIG = {
 
 def get_ai_provider():
     """
-    Return current LLM provider: groq, openai, gemini, or fallback.
-    Reads from os.environ directly so live switching (via /api/settings/provider) works.
+    Return current LLM provider: groq or openai only. Gemini removed.
+    Uses Groq by default; falls back to OpenAI if Groq key missing.
     """
-    return os.environ.get("AI_PROVIDER", CONFIG.get("AI_PROVIDER", "groq")).strip().lower()
+    p = os.environ.get("AI_PROVIDER", CONFIG.get("AI_PROVIDER", "groq")).strip().lower()
+    if p == "gemini":
+        p = "groq"
+    if p not in ("groq", "openai"):
+        p = "groq" if CONFIG.get("GROQ_API_KEY") else "openai"
+    return p
 
 
 # ─── SQLite Chat Persistence ───────────────────────────────────────────────────
@@ -1215,6 +1347,7 @@ def db_load_session(session_id: str, limit: int = 60):
         return []
 
 def db_clear_session(session_id: str):
+    """Clear all messages for a session from DB."""
     try:
         conn = _get_db()
         conn.execute("DELETE FROM chat_messages WHERE session_id=?", (session_id,))
@@ -1223,10 +1356,256 @@ def db_clear_session(session_id: str):
     except Exception as e:
         print(f"⚠️ DB clear error: {e}")
 
-def db_all_sessions():
-    """Return list of {session_id, count, last_ts} for the history view."""
+def db_clear_session(session_id: str):
     try:
         conn = _get_db()
+        conn.execute("DELETE FROM chat_messages WHERE session_id=?", (session_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ DB clear error: {e}")
+
+# ─── Saved Items DB helpers ───────────────────────────────────────────────────
+
+def _ensure_saved_items_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS saved_items (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id   TEXT NOT NULL DEFAULT 'anonymous',
+            tool      TEXT NOT NULL,
+            category  TEXT NOT NULL,
+            title     TEXT NOT NULL,
+            content   TEXT NOT NULL,
+            input_text TEXT NOT NULL DEFAULT '',
+            ts        REAL NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_items(user_id, ts)")
+    conn.commit()
+
+
+@app.route('/api/items/save', methods=['POST', 'OPTIONS'])
+def items_save():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        tool       = (data.get('tool') or '').strip()
+        category   = (data.get('category') or 'General').strip()
+        title      = (data.get('title') or tool or 'Untitled').strip()[:200]
+        content    = json.dumps(data.get('content') or {})
+        input_text = str(data.get('input_text') or '')[:2000]
+        user_id    = request.headers.get('X-User-Id') or 'anonymous'
+        if not tool:
+            return jsonify({'success': False, 'error': 'tool is required'}), 400
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        cur = conn.execute(
+            "INSERT INTO saved_items(user_id,tool,category,title,content,input_text,ts) VALUES(?,?,?,?,?,?,?)",
+            (user_id, tool, category, title, content, input_text, time.time())
+        )
+        item_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'id': item_id})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/items/list', methods=['GET', 'OPTIONS'])
+def items_list():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id  = request.headers.get('X-User-Id') or 'anonymous'
+        category = (request.args.get('category') or '').strip()
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        if category:
+            rows = conn.execute(
+                "SELECT id,tool,category,title,input_text,ts FROM saved_items WHERE user_id=? AND category=? ORDER BY ts DESC LIMIT 200",
+                (user_id, category)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id,tool,category,title,input_text,ts FROM saved_items WHERE user_id=? ORDER BY ts DESC LIMIT 200",
+                (user_id,)
+            ).fetchall()
+        conn.close()
+        items = [{'id': r['id'], 'tool': r['tool'], 'category': r['category'],
+                  'title': r['title'], 'input_text': r['input_text'], 'ts': r['ts']} for r in rows]
+        return jsonify({'success': True, 'items': items})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/items/<int:item_id>', methods=['GET', 'DELETE', 'OPTIONS'])
+def items_detail(item_id):
+    if request.method == 'OPTIONS':
+        return '', 204
+    user_id = request.headers.get('X-User-Id') or 'anonymous'
+    try:
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+        if request.method == 'DELETE':
+            conn.execute("DELETE FROM saved_items WHERE id=? AND user_id=?", (item_id, user_id))
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True})
+        row = conn.execute(
+            "SELECT * FROM saved_items WHERE id=? AND user_id=?", (item_id, user_id)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return jsonify({'success': False, 'error': 'Not found'}), 404
+        return jsonify({'success': True, 'item': {
+            'id': row['id'], 'tool': row['tool'], 'category': row['category'],
+            'title': row['title'], 'content': json.loads(row['content']),
+            'input_text': row['input_text'], 'ts': row['ts']
+        }})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analytics/summary', methods=['GET', 'OPTIONS'])
+def analytics_summary():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        user_id = request.headers.get('X-User-Id') or 'anonymous'
+        conn = _get_db()
+        _ensure_saved_items_table(conn)
+
+        total = conn.execute("SELECT COUNT(*) FROM saved_items WHERE user_id=?", (user_id,)).fetchone()[0]
+
+        week_ago = time.time() - 7 * 86400
+        this_week = conn.execute(
+            "SELECT COUNT(*) FROM saved_items WHERE user_id=? AND ts>=?", (user_id, week_ago)
+        ).fetchone()[0]
+
+        by_category = conn.execute(
+            "SELECT category, COUNT(*) as cnt FROM saved_items WHERE user_id=? GROUP BY category ORDER BY cnt DESC",
+            (user_id,)
+        ).fetchall()
+
+        by_tool = conn.execute(
+            "SELECT tool, COUNT(*) as cnt FROM saved_items WHERE user_id=? GROUP BY tool ORDER BY cnt DESC LIMIT 10",
+            (user_id,)
+        ).fetchall()
+
+        recent = conn.execute(
+            "SELECT tool,category,title,input_text,ts FROM saved_items WHERE user_id=? ORDER BY ts DESC LIMIT 20",
+            (user_id,)
+        ).fetchall()
+
+        # Chat messages count
+        chat_total = conn.execute(
+            "SELECT COUNT(*) FROM chat_messages WHERE session_id LIKE ?",
+            (f"{user_id}:%",)
+        ).fetchone()[0]
+
+        # Key stat cards: count + last activity timestamp per tool group
+        def _stat(tools):
+            placeholders = ','.join('?' * len(tools))
+            row = conn.execute(
+                f"SELECT COUNT(*) as cnt, MAX(ts) as last_ts FROM saved_items WHERE user_id=? AND tool IN ({placeholders})",
+                [user_id] + list(tools)
+            ).fetchone()
+            return {'count': row['cnt'] or 0, 'last_ts': row['last_ts']}
+
+        test_cases_stat  = _stat(['test-case-generate', 'api-test-generate'])
+        test_data_stat   = _stat(['test-data-generate'])
+        bug_analysis_stat = _stat(['bug-log-analyze', 'screenshot-analyze', 'root-cause-detect'])
+        security_stat    = _stat(['sec-threat-model', 'sec-test-cases', 'sec-vuln-advisor', 'sec-auth-review', 'sec-api-check'])
+        strategy_stat    = _stat(['regression-impact', 'risk-advisor'])
+
+        # Documents analyzed from documents table (if available) - fall back to chat count
+        try:
+            docs_count = conn.execute(
+                "SELECT COUNT(*) FROM documents WHERE user_id=?", (user_id,)
+            ).fetchone()[0]
+            docs_last_ts = conn.execute(
+                "SELECT MAX(uploaded_at) FROM documents WHERE user_id=?", (user_id,)
+            ).fetchone()[0]
+        except Exception:
+            docs_count = 0
+            docs_last_ts = None
+
+        conn.close()
+
+        # Build action descriptions for recent activity
+        _tool_action = {
+            'test-case-generate': 'Test cases generated for',
+            'api-test-generate':  'API tests generated for',
+            'test-data-generate': 'Test data generated for',
+            'bug-log-analyze':    'Bug log analyzed for',
+            'screenshot-analyze': 'Screenshot analyzed for',
+            'root-cause-detect':  'Root cause detected for',
+            'regression-impact':  'Regression impact analyzed for',
+            'risk-advisor':       'Risk assessed for',
+            'sec-threat-model':   'Threat model created for',
+            'sec-test-cases':     'Security tests generated for',
+            'sec-vuln-advisor':   'Vulnerability analyzed for',
+            'sec-auth-review':    'Auth flow reviewed for',
+            'sec-api-check':      'API security checked for',
+        }
+        recent_list = []
+        for r in recent:
+            action = _tool_action.get(r['tool'], 'Analysis saved for')
+            subject = (r['title'] or r['input_text'] or '').strip()[:60]
+            recent_list.append({
+                'tool': r['tool'], 'category': r['category'],
+                'action': action, 'subject': subject, 'ts': r['ts']
+            })
+
+        return jsonify({
+            'success': True,
+            'total_saved': total,
+            'this_week': this_week,
+            'chat_messages': chat_total,
+            'by_category': [{'category': r['category'], 'count': r['cnt']} for r in by_category],
+            'by_tool': [{'tool': r['tool'], 'count': r['cnt']} for r in by_tool],
+            'recent': recent_list,
+            'key_stats': {
+                'test_cases':   test_cases_stat,
+                'test_data':    test_data_stat,
+                'bug_analysis': bug_analysis_stat,
+                'security':     security_stat,
+                'strategy':     strategy_stat,
+                'documents':    {'count': docs_count, 'last_ts': docs_last_ts},
+                'chats':        {'count': chat_total, 'last_ts': None},
+            }
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+def db_all_sessions(user_id=None):
+    """Return list of {session_id, count, last_ts} for the history view. Filter by user_id for isolation."""
+    try:
+        conn = _get_db()
+        if user_id:
+            prefix = f"{user_id}:"
+            like_pattern = prefix + "%"
+            rows = conn.execute("""
+                SELECT session_id, COUNT(*) as cnt, MAX(ts) as last_ts
+                FROM chat_messages WHERE session_id LIKE ?
+                GROUP BY session_id ORDER BY last_ts DESC LIMIT 50
+            """, (like_pattern,)).fetchall()
+            # Return short session_id (without user prefix) for frontend
+            result = []
+            for r in rows:
+                sid = r["session_id"]
+                short_sid = sid[len(prefix):] if sid.startswith(prefix) else sid
+                result.append({"session_id": short_sid, "count": r["cnt"], "last_ts": r["last_ts"]})
+            conn.close()
+            return result
         rows = conn.execute("""
             SELECT session_id, COUNT(*) as cnt, MAX(ts) as last_ts
             FROM chat_messages GROUP BY session_id ORDER BY last_ts DESC LIMIT 50
@@ -1265,16 +1644,11 @@ def _summarize_old_messages(old_messages: list) -> str:
             import openai as _oai
             _client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
             r = _client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16"),
                 messages=[{"role":"user","content":prompt}],
                 max_tokens=300, temperature=0.3
             )
             return r.choices[0].message.content.strip()
-        elif provider == "gemini":
-            import google.generativeai as _genai
-            _genai.configure(api_key=CONFIG["GEMINI_API_KEY"])
-            m = _genai.GenerativeModel(CONFIG.get("GEMINI_MODEL","gemini-2.0-flash"))
-            return m.generate_content(prompt).text.strip()
         else:  # groq (default)
             r = requests.post(
                 "https://api.groq.com/openai/v1/chat/completions",
@@ -1504,12 +1878,38 @@ def serve_automation():
 
 
 # Enhanced static file serving
+@app.route('/login')
+@app.route('/login/')
+def serve_login():
+    """Serve the Nexora login page."""
+    try:
+        response = send_file('nexora-login.html')
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return "HTML file not found", 404
+
+@app.route('/app')
+@app.route('/app/')
+def serve_app():
+    """Serve the main Nexora app (viser-ai-modern)."""
+    try:
+        response = send_file('viser-ai-modern.html')
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    except FileNotFoundError:
+        return "HTML file not found", 404
+
 @app.route('/')
 @app.route('/index.html')
 def serve_index():
+    """Serve the Nexora landing page (nexora-animated)."""
     try:
-        response = send_file('viser-ai-modern.html')
-        # Prevent caching so UI updates are always visible after refresh
+        response = send_file('nexora-animated.html')
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -1527,47 +1927,1462 @@ def serve_assets(subpath):
         print(f"❌ Asset serve error: {e}")
         return "Not found", 404
 
-@app.route('/<path:filename>')
-def serve_static(filename):
-    """Serve static files (HTML, CSS, JS)"""
+
+@app.route('/uploads/automation/<path:filename>')
+def serve_automation_screenshot(filename):
+    """Serve automation screenshots (final screenshot from browser-use)"""
     try:
-        # Security: only allow certain file types
-        allowed_extensions = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico'}
-        file_ext = os.path.splitext(filename)[1].lower()
-        
-        if file_ext not in allowed_extensions:
-            return "File type not allowed", 403
-            
-        # Set appropriate content type
-        content_types = {
-            '.html': 'text/html',
-            '.css': 'text/css', 
-            '.js': 'application/javascript',
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.gif': 'image/gif',
-            '.ico': 'image/x-icon'
-        }
-        
-        if os.path.exists(filename):
-            response = send_file(filename)
-            response.headers['Content-Type'] = content_types.get(file_ext, 'text/plain')
-            return response
-        else:
-            return "File not found", 404
-            
+        uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'automation')
+        return send_from_directory(uploads_dir, filename)
     except Exception as e:
-        print(f"❌ Static file error: {e}")
-        return "Error serving file", 500
+        print(f"❌ Screenshot serve error: {e}")
+        return "Not found", 404
+
+
+def _load_users_config():
+    """Load users config from: 1) USERS_CONFIG_JSON env, 2) config/users.json, 3) config/users.example.json"""
+    # 1) Env var (for Render/Heroku - no file needed)
+    env_json = os.environ.get("USERS_CONFIG_JSON")
+    if env_json:
+        try:
+            return json.loads(env_json)
+        except Exception as e:
+            print(f"⚠️ Auth config env parse error: {e}")
+    # 2) Files
+    for name in ("users.json", "users.example.json"):
+        path = _PROJECT_ROOT / "config" / name
+        if path.exists():
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"⚠️ Auth config load error ({path}): {e}")
+    return None
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    """Validate credentials against config/users.json. Returns user info on success."""
+    try:
+        cfg = _load_users_config()
+        if not cfg:
+            return jsonify({"success": False, "error": "Auth not configured. Add config/users.json"}), 503
+        data = request.get_json(silent=True) or {}
+        email = (data.get("email") or "").strip().lower()
+        password = (data.get("password") or "").strip()
+        workspace = (data.get("workspace") or "qa").strip().lower()
+        if not email or not password:
+            return jsonify({"success": False, "error": "Email and password required"}), 400
+        pwd = cfg.get("password", "")
+        users = cfg.get("users", [])
+        user = None
+        for u in users:
+            if (u.get("email") or "").strip().lower() == email:
+                user = u
+                break
+        if not user or password != pwd:
+            return jsonify({"success": False, "error": "Invalid email or password"}), 401
+        user_ws = (user.get("workspace") or "qa").strip().lower()
+        if workspace not in ("qa", "hr", "ba"):
+            workspace = user_ws
+        if workspace != user_ws:
+            return jsonify({"success": False, "error": f"User not authorized for {workspace} workspace"}), 403
+        return jsonify({
+            "success": True,
+            "user": {
+                "name": user.get("name", email),
+                "email": user.get("email", email),
+                "workspace": workspace
+            }
+        })
+    except Exception as e:
+        print(f"❌ Auth login error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/auth/verify', methods=['GET'])
+def auth_verify():
+    """Check if auth is configured (for frontend to know whether to show login)."""
+    cfg = _load_users_config()
+    return jsonify({"configured": cfg is not None})
+
+
+# ─── Nexora Landing Chatbot (knowledge-based Q&A) ──────────────────────────────
+
+_NEXORA_KNOWLEDGE_PATH = _PROJECT_ROOT / "docs" / "NEXORA_OVERVIEW_AND_WEBSITE_PROMPT.md"
+
+def _load_nexora_knowledge():
+    """Load Nexora knowledge for chatbot context."""
+    if _NEXORA_KNOWLEDGE_PATH.exists():
+        with open(_NEXORA_KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
+            return f.read()
+    return "Nexora is an AI-powered productivity platform for QA, HR, and Business Analysis."
+
+
+@app.route('/api/nexora-ask', methods=['POST'])
+def nexora_ask():
+    """Answer questions about Nexora using Groq, grounded in Nexora docs."""
+    try:
+        data = request.get_json(silent=True) or {}
+        question = (data.get("question") or "").strip()
+        if not question:
+            return jsonify({"success": False, "error": "Question is required"}), 400
+
+        groq_key = CONFIG.get("GROQ_API_KEY")
+        if not groq_key:
+            return jsonify({"success": False, "error": "Groq API key not configured"}), 503
+
+        knowledge = _load_nexora_knowledge()
+        system_prompt = f"""You are Nexora, a helpful AI assistant for the Nexora platform. Answer based ONLY on the knowledge below.
+
+FORMATTING RULES (strict):
+- Keep answers SHORT: 2–4 sentences OR 3–5 bullet points max
+- Use bullet points (• or -) for lists; put each item on its own line
+- Be professional and concise—no long paragraphs
+- If the question is outside this context, say: "I can only answer about Nexora. Sign in to explore the full app."
+
+## Nexora Knowledge
+{knowledge}
+"""
+
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question}
+            ],
+            "temperature": 0.5,
+            "max_tokens": 512
+        }
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        if response.status_code != 200:
+            return jsonify({"success": False, "error": f"AI service error: {response.status_code}"}), 502
+
+        result = response.json()
+        answer = result["choices"][0]["message"]["content"]
+        return jsonify({"success": True, "answer": answer})
+    except Exception as e:
+        print(f"❌ nexora-ask error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── HR Module APIs ───────────────────────────────────────────────────────────
+
+VALORIZ_SIGNATURE = """
+
+Best regards,
+Team HR
+| teamhr@valoriz.com | www.valoriz.com
+
+Valoriz Digital Pvt. Ltd. | CIN: U72900KL2014PTC037415,
+L-2, -1 Floor, Thejaswini Building, Technopark, Trivandrum, Kerala, India
+Disclaimer: The information in this email is confidential and is intended solely for the addressee. Access to this mail by anyone else is unauthorized."""
+
+
+def _hr_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM (Groq or OpenAI) for HR analysis."""
+    provider = get_ai_provider()
+    try:
+        if provider == "openai":
+            import openai as _oai
+            client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
+            r = client.chat.completions.create(
+                model=CONFIG.get("OPENAI_MODEL", "gpt-4o-mini"),
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=0.3
+            )
+            return r.choices[0].message.content.strip()
+        else:
+            r = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {CONFIG['GROQ_API_KEY']}", "Content-Type": "application/json"},
+                json={
+                    "model": CONFIG.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": 0.3
+                },
+                timeout=60
+            )
+            return r.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        raise RuntimeError(f"LLM error: {e}")
+
+
+def _analyze_single_resume(file, tmp_path, ext):
+    """Analyze one resume file, return profile dict."""
+    if ext == '.pdf':
+        content = extract_pdf_content(tmp_path)
+    elif ext == '.docx':
+        content = extract_docx_content(tmp_path)
+    else:
+        with open(tmp_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+    if not content or 'Error' in content[:50]:
+        return None
+    prompt = f"""Analyze this resume and return ONLY valid JSON (no markdown, no extra text) with these exact keys:
+{{
+  "name": "Full name",
+  "email": "email if found else empty string",
+  "phone": "phone if found else empty string",
+  "skills": ["skill1", "skill2", ...],
+  "experience": [{{"role": "Job Title", "company": "Company", "years": "X", "summary": "brief"}}],
+  "education": [{{"degree": "Degree", "institution": "Institution", "year": "year"}}],
+  "summary": "2-3 sentence professional summary",
+  "strengths": ["strength1", "strength2", "strength3", ...]
+}}
+
+For "strengths": List 3-6 key strengths of this candidate based on the resume (e.g. "5+ years Python experience", "Strong communication skills", "Relevant domain expertise", "Leadership experience"). Be specific and actionable.
+
+Resume content:
+{content[:12000]}
+"""
+    result = _hr_llm_completion(prompt, max_tokens=1500)
+    result = result.strip()
+    if result.startswith("```"):
+        result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+    if result.endswith("```"):
+        result = result.rsplit("```", 1)[0].strip()
+    return json.loads(result)
+
+
+@app.route('/api/hr/resume-analyze-by-id', methods=['POST'])
+def hr_resume_analyze_by_id():
+    """Analyze a resume from session context by file_id (isolated per user)."""
+    try:
+        data = request.get_json(silent=True) or {}
+        file_id = (data.get("file_id") or "").strip()
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id") or "default_session", user_id)
+        if not file_id:
+            return jsonify({"success": False, "error": "file_id required"}), 400
+        session = ContextManager.get_session(session_id)
+        doc = None
+        for f in session.get("uploaded_files", []):
+            if f.get("fileId") == file_id:
+                doc = f
+                break
+        if not doc:
+            return jsonify({"success": False, "error": "File not found in session"}), 404
+        path = doc.get("path")
+        if not path or not os.path.exists(path):
+            return jsonify({"success": False, "error": "File not found on disk"}), 404
+        ext = (doc.get("extension") or "").lower()
+        if ext not in ('.pdf', '.docx', '.txt'):
+            return jsonify({"success": False, "error": "Only PDF, DOCX, TXT supported"}), 400
+        filename = doc.get("filename", "resume") + ext
+        data = _analyze_single_resume(None, path, ext)
+        if not data:
+            return jsonify({"success": False, "error": "Could not extract text"}), 400
+        data["filename"] = filename
+        return jsonify({"success": True, "profiles": [data]})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/resume-analyze', methods=['POST'])
+def hr_resume_analyze():
+    """Extract resume text and return structured analysis. Supports single or multiple files (up to 20).
+    Files are also saved to Documents (per user) when session_id is provided."""
+    try:
+        files = request.files.getlist('file') or request.files.getlist('files[]')
+        if not files or (len(files) == 1 and (not files[0] or files[0].filename == '')):
+            single = request.files.get('file')
+            if single and single.filename:
+                files = [single]
+            else:
+                return jsonify({"success": False, "error": "No file(s) provided"}), 400
+        files = [f for f in files if f and f.filename]
+        if not files:
+            return jsonify({"success": False, "error": "No valid files"}), 400
+        if len(files) > 20:
+            return jsonify({"success": False, "error": "Maximum 20 resumes per batch"}), 400
+
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.form.get('session_id', 'default_session'), user_id)
+        upload_dir = "uploads/documents"
+        os.makedirs(upload_dir, exist_ok=True)
+        profiles = []
+        for file in files:
+            ext = (os.path.splitext(file.filename)[1] or '').lower()
+            if ext not in ('.pdf', '.docx', '.txt'):
+                profiles.append({"filename": file.filename, "error": "Unsupported format"})
+                continue
+            file_id = str(uuid.uuid4())
+            unique_filename = f"{file_id}{ext}"
+            file_path = os.path.join(upload_dir, unique_filename)
+            file_data = file.read()
+            with open(file_path, 'wb') as f:
+                f.write(file_data)
+            try:
+                data = _analyze_single_resume(file, file_path, ext)
+                if data:
+                    data["filename"] = file.filename
+                    profiles.append(data)
+                else:
+                    profiles.append({"filename": file.filename, "error": "Could not extract text"})
+            except Exception as e:
+                profiles.append({"filename": file.filename, "error": str(e)})
+            if session_id and session_id != "default_session":
+                file_info = {
+                    "filename": file.filename,
+                    "path": file_path,
+                    "size": len(file_data),
+                    "fileId": file_id,
+                    "type": "document",
+                    "extension": ext
+                }
+                ContextManager.add_file_context(session_id, file_info)
+        return jsonify({"success": True, "profiles": profiles})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/jd-keywords', methods=['POST'])
+def hr_jd_keywords():
+    """Extract key skills/keywords from job description."""
+    try:
+        data = request.get_json(silent=True) or {}
+        jd = (data.get("job_description") or "").strip()
+        if not jd:
+            return jsonify({"success": False, "error": "Job description required"}), 400
+        prompt = f"""Extract the key skills, technologies, and qualifications required from this job description. Return ONLY a JSON array of strings, no other text. Example: ["Python", "SQL", "5 years experience", "B.Tech"].
+
+Job Description:
+{jd[:3000]}
+"""
+        result = _hr_llm_completion(prompt, max_tokens=500)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        keywords = json.loads(result)
+        if not isinstance(keywords, list):
+            keywords = [str(keywords)]
+        return jsonify({"success": True, "keywords": keywords})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/screen', methods=['POST'])
+def hr_screen():
+    """Match candidates to job description. Returns ranked list with match %, skill_match (color indication), and notes."""
+    try:
+        data = request.get_json(silent=True) or {}
+        job_description = (data.get("job_description") or "").strip()
+        job_role = (data.get("job_role") or "").strip()  # designation from JD for email
+        candidates = data.get("candidates") or []
+        if not job_description:
+            return jsonify({"success": False, "error": "Job description required"}), 400
+        if not candidates:
+            return jsonify({"success": False, "error": "At least one candidate required"}), 400
+
+        prompt = f"""You are an HR screening expert. Given the job description and candidate profiles, rank each candidate. For each candidate, also provide "skill_match": array of {{"skill": "skill name", "matched": true/false}} for key JD skills - true if candidate has it, false if missing.
+
+Return ONLY valid JSON (no markdown):
+{{
+  "job_role": "extract the job title/designation from the JD",
+  "keywords": ["key skill 1", "key skill 2", ...],
+  "ranked": [
+    {{
+      "index": 1,
+      "name": "candidate name",
+      "email": "email if known",
+      "match_percent": 85,
+      "skill_match": [{{"skill": "Python", "matched": true}}, {{"skill": "AWS", "matched": false}}],
+      "strengths": ["strength1"],
+      "gaps": ["gap1"],
+      "recommendation": "Shortlist" or "Maybe" or "Reject"
+    }}
+  ]
+}}
+
+Job Description:
+{job_description[:4000]}
+
+Candidates:
+{json.dumps(candidates[:20], ensure_ascii=False)[:8000]}
+"""
+        result = _hr_llm_completion(prompt, max_tokens=3500)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        ranked = out.get("ranked", out) if isinstance(out.get("ranked"), list) else []
+        # Merge email from input candidates when LLM doesn't return it
+        cand_by_name = {}
+        for c in candidates:
+            if isinstance(c, dict) and c.get("email"):
+                n = (c.get("name") or "").strip().lower()
+                if n:
+                    cand_by_name[n] = c.get("email", "")
+        for r in ranked:
+            if isinstance(r, dict) and not r.get("email"):
+                n = (r.get("name") or "").strip().lower()
+                if n and n in cand_by_name:
+                    r["email"] = cand_by_name[n]
+        job_role = out.get("job_role") or job_role
+        keywords = out.get("keywords", [])
+        return jsonify({"success": True, "ranked": ranked, "job_role": job_role, "keywords": keywords})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/mail-draft', methods=['POST'])
+def hr_mail_draft():
+    """Draft HR email from template and variables."""
+    try:
+        data = request.get_json(silent=True) or {}
+        template = (data.get("template") or "interview_invite").strip()
+        variables = data.get("variables") or {}
+        templates = {
+            "interview_invite": "Draft a professional interview invitation email. Include: greeting, role, date, time, location/meeting link, what to bring, contact for questions.",
+            "rejection": "Draft a polite rejection email after interview. Be respectful and wish them well.",
+            "follow_up": "Draft a follow-up email to a candidate after interview, asking for any updates or next steps.",
+            "offer": "Draft a job offer email. Include: position, start date, compensation if provided, next steps.",
+        }
+        instruction = templates.get(template, templates["interview_invite"])
+        vars_str = "\n".join(f"- {k}: {v}" for k, v in variables.items())
+        prompt = f"""Generate an HR email. {instruction}
+
+Variables provided:
+{vars_str or '(none)'}
+
+Return ONLY the email body (no subject line, no extra text). Use the variables where relevant. Professional tone. Do NOT add any signature, sign-off, "Best regards", "Sincerely", "[Your Name]", or closing - we add it automatically."""
+        body = _hr_llm_completion(prompt, max_tokens=800)
+        # Strip any sign-off the LLM may have added (Best regards, Sincerely, [Your Name], etc.)
+        import re
+        body = (body or "").strip()
+        # Exact string removal first (common LLM output) - case insensitive
+        body_lower = body.lower()
+        for s in ['\n[your name]', '\nbest regards,\n[your name]', '\nbest regards,\n\n[your name]',
+                  '\nregards,\n[your name]', '\nsincerely,\n[your name]']:
+            if body_lower.endswith(s):
+                body = body[:len(body)-len(s)].rstrip()
+                body_lower = body.lower()
+        # Regex for variations
+        signoff_patterns = [
+            r'\n\s*Best\s+regards\s*,\s*\n\s*\[Your\s+Name\]\s*$',
+            r'\n\s*\[Your\s+Name\]\s*$',
+            r'\n\s*\[[^\]]*[Nn]ame[^\]]*\]\s*$',
+            r'\n\s*Best\s+regards\s*,?\s*$',
+            r'\n\s*(?:Regards|Sincerely|Thank you|Thanks|Warm regards)\s*,?\s*(?:\n\s*\[[^\]]*\])?\s*$',
+        ]
+        for _ in range(5):
+            prev = body
+            for p in signoff_patterns:
+                body = re.sub(p, '', body, flags=re.IGNORECASE)
+            body = body.strip()
+            if body == prev:
+                break
+        # Append Valoriz signature to all generated emails
+        body = body + VALORIZ_SIGNATURE
+        subject_prompts = {
+            "interview_invite": "Subject line for interview invitation",
+            "rejection": "Subject line for rejection email",
+            "follow_up": "Subject line for follow-up",
+            "offer": "Subject line for job offer",
+        }
+        sub_prompt = f"Generate a short subject line for: {subject_prompts.get(template, 'HR email')}. Variables: {variables}. Reply with ONLY the subject, no quotes."
+        subject = _hr_llm_completion(sub_prompt, max_tokens=50)
+        return jsonify({"success": True, "subject": subject.strip(), "body": body.strip()})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── BA (Business Analysis) Module APIs ──────────────────────────────────────
+
+def _ba_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM for BA analysis (reuses HR LLM)."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _extract_requirements_from_file(file, tmp_path, ext):
+    """Extract text from requirements file (PDF, DOCX, TXT)."""
+    if ext == '.pdf':
+        return extract_pdf_content(tmp_path)
+    if ext == '.docx':
+        return extract_docx_content(tmp_path)
+    if ext == '.txt':
+        with open(tmp_path, 'r', encoding='utf-8', errors='ignore') as f:
+            return f.read()
+    return None
+
+
+@app.route('/api/ba-requirement-analyze', methods=['POST', 'OPTIONS'])
+def ba_requirement_analyze():
+    """Analyze requirements document and extract structured insights. Accepts JSON with 'requirements' or file upload (PDF, DOCX, TXT)."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        requirements = ""
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            requirements = (data.get("requirements") or data.get("text") or "").strip()
+        if not requirements and request.files:
+            file = request.files.get('file')
+            if file and file.filename:
+                ext = (os.path.splitext(file.filename)[1] or '').lower()
+                if ext not in ('.pdf', '.docx', '.txt'):
+                    return jsonify({"success": False, "error": "Only PDF, DOCX, TXT supported"}), 400
+                upload_dir = "uploads/documents"
+                os.makedirs(upload_dir, exist_ok=True)
+                file_id = str(uuid.uuid4())
+                tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+                file.save(tmp_path)
+                try:
+                    requirements = _extract_requirements_from_file(file, tmp_path, ext) or ""
+                finally:
+                    if os.path.exists(tmp_path):
+                        try:
+                            os.remove(tmp_path)
+                        except OSError:
+                            pass
+        if not requirements or not requirements.strip():
+            return jsonify({"success": False, "error": "Requirements text or file required"}), 400
+        requirements = requirements.strip()
+        prompt = f"""Analyze these software/business requirements and return ONLY valid JSON (no markdown, no extra text):
+{{
+  "summary": "2-3 sentence summary of the requirements",
+  "features": ["feature1", "feature2", ...],
+  "acceptance_criteria": ["criterion1", "criterion2", ...],
+  "dependencies": ["dep1", "dep2", ...],
+  "assumptions": ["assumption1", ...],
+  "risks": ["risk1", ...],
+  "stakeholders": ["stakeholder1", ...]
+}}
+
+Requirements:
+{requirements[:8000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=1500)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        return jsonify({"success": True, "analysis": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ba-user-story-generate', methods=['POST', 'OPTIONS'])
+def ba_user_story_generate():
+    """Generate user stories from requirements."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        requirements = (data.get("requirements") or data.get("text") or "").strip()
+        story_type = (data.get("story_type") or "user_story").strip().lower()
+        if not requirements:
+            return jsonify({"success": False, "error": "Requirements text required"}), 400
+        type_instructions = {
+            "user_story": "Generate user stories in format: As a [role], I want [action] so that [benefit]. Include acceptance criteria for each.",
+            "use_case": "Generate use cases with actors, preconditions, main flow, and postconditions.",
+            "epic": "Generate epics (high-level features) that can be broken into user stories.",
+        }
+        instruction = type_instructions.get(story_type, type_instructions["user_story"])
+        prompt = f"""Convert these requirements into {story_type.replace('_', ' ')}s. {instruction}
+
+Return ONLY valid JSON:
+{{
+  "stories": [
+    {{
+      "id": "US-1",
+      "title": "short title",
+      "description": "As a [role], I want [action] so that [benefit]",
+      "acceptance_criteria": ["AC1", "AC2", ...],
+      "priority": "High|Medium|Low"
+    }}
+  ]
+}}
+
+Requirements:
+{requirements[:8000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=2000)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        out = json.loads(result)
+        stories = out.get("stories", out) if isinstance(out, dict) else (out if isinstance(out, list) else [])
+        return jsonify({"success": True, "stories": stories})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"Invalid AI response: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/ba-flow-diagram-generate', methods=['GET', 'POST', 'OPTIONS'])
+def ba_flow_diagram_generate():
+    """Generate Mermaid flowchart from process description."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    if request.method == 'GET':
+        return jsonify({"ok": True, "message": "Use POST with {description: '...'}"}), 200
+    try:
+        data = request.get_json(silent=True) or {}
+        description = (data.get("description") or data.get("text") or "").strip()
+        diagram_type = (data.get("diagram_type") or "flowchart").strip().lower()
+        if not description:
+            return jsonify({"success": False, "error": "Process description required"}), 400
+        prompt = f"""Convert this process/flow description into a valid Mermaid flowchart diagram.
+Return ONLY the raw Mermaid code — no markdown fences, no explanation, no comments.
+
+STRICT MERMAID SYNTAX RULES (follow exactly):
+1. First line MUST be: flowchart TB  (or flowchart LR for wide flows)
+2. Every node needs an alphanumeric ID followed by its shape:
+   - Process box:   A[Step label]
+   - Decision:      D{{Yes or No?}}
+   - Start/End:     ST([Start])   EN([End])
+   - Circle:        id((text))
+3. Arrows:  A --> B   or   A -->|Yes| B   or   A -->|No| C
+4. NEVER use bare parentheses as a node — (Start) is INVALID. Use ST([Start]) instead.
+5. Node IDs must start with a letter (A-Z, a-z) — no punctuation or spaces in IDs.
+6. Keep labels short. Wrap long labels in quotes: A["Long label here"]
+
+EXAMPLE (login flow):
+flowchart TB
+    ST([Start])
+    ST --> A[User enters credentials]
+    A --> B{{Valid credentials?}}
+    B -->|Yes| C[Dashboard]
+    B -->|No| D[Show error]
+    D --> A
+    C --> EN([End])
+
+Now generate the diagram for:
+{description[:3000]}
+"""
+        result = _ba_llm_completion(prompt, max_tokens=1000)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+        if result.endswith("```"):
+            result = result.rsplit("```", 1)[0].strip()
+        if "flowchart" not in result.lower() and "graph" not in result.lower():
+            result = "flowchart TB\n" + result
+        # Sanitise common AI mistakes: bare (Start) / (End) nodes without an ID prefix
+        import re as _re
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(Start\)', 'ST([Start])', result, flags=_re.IGNORECASE)
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(End\)', 'EN([End])', result, flags=_re.IGNORECASE)
+        result = _re.sub(r'(?<![A-Za-z0-9_])\(Stop\)', 'EN([End])', result, flags=_re.IGNORECASE)
+        # Fix arrows to bare (...) targets: --> (Word) → --> Word([Word])
+        def _fix_bare_paren_target(m):
+            label = m.group(1)
+            safe_id = _re.sub(r'\W+', '', label)[:12] or 'N'
+            return f'--> {safe_id}([{label}])'
+        result = _re.sub(r'-->\s*\(([^)]+)\)', _fix_bare_paren_target, result)
+        return jsonify({"success": True, "mermaid": result})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── QA Intelligence Module ──────────────────────────────────────────────────
+
+def _qa_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM (Groq or OpenAI) for QA Intelligence analysis."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _qa_strip_json(raw: str) -> str:
+    """Strip markdown fences from LLM JSON response."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0].strip()
+    return raw.strip()
+
+
+def _qa_extract_text_file(file_storage) -> str:
+    """Extract plain text from an uploaded log / text file."""
+    ext = (os.path.splitext(file_storage.filename)[1] or "").lower()
+    upload_dir = "uploads/documents"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_id = str(uuid.uuid4())
+    tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+    file_storage.save(tmp_path)
+    try:
+        if ext == ".pdf":
+            return extract_pdf_content(tmp_path) or ""
+        if ext == ".docx":
+            return extract_docx_content(tmp_path) or ""
+        with open(tmp_path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+
+@app.route('/api/qa/test-case-generate', methods=['POST', 'OPTIONS'])
+def qa_test_case_generate():
+    """Generate functional and edge test cases from a feature/requirement description or uploaded document."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        feature = ""
+        context = ""
+
+        # Accept file upload (PDF, DOCX, TXT, MD) OR JSON body
+        if request.files and request.files.get('file'):
+            uploaded = request.files['file']
+            ext = (os.path.splitext(uploaded.filename)[1] or "").lower()
+            allowed = {'.pdf', '.docx', '.txt', '.md', '.csv'}
+            if ext not in allowed:
+                return jsonify({"success": False, "error": "Only PDF, DOCX, TXT, MD or CSV files are supported"}), 400
+            feature = _qa_extract_text_file(uploaded) or ""
+            if not feature.strip():
+                return jsonify({"success": False, "error": "Could not extract text from the uploaded file"}), 400
+            # context may arrive as a form field alongside the file
+            context = (request.form.get("context") or "").strip()
+        else:
+            # silent=True prevents a 415 when content-type is multipart/form-data without a file
+            data = request.get_json(silent=True) or {}
+            feature = (data.get("feature") or data.get("text") or request.form.get("feature") or "").strip()
+            context = (data.get("context") or request.form.get("context") or "").strip()
+
+        if not feature:
+            return jsonify({"success": False, "error": "Feature description or document file required"}), 400
+
+        prompt = f"""You are an expert QA engineer. Generate comprehensive test cases for the following feature.
+
+Feature: {feature[:6000]}
+{f'Additional context: {context[:2000]}' if context else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "summary": "Brief description of what is being tested",
+  "test_cases": [
+    {{
+      "id": "TC-001",
+      "title": "Test case title",
+      "type": "Functional|Edge|Negative|Performance",
+      "priority": "High|Medium|Low",
+      "preconditions": "What must be true before the test",
+      "steps": ["Step 1", "Step 2"],
+      "expected_result": "What should happen",
+      "test_data": "Sample data if applicable"
+    }}
+  ],
+  "coverage_areas": ["area1", "area2"]
+}}
+
+Generate at least 8-12 test cases covering: happy path, edge cases, negative cases, boundary values."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=3000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/test-data-generate', methods=['POST', 'OPTIONS'])
+def qa_test_data_generate():
+    """Generate realistic test data sets (valid, invalid, boundary, edge) for a given entity or form."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        entity       = (data.get("entity") or data.get("text") or "").strip()
+        fields       = (data.get("fields") or "").strip()
+        data_types   = (data.get("data_types") or "").strip()
+        record_count = int(data.get("record_count") or 5)
+        record_count = max(1, min(record_count, 20))   # clamp 1-20
+
+        if not entity:
+            return jsonify({"success": False, "error": "Entity or form description is required"}), 400
+
+        prompt = f"""You are an expert QA test data engineer. Generate comprehensive test data for the following entity/form.
+
+Entity / Form: {entity[:4000]}
+{f'Fields: {fields[:2000]}' if fields else ''}
+{f'Data types / constraints: {data_types[:1000]}' if data_types else ''}
+Records requested per category: {record_count}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "entity": "name of the entity/form",
+  "summary": "Brief description of the test data strategy",
+  "categories": [
+    {{
+      "category": "Valid Data",
+      "description": "Normal, expected inputs that should pass all validations",
+      "records": [
+        {{"id": 1, "description": "typical happy path record", "data": {{"field1": "value1", "field2": "value2"}}}}
+      ]
+    }},
+    {{
+      "category": "Invalid Data",
+      "description": "Inputs that violate business rules or format constraints",
+      "records": [
+        {{"id": 1, "description": "what makes this invalid", "data": {{"field1": "bad_value"}}, "expected_error": "Error message expected"}}
+      ]
+    }},
+    {{
+      "category": "Boundary Values",
+      "description": "Min/max limits, empty strings, zero, max length strings",
+      "records": [
+        {{"id": 1, "description": "min boundary", "data": {{"field1": "min_value"}}}}
+      ]
+    }},
+    {{
+      "category": "Edge Cases",
+      "description": "Unusual but valid inputs: special characters, unicode, nulls, whitespace",
+      "records": [
+        {{"id": 1, "description": "special character input", "data": {{"field1": "special@#$value"}}}}
+      ]
+    }},
+    {{
+      "category": "SQL / XSS Injection",
+      "description": "Security test inputs to verify sanitisation",
+      "records": [
+        {{"id": 1, "description": "SQL injection attempt", "data": {{"field1": "' OR '1'='1"}}}}
+      ]
+    }}
+  ],
+  "notes": ["important note about test data", "constraint to be aware of"]
+}}
+
+Generate {record_count} records per category. Make field values realistic and specific to the entity described."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=3500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/api-test-generate', methods=['POST', 'OPTIONS'])
+def qa_api_test_generate():
+    """Generate API test scenarios from endpoint description or OpenAPI snippet."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        endpoint = (data.get("endpoint") or "").strip()
+        method = (data.get("method") or "GET").strip().upper()
+        description = (data.get("description") or data.get("text") or "").strip()
+        if not description and not endpoint:
+            return jsonify({"success": False, "error": "Endpoint URL or description required"}), 400
+
+        prompt = f"""You are a senior API QA engineer. Generate thorough API test scenarios.
+
+Endpoint: {method} {endpoint}
+Description: {description[:5000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "endpoint": "{method} {endpoint}",
+  "test_scenarios": [
+    {{
+      "id": "API-001",
+      "scenario": "Scenario name",
+      "type": "Happy Path|Error|Auth|Boundary|Performance",
+      "method": "{method}",
+      "headers": {{"Content-Type": "application/json"}},
+      "request_body": {{}},
+      "query_params": {{}},
+      "expected_status": 200,
+      "expected_response": "Description of expected response",
+      "validation_points": ["check1", "check2"]
+    }}
+  ],
+  "auth_tests": ["auth scenario 1", "auth scenario 2"],
+  "performance_notes": "Notes on load/performance testing"
+}}
+
+Include: success cases, error cases (4xx, 5xx), auth failures, boundary inputs, missing fields."""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/bug-log-analyze', methods=['POST', 'OPTIONS'])
+def qa_bug_log_analyze():
+    """Analyze a bug log (pasted text or file upload) and extract error patterns, severity, root causes."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        log_text = ""
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            log_text = (data.get("log_text") or data.get("text") or "").strip()
+        if not log_text and request.files:
+            f = request.files.get('file')
+            if f and f.filename:
+                log_text = _qa_extract_text_file(f)
+        if not log_text:
+            return jsonify({"success": False, "error": "Log text or file required"}), 400
+
+        prompt = f"""You are an expert QA/DevOps engineer. Analyse the following application log and extract structured insights.
+
+Log Content:
+{log_text[:10000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "summary": "High-level summary of the log health",
+  "severity": "Critical|High|Medium|Low",
+  "error_patterns": [
+    {{
+      "pattern": "Error pattern description",
+      "occurrences": 0,
+      "severity": "Critical|High|Medium|Low",
+      "message": "Example error message"
+    }}
+  ],
+  "root_causes": ["root cause 1", "root cause 2"],
+  "affected_components": ["component1", "component2"],
+  "recommendations": ["recommendation1", "recommendation2"],
+  "error_count": 0,
+  "warning_count": 0
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/screenshot-analyze', methods=['POST', 'OPTIONS'])
+def qa_screenshot_analyze():
+    """Analyze a UI screenshot to identify visual bugs and UX issues."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        f = request.files.get('file') if request.files else None
+        if not f or not f.filename:
+            return jsonify({"success": False, "error": "Screenshot image file required"}), 400
+
+        ext = (os.path.splitext(f.filename)[1] or "").lower()
+        allowed = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        if ext not in allowed:
+            return jsonify({"success": False, "error": "Image file required (JPG, PNG, GIF, BMP, WEBP)"}), 400
+
+        upload_dir = "uploads/images"
+        os.makedirs(upload_dir, exist_ok=True)
+        file_id = str(uuid.uuid4())
+        tmp_path = os.path.join(upload_dir, f"{file_id}{ext}")
+        f.save(tmp_path)
+
+        try:
+            vision_prompt = """You are a QA engineer reviewing a UI screenshot. Identify all visual bugs, UX issues, and accessibility concerns.
+Provide your analysis as JSON with no markdown:
+{
+  "overall_assessment": "Pass|Fail|Warning",
+  "summary": "Brief overall summary",
+  "ui_issues": [
+    {
+      "issue": "Issue description",
+      "severity": "Critical|High|Medium|Low",
+      "location": "Where on screen",
+      "recommendation": "How to fix"
+    }
+  ],
+  "ux_concerns": ["concern1", "concern2"],
+  "accessibility_issues": ["issue1", "issue2"],
+  "positive_observations": ["good thing 1", "good thing 2"]
+}"""
+            raw = analyze_image_with_vision(tmp_path, vision_prompt)
+            out = json.loads(_qa_strip_json(raw))
+            return jsonify({"success": True, "result": out})
+        except json.JSONDecodeError:
+            return jsonify({"success": True, "result": {"summary": raw, "ui_issues": [], "ux_concerns": [], "accessibility_issues": [], "positive_observations": []}})
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/root-cause-detect', methods=['POST', 'OPTIONS'])
+def qa_root_cause_detect():
+    """Detect root cause of a bug from description and optional log snippet."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        bug_description = (data.get("bug_description") or data.get("text") or "").strip()
+        log_snippet = (data.get("log_snippet") or "").strip()
+        if not bug_description:
+            return jsonify({"success": False, "error": "Bug description required"}), 400
+
+        prompt = f"""You are a senior QA/debugging expert. Perform root cause analysis for the following bug.
+
+Bug Description: {bug_description[:4000]}
+{f'Log Snippet:{chr(10)}{log_snippet[:3000]}' if log_snippet else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "root_cause": "Primary root cause identified",
+  "confidence": "High|Medium|Low",
+  "category": "Code Bug|Configuration|Data|Environment|Integration|Performance|Security",
+  "contributing_factors": ["factor1", "factor2"],
+  "affected_components": ["component1", "component2"],
+  "fix_suggestions": [
+    {{
+      "action": "What to do",
+      "priority": "Immediate|Short-term|Long-term",
+      "effort": "Low|Medium|High"
+    }}
+  ],
+  "prevention_measures": ["measure1", "measure2"],
+  "similar_risks": ["other area at risk 1", "other area at risk 2"]
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2000)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/regression-impact', methods=['POST', 'OPTIONS'])
+def qa_regression_impact():
+    """Analyse a code/requirement change and suggest regression test areas."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        change_description = (data.get("change_description") or data.get("text") or "").strip()
+        affected_modules = (data.get("affected_modules") or "").strip()
+        if not change_description:
+            return jsonify({"success": False, "error": "Change description required"}), 400
+
+        prompt = f"""You are a QA lead performing regression impact analysis.
+
+Change Description: {change_description[:5000]}
+{f'Modules mentioned as changed: {affected_modules}' if affected_modules else ''}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "impact_summary": "Overall impact assessment",
+  "risk_level": "Critical|High|Medium|Low",
+  "directly_impacted_areas": [
+    {{
+      "area": "Module or feature name",
+      "impact_type": "Direct|Indirect",
+      "reason": "Why this is impacted"
+    }}
+  ],
+  "regression_test_suites": [
+    {{
+      "suite": "Test suite name",
+      "priority": "Must Run|Should Run|Nice to Have",
+      "estimated_effort": "Low|Medium|High",
+      "test_types": ["Smoke", "Functional", "Integration"]
+    }}
+  ],
+  "specific_test_scenarios": ["scenario1", "scenario2"],
+  "skip_safe_areas": ["area safe to skip regression 1"],
+  "recommendations": ["recommendation1", "recommendation2"]
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/qa/risk-advisor', methods=['POST', 'OPTIONS'])
+def qa_risk_advisor():
+    """Generate a risk-based test priority matrix for a feature or module."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        feature_description = (data.get("feature_description") or data.get("text") or "").strip()
+        if not feature_description:
+            return jsonify({"success": False, "error": "Feature or module description required"}), 400
+
+        prompt = f"""You are a QA strategist. Generate a risk-based test prioritization matrix for the following feature/module.
+
+Feature/Module: {feature_description[:5000]}
+
+Return ONLY valid JSON with no markdown:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Risk assessment summary",
+  "risk_areas": [
+    {{
+      "area": "Risk area name",
+      "risk_level": "Critical|High|Medium|Low",
+      "likelihood": "High|Medium|Low",
+      "impact": "High|Medium|Low",
+      "description": "What could go wrong",
+      "mitigation": "How to mitigate"
+    }}
+  ],
+  "test_priorities": [
+    {{
+      "test_area": "What to test",
+      "priority": 1,
+      "rationale": "Why this priority",
+      "test_type": "Smoke|Functional|Integration|Performance|Security|UAT"
+    }}
+  ],
+  "must_test_scenarios": ["critical scenario 1", "critical scenario 2"],
+  "estimated_test_effort": {{
+    "smoke": "X hours",
+    "functional": "X hours",
+    "regression": "X hours"
+  }}
+}}"""
+
+        raw = _qa_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_qa_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── Security Intelligence Module ────────────────────────────────────────────
+
+def _sec_llm_completion(prompt: str, max_tokens: int = 2000) -> str:
+    """Call LLM for Security Intelligence analysis."""
+    return _hr_llm_completion(prompt, max_tokens)
+
+
+def _sec_strip_json(raw: str) -> str:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1] if "\n" in raw else raw[3:]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0].strip()
+    return raw.strip()
+
+
+@app.route('/api/security/threat-model', methods=['POST', 'OPTIONS'])
+def security_threat_model():
+    """Generate an OWASP-aligned threat model for a feature or system."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        description = (data.get("description") or data.get("text") or "").strip()
+        if not description:
+            return jsonify({"success": False, "error": "System or feature description is required"}), 400
+
+        prompt = f"""You are an expert application security engineer. Perform a comprehensive OWASP-aligned threat model for the system/feature described below.
+
+System/Feature: {description[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Brief threat model summary",
+  "threats": [
+    {{
+      "id": "T001",
+      "name": "Threat name",
+      "category": "OWASP category (e.g. Injection, Broken Auth)",
+      "owasp_ref": "OWASP Top 10 reference e.g. A03:2021",
+      "description": "What the threat is and how it could be exploited",
+      "likelihood": "High|Medium|Low",
+      "impact": "High|Medium|Low",
+      "mitigations": ["Mitigation 1", "Mitigation 2"]
+    }}
+  ],
+  "security_requirements": ["Requirement 1", "Requirement 2"]
+}}
+
+Generate 5-8 relevant threats. Be specific and actionable."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=3000)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/test-cases', methods=['POST', 'OPTIONS'])
+def security_test_cases():
+    """Generate security-focused test cases (OWASP, XSS, SQLi, Auth Bypass, etc.)."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        feature = (data.get("feature") or data.get("text") or "").strip()
+        attack_types = data.get("attack_types") or []
+        if not feature:
+            return jsonify({"success": False, "error": "Feature or endpoint description is required"}), 400
+
+        attack_filter = ""
+        if attack_types:
+            attack_filter = f"\nFocus on these attack types: {', '.join(attack_types)}."
+
+        prompt = f"""You are a senior security QA engineer. Generate detailed security test cases for the following feature or endpoint.
+
+Feature/Endpoint: {feature[:5000]}{attack_filter}
+
+Cover: SQL Injection, XSS, CSRF, Authentication Bypass, Authorisation flaws, Input Validation, Rate Limiting, Sensitive Data Exposure, and any other relevant attack vectors.
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "summary": "Brief description of security testing scope",
+  "test_cases": [
+    {{
+      "id": "SEC-001",
+      "title": "Test case title",
+      "type": "SQL Injection|XSS|CSRF|Auth Bypass|IDOR|Rate Limiting|Input Validation|Sensitive Data|Other",
+      "severity": "Critical|High|Medium|Low",
+      "cwe_ref": "CWE-89 or similar",
+      "description": "What this test verifies",
+      "steps": ["Step 1", "Step 2", "Step 3"],
+      "payload": "Example payload or attack vector (if applicable)",
+      "expected_result": "What should happen if the system is secure",
+      "fail_indicator": "What indicates a vulnerability"
+    }}
+  ]
+}}
+
+Generate 8-12 security test cases. Be specific with payloads and steps."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=3500)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/vulnerability-advisor', methods=['POST', 'OPTIONS'])
+def security_vulnerability_advisor():
+    """Analyse a vulnerability description or code snippet and provide remediation guidance."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        vulnerability = (data.get("vulnerability") or data.get("text") or "").strip()
+        if not vulnerability:
+            return jsonify({"success": False, "error": "Vulnerability description or code snippet is required"}), 400
+
+        prompt = f"""You are an expert application security researcher. Analyse the vulnerability or code snippet below and provide complete remediation guidance.
+
+Vulnerability / Code: {vulnerability[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "vulnerability_name": "Name of the vulnerability",
+  "severity": "Critical|High|Medium|Low",
+  "cvss_score": "e.g. 9.8 (or N/A)",
+  "cwe_ref": "e.g. CWE-79",
+  "owasp_ref": "e.g. A03:2021 - Injection",
+  "explanation": "Clear explanation of what the vulnerability is and why it is dangerous",
+  "attack_scenario": "Step-by-step how an attacker could exploit this",
+  "impact": ["Impact 1", "Impact 2"],
+  "remediation_steps": ["Step 1", "Step 2", "Step 3"],
+  "secure_code_example": "Short code snippet showing the secure version (if applicable)",
+  "references": ["Link or standard reference 1", "Link or standard reference 2"]
+}}"""
+
+        raw = _sec_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/auth-review', methods=['POST', 'OPTIONS'])
+def security_auth_review():
+    """Review an authentication or authorisation flow and surface security gaps."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        auth_flow = (data.get("auth_flow") or data.get("text") or "").strip()
+        if not auth_flow:
+            return jsonify({"success": False, "error": "Authentication/authorisation flow description is required"}), 400
+
+        prompt = f"""You are an application security architect specialising in identity and access management. Review the authentication/authorisation flow below and surface all security weaknesses.
+
+Auth Flow: {auth_flow[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Overall assessment of the auth flow",
+  "findings": [
+    {{
+      "id": "AF-001",
+      "issue": "Short issue title",
+      "severity": "Critical|High|Medium|Low",
+      "category": "Authentication|Authorisation|Session Management|Token Security|Other",
+      "description": "Detailed description of the weakness",
+      "attack_vector": "How an attacker could exploit this",
+      "recommendation": "Specific fix recommendation",
+      "owasp_ref": "e.g. A07:2021"
+    }}
+  ],
+  "positive_findings": ["Good practice 1", "Good practice 2"],
+  "recommended_controls": ["Control 1", "Control 2"]
+}}
+
+Be thorough — check for broken authentication, insecure direct object references, privilege escalation, session fixation, token weaknesses, and missing MFA."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/security/api-security-check', methods=['POST', 'OPTIONS'])
+def security_api_check():
+    """Check an API description against OWASP API Security Top 10."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = request.get_json(silent=True) or {}
+        api_description = (data.get("api_description") or data.get("text") or "").strip()
+        if not api_description:
+            return jsonify({"success": False, "error": "API description is required"}), 400
+
+        prompt = f"""You are an API security expert. Evaluate the API description below against the OWASP API Security Top 10 (2023 edition).
+
+API Description: {api_description[:5000]}
+
+Return ONLY valid JSON with no markdown fences:
+{{
+  "overall_risk": "Critical|High|Medium|Low",
+  "summary": "Overall API security posture summary",
+  "findings": [
+    {{
+      "owasp_ref": "API1:2023",
+      "title": "Broken Object Level Authorization",
+      "severity": "Critical|High|Medium|Low",
+      "applies": true,
+      "description": "Why this risk applies to this API",
+      "recommendation": "Specific remediation steps"
+    }}
+  ],
+  "security_headers": ["Recommended HTTP security header 1", "Header 2"],
+  "quick_wins": ["Quick security improvement 1", "Improvement 2"]
+}}
+
+Evaluate all applicable OWASP API Top 10 risks. Only include those that are relevant to the described API."""
+
+        raw = _sec_llm_completion(prompt, max_tokens=2500)
+        out = json.loads(_sec_strip_json(raw))
+        return jsonify({"success": True, "result": out})
+    except json.JSONDecodeError as e:
+        return jsonify({"success": False, "error": f"AI response parsing failed: {e}"}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/hr/send-mail', methods=['POST'])
+def hr_send_mail():
+    """Send HR email with subject, body, and recipient. Valoriz signature is always appended."""
+    try:
+        data = request.get_json(silent=True) or {}
+        subject = (data.get("subject") or "").strip()
+        body = (data.get("body") or "").strip()
+        recipient = (data.get("recipient") or "").strip()
+        if not recipient or "@" not in recipient:
+            return jsonify({"success": False, "error": "Valid recipient email required"}), 400
+        if not subject:
+            return jsonify({"success": False, "error": "Subject required"}), 400
+        if not body:
+            return jsonify({"success": False, "error": "Email body required"}), 400
+        # Always append Valoriz signature if not already present
+        if "teamhr@valoriz.com" not in body:
+            body = body.rstrip() + VALORIZ_SIGNATURE
+        success, msg = send_email(recipient, subject, body)
+        if success:
+            return jsonify({"success": True, "message": f"Email sent to {recipient}"})
+        return jsonify({"success": False, "error": msg}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
         print("📨 Received chat request")
-        data = request.get_json()
+        data = request.get_json(silent=True)
         user_message = data.get("message", "")
-        session_id = data.get("session_id", "default_session")
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
         print(f"💬 User message: {user_message[:100]}...")
         print(f"🔑 Session ID: {session_id}")
@@ -1576,8 +3391,9 @@ def chat():
             print("❌ No message provided")
             return jsonify({"error": "No message provided"}), 400
 
-        # Add user message to conversation history
-        ContextManager.add_message(session_id, "user", user_message)
+        # Add user message to conversation history (TonniFy preprocessed for token efficiency)
+        cleaned = tonnify_preprocess(user_message)
+        ContextManager.add_message(session_id, "user", cleaned if cleaned else user_message)
         
         # Clean up old sessions periodically
         if len(user_sessions) > 100:
@@ -1626,9 +3442,10 @@ def chat():
                 ai_response = f"❌ Failed to send email: {message}"
             
             ContextManager.add_message(session_id, "assistant", ai_response)
+            short_sid = data.get("session_id", "default_session")
             return jsonify({
                 "response": ai_response,
-                "session_id": session_id,
+                "session_id": short_sid,
                 "email_sent": success
             })
 
@@ -1656,7 +3473,7 @@ def chat():
                 "Content-Type": "application/json"
             }
             api_url = "https://api.openai.com/v1/chat/completions"
-            model = "gpt-3.5-turbo"
+            model = CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16")
             
             payload = {
                 "model": model,
@@ -1675,36 +3492,6 @@ def chat():
                 last_openai_call = time.time()  # Update throttling timestamp
             else:
                 raise Exception(f"OpenAI API Error {response.status_code}: {response.text}")
-                
-        elif get_ai_provider() == 'gemini':
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-            headers = {
-                "Content-Type": "application/json"
-            }
-            
-            # Convert messages to Gemini format
-            gemini_messages = convert_messages_for_gemini(messages)
-            
-            payload = {
-                "contents": gemini_messages,
-                "generationConfig": {
-                    "temperature": 0.6,
-                    "maxOutputTokens": 8192,
-                    "topP": 0.8,
-                    "topK": 10
-                }
-            }
-            
-            print(f"🔄 Making Gemini API call to {api_url}...")
-            response = requests.post(f"{api_url}?key={CONFIG['GEMINI_API_KEY']}", 
-                                   headers=headers, json=payload, timeout=CONFIG.get('API_TIMEOUT', 120))
-            print(f"📊 Gemini API Response Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                ai_response = result["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                raise Exception(f"Gemini API Error {response.status_code}: {response.text}")
                 
         else:  # Default to Groq
             headers = {
@@ -1754,23 +3541,11 @@ def chat():
                 active_provider = get_ai_provider()
                 retry_response = None
 
-                if active_provider == 'gemini':
-                    gemini_messages = convert_messages_for_gemini(messages)
-                    retry_api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-                    retry_response = requests.post(
-                        f"{retry_api_url}?key={CONFIG['GEMINI_API_KEY']}",
-                        headers={"Content-Type": "application/json"},
-                        json={"contents": gemini_messages},
-                        timeout=CONFIG.get('API_TIMEOUT', 120)
-                    )
-                    if retry_response.status_code == 200:
-                        ai_response = retry_response.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-                elif active_provider == 'openai':
+                if active_provider == 'openai':
                     retry_response = requests.post(
                         "https://api.openai.com/v1/chat/completions",
                         headers={"Authorization": f"Bearer {CONFIG['OPENAI_API_KEY']}", "Content-Type": "application/json"},
-                        json={"model": "gpt-3.5-turbo", "messages": messages, "temperature": 0.3, "max_tokens": 4096},
+                        json={"model": CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16"), "messages": messages, "temperature": 0.3, "max_tokens": 4096},
                         timeout=CONFIG.get('API_TIMEOUT', 120)
                     )
                     if retry_response.status_code == 200:
@@ -1829,9 +3604,10 @@ def chat():
         # Add AI response to conversation history
         ContextManager.add_message(session_id, "assistant", ai_response)
         
+        short_sid = data.get("session_id", "default_session")
         return jsonify({
             "response": ai_response,
-            "session_id": session_id
+            "session_id": short_sid
         })
 
     except requests.exceptions.RequestException as e:
@@ -1865,8 +3641,8 @@ def upload():
     try:
         print("📤 Received upload request")
         
-        # Get session ID from form data or default
-        session_id = request.form.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.form.get('session_id', 'default_session'), user_id)
         print(f"🔑 Session ID: {session_id}")
         
         if 'file' not in request.files:
@@ -1919,6 +3695,7 @@ def upload():
         ContextManager.add_file_context(session_id, file_info)
         print(f"📚 Added file to context for session: {session_id}")
         
+        short_sid = request.form.get("session_id", "default_session")
         return jsonify({
             "success": True,
             "message": f"File uploaded successfully: {file.filename}",
@@ -1928,7 +3705,7 @@ def upload():
             "path": file_path,
             "type": file_type,
             "extension": file_extension.lower(),
-            "session_id": session_id
+            "session_id": short_sid
         })
         
     except Exception as e:
@@ -1940,10 +3717,11 @@ def upload():
 def analyze():
     try:
         print("🔍 Received analysis request")
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         filename = data.get("filename")
         file_path = data.get("file_path")
-        session_id = data.get("session_id", "default_session")
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
         print(f"📄 Analyzing: {filename}")
         print(f"📂 File path: {file_path}")
@@ -1958,7 +3736,7 @@ def analyze():
                 if file_type == 'image':
                     print("🖼️ Analyzing image with Gemini Vision...")
                     # For images, analyze directly with Gemini Vision API
-                    analysis = analyze_image_with_gemini(file_path, "Analyze this image in detail and describe what you see")
+                    analysis = analyze_image_with_vision(file_path, "Analyze this image in detail and describe what you see")
                     
                     # Mark file as analyzed in context
                     ContextManager.mark_file_analyzed(session_id, filename)
@@ -2120,7 +3898,7 @@ Begin your detailed analysis now:
                 "Content-Type": "application/json"
             }
             api_url = "https://api.openai.com/v1/chat/completions"
-            model = "gpt-3.5-turbo"
+            model = CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16")
             
             payload = {
                 "model": model,
@@ -2138,36 +3916,6 @@ Begin your detailed analysis now:
                 ai_response = result["choices"][0]["message"]["content"]
             else:
                 raise Exception(f"OpenAI Analysis API Error {response.status_code}: {response.text}")
-                
-        elif get_ai_provider() == 'gemini':
-            api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}:generateContent"
-            headers = {
-                "Content-Type": "application/json"
-            }
-            
-            # Convert messages to Gemini format
-            gemini_messages = convert_messages_for_gemini(analysis_messages)
-            
-            payload = {
-                "contents": gemini_messages,
-                "generationConfig": {
-                    "temperature": 0.3,
-                    "maxOutputTokens": 8000,  # Increased from 2000 to allow more detailed responses
-                    "topP": 0.8,
-                    "topK": 10
-                }
-            }
-            
-            print(f"🔄 Making Gemini analysis API call...")
-            response = requests.post(f"{api_url}?key={CONFIG['GEMINI_API_KEY']}", 
-                                   headers=headers, json=payload, timeout=CONFIG.get('API_TIMEOUT', 120))
-            print(f"📊 Gemini Analysis API Response Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                result = response.json()
-                ai_response = result["candidates"][0]["content"]["parts"][0]["text"]
-            else:
-                raise Exception(f"Gemini Analysis API Error {response.status_code}: {response.text}")
                 
         else:  # Default to Groq
             headers = {
@@ -2199,9 +3947,14 @@ Begin your detailed analysis now:
         # Mark file as analyzed in context
         ContextManager.mark_file_analyzed(session_id, filename)
         
-        # Add analysis to conversation history
-        analysis_summary = f"Completed analysis of {filename}. Key findings and recommendations provided."
-        ContextManager.add_message(session_id, "assistant", analysis_summary)
+        # Store the user's implicit analysis request and the FULL analysis result in
+        # conversation history so follow-up messages (e.g. "create test cases",
+        # "summarise this", "write a report") have the complete document context.
+        ContextManager.add_message(
+            session_id, "user",
+            f"I uploaded the document '{filename}'. Please analyse it in detail."
+        )
+        ContextManager.add_message(session_id, "assistant", ai_response)
         
         return jsonify({
             "filename": filename,
@@ -2236,15 +3989,16 @@ Begin your detailed analysis now:
 
 @app.route('/api/context', methods=['GET'])
 def get_context():
-    """Get conversation context and file history"""
+    """Get conversation context and file history (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Expose last 20 non-system messages for frontend restore
         visible = [m for m in session["conversation_history"] if m.get("role") != "system"][-20:]
         return jsonify({
-            "session_id": session_id,
+            "session_id": strip_user_prefix(session_id, user_id) or request.args.get("session_id", "default_session"),
             "conversation_history": visible,
             "uploaded_files": session["uploaded_files"],
             "total_messages": len(session["conversation_history"]),
@@ -2255,14 +4009,44 @@ def get_context():
         print(f"❌ Context retrieval error: {str(e)}")
         return jsonify({"error": f"Context retrieval failed: {str(e)}"}), 500
 
+
+@app.route('/api/context/sync', methods=['POST'])
+def sync_context():
+    """Sync messages from frontend to backend session (for chat persistence, isolated per user)"""
+    try:
+        data = request.get_json(silent=True) or {}
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get('session_id', 'default_session'), user_id)
+        messages = data.get('messages', [])
+        if not isinstance(messages, list):
+            return jsonify({"error": "messages must be an array"}), 400
+        db_clear_session(session_id)
+        session = ContextManager.get_session(session_id)
+        session["conversation_history"] = [
+            m for m in session["conversation_history"]
+            if m.get("role") == "system"
+        ]
+        for m in messages:
+            role = m.get("role")
+            content = m.get("content", "")
+            if role in ("user", "assistant") and content:
+                ContextManager.add_message(session_id, role, content)
+        short_sid = data.get("session_id", "default_session")  # Return original for frontend
+        return jsonify({"success": True, "session_id": short_sid})
+    except Exception as e:
+        print(f"❌ Context sync error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/settings/provider', methods=['POST', 'GET'])
 def settings_provider():
-    """GET: return active provider. POST {provider}: switch it live."""
+    """GET: return active provider. POST {provider}: switch (groq/openai only)."""
     if request.method == 'GET':
         return jsonify({"provider": get_ai_provider()})
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     new_provider = data.get("provider", "").strip().lower()
-    valid = {"groq", "gemini", "openai", "fallback"}
+    if new_provider == "gemini":
+        new_provider = "groq"
+    valid = {"groq", "openai"}
     if new_provider not in valid:
         return jsonify({"error": f"Invalid provider. Choose from: {', '.join(sorted(valid))}"}), 400
     os.environ["AI_PROVIDER"] = new_provider
@@ -2363,14 +4147,41 @@ def chat_stream():
     """Streaming version of /api/chat — emits text chunks via SSE."""
     from flask import Response, stream_with_context
 
-    data      = request.get_json() or {}
+    data      = request.get_json(silent=True) or {}
     user_msg  = data.get("message", "").strip()
-    session_id= data.get("session_id", "default_session")
+    user_id   = get_request_user_id()
+    session_id= get_effective_session_id(data.get("session_id", "default_session"), user_id)
+    short_sid = data.get("session_id", "default_session")
 
     if not user_msg:
         return jsonify({"error": "No message provided"}), 400
 
-    # Handle email send commands before hitting AI
+    # Check email flow FIRST - when in recipient_needed, plain email is the recipient, NOT a generic send command
+    email_flow = _get_email_flow(session_id)
+    if email_flow.get("step") == "recipient_needed" and "@" in user_msg and "." in user_msg:
+        import re
+        if re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', user_msg):
+            recipient = user_msg.strip()
+            content = email_flow.get("email_content") or _extract_email_draft_from_history(session_id) or ""
+            if not content or EMAIL_RECIPIENT_NEEDED_MARKER in content or "What email address should this be sent to" in content:
+                content = "No content"
+            body = create_simple_email_body(content, session_id)
+            success, msg = send_email(recipient, "Message from Vise-AI", body)
+            email_flow["active"] = False
+            email_flow["step"] = None
+            ContextManager.add_message(session_id, "user", user_msg)
+            result_msg = f"Email sent successfully to {recipient}!" if success else f"Failed to send: {msg}"
+            ContextManager.add_message(session_id, "assistant", result_msg)
+            def _email_sent_stream():
+                yield f"data: {json.dumps({'chunk': result_msg})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
+            return Response(
+                stream_with_context(_email_sent_stream()),
+                mimetype="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+            )
+
+    # Handle other email send commands (e.g. "send X to user@mail.com") before hitting AI
     email_command = detect_email_command(user_msg)
     if email_command['is_email_command']:
         if email_command.get('send_previous_response'):
@@ -2395,7 +4206,7 @@ def chat_stream():
 
         def _email_done_stream():
             yield f"data: {json.dumps({'chunk': ai_response})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_done_stream()),
             mimetype="text/event-stream",
@@ -2417,7 +4228,7 @@ def chat_stream():
 
         def _email_choice_stream():
             yield f"data: {json.dumps({'email_generate_choice': True, 'message': choice_msg, 'options': EMAIL_GENERATE_OPTIONS})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_choice_stream()),
             mimetype="text/event-stream",
@@ -2435,7 +4246,7 @@ def chat_stream():
 
             def _email_content_prompt_stream():
                 yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_content_prompt_stream()),
                 mimetype="text/event-stream",
@@ -2449,7 +4260,7 @@ def chat_stream():
 
             def _email_rephrase_stream():
                 yield f"data: {json.dumps({'email_rephrase_choice': True, 'message': choice_msg, 'options': EMAIL_REPHRASE_OPTIONS})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_rephrase_stream()),
                 mimetype="text/event-stream",
@@ -2466,7 +4277,7 @@ def chat_stream():
 
         def _email_wait_stream():
             yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_wait_stream()),
             mimetype="text/event-stream",
@@ -2486,7 +4297,7 @@ def chat_stream():
 
             def _email_recipient_stream():
                 yield f"data: {json.dumps({'email_recipient_needed': True, 'message': prompt_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_recipient_stream()),
                 mimetype="text/event-stream",
@@ -2499,7 +4310,7 @@ def chat_stream():
             ContextManager.add_message(session_id, "assistant", stored_msg)
             def _email_cancel_stream():
                 yield f"data: {json.dumps({'chunk': stored_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
             return Response(
                 stream_with_context(_email_cancel_stream()),
                 mimetype="text/event-stream",
@@ -2524,38 +4335,16 @@ def chat_stream():
 
         def _email_confirm_stream():
             yield f"data: {json.dumps({'email_send_confirm': True, 'message': confirm_msg, 'options': EMAIL_SEND_CONFIRM_OPTIONS})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
         return Response(
             stream_with_context(_email_confirm_stream()),
             mimetype="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
         )
 
-    # Email recipient provided (user typed email address after recipient_needed)
-    if email_flow.get("step") == "recipient_needed" and "@" in user_msg and "." in user_msg:
-        import re
-        if re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', user_msg):
-            recipient = user_msg.strip()
-            content = _extract_email_draft_from_history(session_id) or email_flow.get("email_content") or "No content"
-            body = create_simple_email_body(content, session_id)
-            success, msg = send_email(recipient, "Message from Vise-AI", body)
-            email_flow["active"] = False
-            email_flow["step"] = None
-            ContextManager.add_message(session_id, "user", user_msg)
-            result_msg = f"Email sent successfully to {recipient}!" if success else f"Failed to send: {msg}"
-            ContextManager.add_message(session_id, "assistant", result_msg)
-
-            def _email_sent_stream():
-                yield f"data: {json.dumps({'chunk': result_msg})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
-            return Response(
-                stream_with_context(_email_sent_stream()),
-                mimetype="text/event-stream",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
-            )
-
     if email_flow.get("step") != "generating":
-        ContextManager.add_message(session_id, "user", user_msg)
+        cleaned = tonnify_preprocess(user_msg)
+        ContextManager.add_message(session_id, "user", cleaned if cleaned else user_msg)
 
     # Case 1: User asked to write a story (first time) -> show choice, no AI call
     if _is_story_write_request(user_msg) and not is_story_selection:
@@ -2565,7 +4354,7 @@ def chat_stream():
 
         def _story_choice_stream():
             yield f"data: {json.dumps({'story_type_choice': True, 'message': choice_msg, 'options': STORY_TYPE_OPTIONS})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
 
         return Response(
             stream_with_context(_story_choice_stream()),
@@ -2623,31 +4412,11 @@ def chat_stream():
                 import openai as _oai
                 _oai_client = _oai.OpenAI(api_key=CONFIG["OPENAI_API_KEY"])
                 stream = _oai_client.chat.completions.create(
-                    model=CONFIG.get("OPENAI_MODEL", "gpt-4o-mini"),
+                    model=CONFIG.get("OPENAI_MODEL", "o4-mini-2025-04-16"),
                     messages=messages, temperature=0.6, max_tokens=8192, stream=True
                 )
                 for chunk in stream:
                     delta = chunk.choices[0].delta.content or ""
-                    if delta:
-                        full_response.append(delta)
-                        yield f"data: {json.dumps({'chunk': delta})}\n\n"
-
-            elif provider == "gemini":
-                import google.generativeai as _genai
-                _genai.configure(api_key=CONFIG["GEMINI_API_KEY"])
-                model_name = CONFIG.get("GEMINI_MODEL", "gemini-2.0-flash")
-                gmodel = _genai.GenerativeModel(model_name)
-                gemini_msgs = convert_messages_for_gemini(messages)
-                # Build a chat-history object for multi-turn Gemini streaming
-                history  = gemini_msgs[:-1] if len(gemini_msgs) > 1 else []
-                last_msg = gemini_msgs[-1]["parts"][0]["text"] if gemini_msgs else ""
-                chat = gmodel.start_chat(history=history)
-                stream = chat.send_message(last_msg, stream=True)
-                for chunk in stream:
-                    try:
-                        delta = chunk.text or ""
-                    except Exception:
-                        delta = ""
                     if delta:
                         full_response.append(delta)
                         yield f"data: {json.dumps({'chunk': delta})}\n\n"
@@ -2682,7 +4451,7 @@ def chat_stream():
             else:
                 ContextManager.add_message(session_id, "assistant", ai_response)
 
-            yield f"data: {json.dumps({'done': True, 'session_id': session_id})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'session_id': short_sid})}\n\n"
 
         except Exception as e:
             print(f"❌ Streaming error: {e}")
@@ -2702,24 +4471,28 @@ def chat_stream():
 
 @app.route('/api/chat/history', methods=['GET'])
 def chat_history_list():
-    """Return all persisted sessions with message counts for the History view."""
-    sessions = db_all_sessions()
+    """Return all persisted sessions with message counts for the History view (isolated per user)."""
+    user_id = get_request_user_id()
+    sessions = db_all_sessions(user_id)
     return jsonify({"sessions": sessions, "total": len(sessions)})
 
 
 @app.route('/api/chat/history/<session_id>', methods=['GET'])
 def chat_history_session(session_id):
-    """Return full message history for one session from DB."""
+    """Return full message history for one session from DB (isolated per user)."""
+    user_id = get_request_user_id()
+    effective_sid = get_effective_session_id(session_id, user_id)
     limit = int(request.args.get("limit", 100))
-    messages = db_load_session(session_id, limit=limit)
+    messages = db_load_session(effective_sid, limit=limit)
     return jsonify({"session_id": session_id, "messages": messages, "total": len(messages)})
 
 
 @app.route('/api/summarize-files', methods=['POST'])
 def summarize_files():
-    """Summarise all uploaded files in a session so the AI has multi-file context."""
-    data       = request.get_json() or {}
-    session_id = data.get("session_id", "default_session")
+    """Summarise all uploaded files in a session so the AI has multi-file context (isolated per user)."""
+    data       = request.get_json(silent=True) or {}
+    user_id    = get_request_user_id()
+    session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
     session    = ContextManager.get_session(session_id)
     files      = session.get("uploaded_files", [])
 
@@ -2763,12 +4536,10 @@ def get_key_status():
         return f"{key[:8]}…{key[-4:]}" if key and len(key) > 12 else ""
 
     groq_key   = CONFIG.get("GROQ_API_KEY", "")
-    gemini_key = CONFIG.get("GEMINI_API_KEY", "")
     openai_key = CONFIG.get("OPENAI_API_KEY", "")
 
     return jsonify({
         "groq":   {"set": bool(groq_key),   "preview": _masked(groq_key)},
-        "gemini": {"set": bool(gemini_key), "preview": _masked(gemini_key)},
         "openai": {"set": bool(openai_key), "preview": _masked(openai_key)},
         "active_provider": get_ai_provider(),
     })
@@ -2776,10 +4547,11 @@ def get_key_status():
 
 @app.route('/api/clear-context', methods=['POST'])
 def clear_context():
-    """Clear conversation context for a session"""
+    """Clear conversation context for a session (isolated per user)"""
     try:
-        data = request.get_json()
-        session_id = data.get("session_id", "default_session")
+        data = request.get_json(silent=True) or {}
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(data.get("session_id", "default_session"), user_id)
         
         if session_id in user_sessions:
             del user_sessions[session_id]
@@ -2799,7 +4571,7 @@ def clear_context():
 def email_analysis():
     """Send analysis report via email"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         filename = data.get("filename")
         analysis = data.get("analysis")
         recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
@@ -2841,7 +4613,7 @@ def email_analysis():
 def email_notification():
     """Send notification email"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         title = data.get("title", "Vise-AI Notification")
         message = data.get("message")
         details = data.get("details")
@@ -2897,7 +4669,7 @@ def get_email_config():
 def test_email():
     """Test email functionality"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         recipient = (data.get("recipient") or CONFIG.get("DEFAULT_RECIPIENT") or "").strip()
 
         if not recipient:
@@ -2933,7 +4705,7 @@ def test_email():
 def generate_document():
     """Generate document in specified format"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         content = data.get('content')
         format_type = data.get('format', 'pdf').lower()
         filename = data.get('filename', 'vise-ai-document')
@@ -3044,9 +4816,10 @@ def download_file(file_id):
 
 @app.route('/api/documents', methods=['GET'])
 def get_documents():
-    """Get all uploaded documents for a session"""
+    """Get all uploaded documents for a session (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Get uploaded files with additional details
@@ -3086,9 +4859,10 @@ def get_documents():
         # Sort by upload time (newest first)
         documents.sort(key=lambda x: x["upload_time"], reverse=True)
         
+        short_sid = strip_user_prefix(session_id, user_id) or request.args.get("session_id", "default_session")
         return jsonify({
             "success": True,
-            "session_id": session_id,
+            "session_id": short_sid,
             "documents": documents,
             "total_count": len(documents),
             "analyzed_count": sum(1 for doc in documents if doc["analyzed"]),
@@ -3101,9 +4875,10 @@ def get_documents():
 
 @app.route('/api/documents/<file_id>', methods=['GET'])
 def get_document_details(file_id):
-    """Get detailed information about a specific document"""
+    """Get detailed information about a specific document (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Find the document
@@ -3155,11 +4930,50 @@ def get_document_details(file_id):
         print(f"❌ Document details error: {str(e)}")
         return jsonify({"error": f"Failed to get document details: {str(e)}"}), 500
 
+@app.route('/api/documents/<file_id>/content', methods=['GET'])
+def get_document_content(file_id):
+    """Get file content for viewing (text) or serve file (images/binary) (isolated per user)"""
+    from flask import send_file
+    try:
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
+        session = ContextManager.get_session(session_id)
+        document = None
+        for f in session["uploaded_files"]:
+            if f.get("fileId") == file_id:
+                document = f
+                break
+        if not document:
+            return jsonify({"error": "Document not found"}), 404
+        path = document.get("path")
+        if not path or not os.path.exists(path):
+            return jsonify({"error": "File not found on disk"}), 404
+        ext = (document.get("extension") or "").lower()
+        if ext in ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'):
+            mime = {'jpg':'jpeg','jpeg':'jpeg','png':'png','gif':'gif','bmp':'bmp','webp':'webp'}.get(ext[1:], 'jpeg')
+            return send_file(path, mimetype=f'image/{mime}')
+        if ext in ('.txt', '.md', '.csv'):
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            return jsonify({"content": content, "type": "text", "filename": document.get("filename")})
+        if ext in ('.pdf', '.docx'):
+            return jsonify({"type": "binary", "filename": document.get("filename"), "message": "Use Download or Analyze for this file type"})
+        try:
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            return jsonify({"content": content, "type": "text", "filename": document.get("filename")})
+        except Exception:
+            return jsonify({"type": "binary", "filename": document.get("filename"), "message": "Binary file - use Analyze"})
+    except Exception as e:
+        print(f"❌ Document content error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/documents/<file_id>/delete', methods=['DELETE'])
 def delete_document(file_id):
-    """Delete a specific document"""
+    """Delete a specific document (isolated per user)"""
     try:
-        session_id = request.args.get('session_id', 'default_session')
+        user_id = get_request_user_id()
+        session_id = get_effective_session_id(request.args.get('session_id', 'default_session'), user_id)
         session = ContextManager.get_session(session_id)
         
         # Find and remove the document from session
@@ -3184,11 +4998,12 @@ def delete_document(file_id):
             except Exception as e:
                 print(f"❌ Failed to delete file {file_path}: {str(e)}")
         
+        short_sid = strip_user_prefix(session_id, user_id) or request.args.get("session_id", "default_session")
         return jsonify({
             "success": True,
             "message": f"Document '{document['filename']}' deleted successfully",
             "file_deleted": file_deleted,
-            "session_id": session_id
+            "session_id": short_sid
         })
         
     except Exception as e:
@@ -3285,7 +5100,7 @@ def get_today_events():
 def create_calendar_event_endpoint():
     """Create a new calendar event"""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
         
         event_date = data.get("date")
         recipient_email = data.get("email")
@@ -3349,7 +5164,7 @@ def update_calendar_event(event_id):
         if not event:
             return jsonify({"error": "Event not found"}), 404
         
-        data = request.get_json()
+        data = request.get_json(silent=True)
         
         # Update fields
         if "date" in data:
@@ -3471,13 +5286,31 @@ def send_calendar_event_now(event_id):
         print(f"❌ Calendar event send error: {str(e)}")
         return jsonify({"error": f"Failed to send calendar event: {str(e)}"}), 500
 
+
+@app.route('/<staticpath:filename>', methods=['GET'])
+def serve_static(filename):
+    """Serve static files. Excludes api/* paths so API routes take precedence."""
+    try:
+        allowed = {'.html', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.ico'}
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in allowed:
+            return "File type not allowed", 403
+        if os.path.exists(filename):
+            return send_file(filename)
+        return "File not found", 404
+    except Exception as e:
+        print(f"❌ Static file error: {e}")
+        return "Error serving file", 500
+
+
 if __name__ == '__main__':
     print("Starting Vise-AI Flask Server...")
     p = get_ai_provider()
-    names = {"groq": "Groq", "openai": "OpenAI", "gemini": "Google Gemini", "fallback": "Fallback"}
+    names = {"groq": "Groq", "openai": "OpenAI"}
     print(f"AI Provider: {names.get(p, p)}")
-    if p == 'gemini':
-        print(f"Using Gemini model: {CONFIG.get('GEMINI_MODEL', 'gemini-2.0-flash')}")
+    if p == 'openai':
+        key = CONFIG.get("OPENAI_API_KEY", "")
+        print(f"OpenAI model: {CONFIG.get('OPENAI_MODEL', 'o4-mini-2025-04-16')}, key: ...{key[-4:] if key and len(key) > 4 else 'NOT SET'}")
     
     # Start calendar scheduler
     run_scheduler()

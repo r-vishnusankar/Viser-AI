@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexora — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F2EC;
+  --bg2:#EDE9E0;
+  --surface:#FFFFFF;
+  --border:#DDD8CE;
+  --border-focus:#3D7A6E;
+  --text:#1E1B17;
+  --muted:#7A7469;
+  --sage:#3D7A6E;
+  --sage-lt:#E8F4F2;
+  --sage-md:#B2D8D3;
+  --sky:#3A6FA8;
+  --rose:#C0574E;
+  --rose-lt:#FAEAE9;
+  --amber:#B87333;
+  --violet:#6B5B9E;
+  --grad:linear-gradient(135deg,#3D7A6E 0%,#3A6FA8 100%);
+  --grad-soft:linear-gradient(135deg,rgba(61,122,110,.08) 0%,rgba(58,111,168,.08) 100%);
+  --shadow-sm:0 1px 4px rgba(30,27,23,.06);
+  --shadow-md:0 4px 20px rgba(30,27,23,.10);
+  --shadow-lg:0 12px 48px rgba(30,27,23,.14);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;}
+body{
+  font-family:'Sora',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  overflow:hidden;
+  cursor:none;
+}
+
+/* ── CURSOR ── */
+#cursor{position:fixed;width:10px;height:10px;background:var(--sage);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s,background .2s;}
+#cursor-ring{position:fixed;width:34px;height:34px;border:1.5px solid rgba(61,122,110,.3);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:transform .4s cubic-bezier(.23,1,.32,1),width .3s,height .3s;}
+body:has(input:focus) #cursor{background:var(--sky);}
+body:has(button:hover) #cursor{width:16px;height:16px;}
+body:has(button:hover) #cursor-ring{width:50px;height:50px;}
+
+/* ── CANVAS BG ── */
+#canvas-bg{position:fixed;inset:0;pointer-events:none;z-index:0;}
+
+/* ── LAYOUT ── */
+.page{display:flex;width:100%;min-height:100vh;position:relative;z-index:1;}
+
+/* ── LEFT PANEL — decorative ── */
+.left-panel{
+  flex:1;display:flex;flex-direction:column;justify-content:space-between;
+  padding:48px 56px;position:relative;overflow:hidden;
+  background:var(--text);
+}
+.left-panel::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 60% at 20% 30%,rgba(61,122,110,.28) 0%,transparent 60%),
+             radial-gradient(ellipse 50% 40% at 80% 75%,rgba(58,111,168,.2) 0%,transparent 55%);
+}
+.lp-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+  background-size:44px 44px;
+}
+.lp-orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;}
+.lorb1{width:360px;height:360px;background:rgba(61,122,110,.22);top:-80px;left:-60px;animation:orb-drift 10s ease-in-out infinite;}
+.lorb2{width:260px;height:260px;background:rgba(58,111,168,.18);bottom:-40px;right:-40px;animation:orb-drift 12s ease-in-out infinite 4s;}
+.lorb3{width:180px;height:180px;background:rgba(184,115,51,.12);top:40%;left:30%;animation:orb-drift 8s ease-in-out infinite 2s;}
+@keyframes orb-drift{0%,100%{transform:translate(0,0)}33%{transform:translate(20px,-14px)}66%{transform:translate(-14px,20px)}}
+
+/* LEFT TOP */
+.lp-top{position:relative;z-index:1;}
+.lp-logo{display:flex;align-items:center;gap:10px;text-decoration:none;margin-bottom:60px;
+  opacity:0;animation:fadeUp .6s .1s ease forwards;}
+.logo-mark{width:36px;height:36px;background:var(--sage);border-radius:9px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;flex-shrink:0;}
+.logo-mark::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.35) 50%,transparent 60%);transform:translateX(-100%);animation:shimmer 3s infinite 2s;}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(220%)}}
+.logo-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.5rem;letter-spacing:.08em;color:#F5F2EC;}
+
+.lp-headline{
+  opacity:0;animation:fadeUp .7s .25s ease forwards;
+}
+.lp-headline h2{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:clamp(2.2rem,3.5vw,3.4rem);font-weight:900;
+  text-transform:uppercase;letter-spacing:-.01em;line-height:.95;
+  color:#F5F2EC;margin-bottom:18px;
+}
+.lp-headline h2 span{
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.lp-headline p{font-size:.88rem;color:rgba(245,242,236,.55);line-height:1.8;max-width:320px;}
+
+/* FEATURE PILLS */
+.lp-features{
+  display:flex;flex-direction:column;gap:12px;margin-top:44px;
+  opacity:0;animation:fadeUp .7s .4s ease forwards;
+}
+.lp-feat{
+  display:flex;align-items:center;gap:12px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:14px 18px;
+  transition:background .3s,border-color .3s,transform .3s;
+}
+.lp-feat:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.14);transform:translateX(4px);}
+.lp-feat-icon{
+  width:36px;height:36px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.lp-feat-icon.qa{background:rgba(61,122,110,.3);}
+.lp-feat-icon.hr{background:rgba(192,87,78,.25);}
+.lp-feat-icon.ba{background:rgba(58,111,168,.25);}
+.lp-feat-text strong{display:block;font-size:.82rem;font-weight:600;color:#F5F2EC;margin-bottom:2px;}
+.lp-feat-text span{font-size:.75rem;color:rgba(245,242,236,.45);}
+
+/* LEFT BOTTOM */
+.lp-bottom{position:relative;z-index:1;opacity:0;animation:fadeUp .6s .55s ease forwards;}
+.lp-stats{display:flex;gap:32px;}
+.lp-stat-num{font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.lp-stat-label{font-size:.7rem;color:rgba(245,242,236,.4);letter-spacing:.08em;text-transform:uppercase;margin-top:2px;}
+
+/* ── RIGHT PANEL — form ── */
+.right-panel{
+  width:520px;flex-shrink:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 56px;
+  background:var(--surface);
+  position:relative;overflow:hidden;
+}
+.right-panel::before{
+  content:'';position:absolute;top:-60px;right:-60px;
+  width:220px;height:220px;
+  background:radial-gradient(circle,rgba(61,122,110,.06) 0%,transparent 70%);
+  border-radius:50%;
+}
+.right-panel::after{
+  content:'';position:absolute;bottom:-40px;left:-40px;
+  width:160px;height:160px;
+  background:radial-gradient(circle,rgba(58,111,168,.06) 0%,transparent 70%);
+  border-radius:50%;
+}
+
+.form-wrap{width:100%;max-width:380px;position:relative;z-index:1;}
+
+/* FORM HEADER */
+.form-header{margin-bottom:36px;opacity:0;animation:fadeUp .6s .3s ease forwards;}
+.form-eyebrow{
+  font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--sage);margin-bottom:10px;display:flex;align-items:center;gap:8px;
+}
+.eyebrow-line{width:16px;height:1.5px;background:var(--sage);}
+.form-header h1{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:2.4rem;font-weight:900;text-transform:uppercase;letter-spacing:-.01em;
+  color:var(--text);line-height:1;margin-bottom:8px;
+}
+.form-header p{font-size:.84rem;color:var(--muted);line-height:1.65;}
+
+/* WORKSPACE SELECTOR */
+.workspace-label{font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:block;opacity:0;animation:fadeUp .6s .4s ease forwards;}
+.workspace-tabs{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:28px;
+  opacity:0;animation:fadeUp .6s .45s ease forwards;
+}
+.ws-tab{
+  border:1.5px solid var(--border);border-radius:8px;padding:10px 8px;
+  text-align:center;cursor:pointer;transition:all .25s;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.ws-tab:hover{border-color:var(--sage-md);background:var(--sage-lt);}
+.ws-tab.active{border-color:var(--sage);background:var(--sage-lt);box-shadow:0 0 0 3px rgba(61,122,110,.12);}
+.ws-tab svg{width:18px;height:18px;}
+.ws-tab span{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);transition:color .2s;}
+.ws-tab.active span{color:var(--sage);}
+
+/* FORM FIELDS */
+.field-group{display:flex;flex-direction:column;gap:16px;margin-bottom:8px;opacity:0;animation:fadeUp .6s .5s ease forwards;}
+.field{position:relative;}
+.field label{display:block;font-size:.72rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px;transition:color .2s;}
+.field:focus-within label{color:var(--sage);}
+.field-input-wrap{position:relative;}
+.field-icon{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  color:var(--muted);transition:color .2s;pointer-events:none;
+}
+.field:focus-within .field-icon{color:var(--sage);}
+.field input{
+  width:100%;background:var(--bg);border:1.5px solid var(--border);
+  border-radius:8px;padding:12px 42px;
+  font-family:'Sora',sans-serif;font-size:.88rem;color:var(--text);
+  transition:border-color .25s,box-shadow .25s,background .25s;outline:none;
+}
+.field input:focus{
+  border-color:var(--sage);background:var(--surface);
+  box-shadow:0 0 0 3px rgba(61,122,110,.12);
+}
+.field input::placeholder{color:rgba(122,116,105,.5);}
+.pw-toggle{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  transition:color .2s;padding:2px;
+}
+.pw-toggle:hover{color:var(--sage);}
+
+/* INPUT FOCUS GLOW LINE */
+.field-underline{
+  position:absolute;bottom:0;left:0;height:2px;width:0;
+  background:var(--grad);border-radius:0 0 8px 8px;
+  transition:width .35s cubic-bezier(.23,1,.32,1);
+}
+.field:focus-within .field-underline{width:100%;}
+
+/* LOGIN ERROR */
+.login-error{display:none;background:var(--rose-lt);border:1px solid rgba(192,87,78,.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:.82rem;color:var(--rose);opacity:0;animation:fadeUp .6s ease forwards;}
+.login-error.visible{display:block;}
+
+/* OPTIONS ROW */
+.options-row{
+  display:flex;justify-content:space-between;align-items:center;
+  margin:16px 0 24px;opacity:0;animation:fadeUp .6s .55s ease forwards;
+}
+.remember{display:flex;align-items:center;gap:8px;cursor:pointer;}
+.remember input[type=checkbox]{
+  width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);
+  accent-color:var(--sage);cursor:pointer;
+}
+.remember span{font-size:.78rem;color:var(--muted);}
+.forgot{font-size:.78rem;color:var(--sage);text-decoration:none;font-weight:500;transition:opacity .2s;}
+.forgot:hover{opacity:.7;}
+
+/* SUBMIT BUTTON */
+.submit-wrap{opacity:0;animation:fadeUp .6s .6s ease forwards;}
+.btn-submit{
+  width:100%;background:var(--grad);color:#fff;
+  padding:14px;border-radius:8px;border:none;cursor:pointer;
+  font-family:'Sora',sans-serif;font-size:.92rem;font-weight:600;
+  letter-spacing:.04em;position:relative;overflow:hidden;
+  transition:transform .2s,box-shadow .3s;
+  box-shadow:0 4px 16px rgba(61,122,110,.28);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-submit::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.25) 50%,transparent 60%);
+  transform:translateX(-100%);transition:transform .5s;
+}
+.btn-submit:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(61,122,110,.38);}
+.btn-submit:hover::before{transform:translateX(200%);}
+.btn-submit:active{transform:translateY(0);}
+.btn-submit .btn-arrow{
+  width:20px;height:20px;background:rgba(255,255,255,.2);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  transition:transform .3s;
+}
+.btn-submit:hover .btn-arrow{transform:translateX(3px);}
+
+/* LOADING STATE */
+.btn-submit.loading .btn-text{opacity:0;}
+.btn-submit.loading .btn-spinner{display:block;}
+.btn-spinner{display:none;position:absolute;}
+.spinner-ring{
+  width:22px;height:22px;border:2.5px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* DIVIDER */
+.divider{
+  display:flex;align-items:center;gap:14px;margin:24px 0;
+  opacity:0;animation:fadeUp .6s .65s ease forwards;
+}
+.divider-line{flex:1;height:1px;background:var(--border);}
+.divider span{font-size:.72rem;color:var(--muted);font-weight:500;letter-spacing:.08em;text-transform:uppercase;}
+
+/* SOCIAL BUTTONS */
+.social-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;opacity:0;animation:fadeUp .6s .7s ease forwards;}
+.social-btn{
+  border:1.5px solid var(--border);background:var(--bg);border-radius:8px;
+  padding:11px 16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  font-family:'Sora',sans-serif;font-size:.8rem;font-weight:500;color:var(--text);
+  text-decoration:none;transition:border-color .2s,background .2s,transform .2s,box-shadow .2s;
+}
+.social-btn:hover{border-color:var(--border-focus);background:var(--surface);transform:translateY(-2px);box-shadow:var(--shadow-md);}
+
+/* SIGNUP LINK */
+.signup-row{text-align:center;margin-top:24px;font-size:.8rem;color:var(--muted);opacity:0;animation:fadeUp .6s .75s ease forwards;}
+.signup-row a{color:var(--sage);font-weight:600;text-decoration:none;margin-left:4px;transition:opacity .2s;}
+.signup-row a:hover{opacity:.7;}
+
+/* SUCCESS STATE */
+.success-overlay{
+  position:absolute;inset:0;background:var(--surface);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:10;opacity:0;pointer-events:none;
+  transition:opacity .5s ease;
+}
+.success-overlay.show{opacity:1;pointer-events:all;}
+.success-icon{
+  width:72px;height:72px;background:var(--sage-lt);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:20px;transform:scale(0);
+  transition:transform .5s cubic-bezier(.34,1.56,.64,1);
+}
+.success-overlay.show .success-icon{transform:scale(1);}
+.success-overlay h3{font-family:'Barlow Condensed',sans-serif;font-size:1.8rem;font-weight:900;text-transform:uppercase;margin-bottom:8px;}
+.success-overlay p{font-size:.84rem;color:var(--muted);}
+.success-dots{display:flex;gap:6px;margin-top:20px;}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--sage-md);animation:sdot-pulse 1.2s ease infinite;}
+.sdot:nth-child(2){animation-delay:.2s;}
+.sdot:nth-child(3){animation-delay:.4s;}
+@keyframes sdot-pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+
+/* FLOATING PARTICLES on right panel */
+.float-particle{
+  position:absolute;border-radius:50%;pointer-events:none;
+  animation:float-drift linear infinite;
+  opacity:0;
+}
+@keyframes float-drift{
+  0%{transform:translateY(0) rotate(0deg);opacity:0;}
+  10%{opacity:.6;}
+  90%{opacity:.6;}
+  100%{transform:translateY(-100vh) rotate(360deg);opacity:0;}
+}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+
+/* TOOLTIP */
+.tooltip{
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) scale(.9);
+  background:var(--text);color:#F5F2EC;font-size:.7rem;
+  padding:5px 12px;border-radius:4px;white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .2s,transform .2s;
+  transform-origin:bottom center;
+}
+.ws-tab:hover .tooltip{opacity:1;transform:translateX(-50%) scale(1);}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .left-panel{display:none;}
+  .right-panel{width:100%;padding:48px 32px;}
+}
+@media(max-width:480px){
+  .right-panel{padding:36px 24px;}
+  .workspace-tabs{grid-template-columns:repeat(3,1fr);}
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<canvas id="canvas-bg"></canvas>
+
+<div class="page">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left-panel">
+    <div class="lp-grid"></div>
+    <div class="lp-orb lorb1"></div>
+    <div class="lp-orb lorb2"></div>
+    <div class="lp-orb lorb3"></div>
+
+    <div class="lp-top">
+      <a href="/" class="lp-logo">
+        <div class="logo-mark">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M3 14L9 4L15 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5.5 10.5H12.5" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="logo-name">NEXORA</span>
+      </a>
+
+      <div class="lp-headline">
+        <h2>Your AI<br><span>Teammate</span><br>Awaits</h2>
+        <p>One platform for QA engineers, HR teams, and business analysts. Sign in to your workspace.</p>
+      </div>
+
+      <div class="lp-features">
+        <div class="lp-feat">
+          <div class="lp-feat-icon qa">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(61,122,110,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+            </svg>
+          </div>
+          <div class="lp-feat-text">
+            <strong>QA Intelligence</strong>
+            <span>Test cases, bug analysis, regression impact</span>
+          </div>
+        </div>
+        <div class="lp-feat">
+          <div class="lp-feat-icon hr">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(192,87,78,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <polyline points="16 11 18 13 22 9"/>
+            </svg>
+          </div>
+          <div class="lp-feat-text">
+            <strong>HR Automation</strong>
+            <span>Resume screening, candidate ranking, emails</span>
+          </div>
+        </div>
+        <div class="lp-feat">
+          <div class="lp-feat-icon ba">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(58,111,168,.9)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
+          <div class="lp-feat-text">
+            <strong>Business Analysis</strong>
+            <span>Requirements, user stories, flow diagrams</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lp-bottom">
+      <div class="lp-stats">
+        <div>
+          <div class="lp-stat-num" data-count="9">0+</div>
+          <div class="lp-stat-label">QA Tools</div>
+        </div>
+        <div>
+          <div class="lp-stat-num" data-count="5">0</div>
+          <div class="lp-stat-label">Security Modules</div>
+        </div>
+        <div>
+          <div class="lp-stat-num" data-count="3">0</div>
+          <div class="lp-stat-label">AI Providers</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="right-panel" id="rightPanel">
+
+    <div class="form-wrap">
+
+      <div class="form-header">
+        <div class="form-eyebrow">
+          <span class="eyebrow-line"></span>
+          Welcome Back
+        </div>
+        <h1>Sign In</h1>
+        <p>Access your role-specific workspace and continue where you left off.</p>
+      </div>
+
+      <!-- WORKSPACE SELECT -->
+      <span class="workspace-label">Select your workspace</span>
+      <div class="workspace-tabs">
+        <div class="ws-tab active" data-ws="qa" onclick="selectWS(this,'qa')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#3D7A6E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 11 12 14 22 4"/>
+            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+          </svg>
+          <span>QA</span>
+          <div class="tooltip">QA Workspace</div>
+        </div>
+        <div class="ws-tab" data-ws="hr" onclick="selectWS(this,'hr')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#C0574E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <polyline points="16 11 18 13 22 9"/>
+          </svg>
+          <span>HR</span>
+          <div class="tooltip">HR Workspace</div>
+        </div>
+        <div class="ws-tab" data-ws="ba" onclick="selectWS(this,'ba')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#3A6FA8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          <span>BA</span>
+          <div class="tooltip">Business Analyst</div>
+        </div>
+      </div>
+
+      <!-- FORM -->
+      <form id="loginForm" onsubmit="handleSubmit(event)">
+        <div class="field-group">
+
+          <div class="field">
+            <label for="email">Email Address</label>
+            <div class="field-input-wrap">
+              <div class="field-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+              </div>
+              <input type="email" id="email" placeholder="you@company.com" required autocomplete="email">
+              <div class="field-underline"></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <div class="field-input-wrap">
+              <div class="field-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+              </div>
+              <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+              <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePW()" aria-label="Show password">
+                <svg id="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <svg id="eye-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </button>
+              <div class="field-underline"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <div id="loginError" class="login-error"></div>
+
+        <div class="options-row">
+          <label class="remember">
+            <input type="checkbox" id="rememberMe">
+            <span>Remember me</span>
+          </label>
+          <a href="#" class="forgot">Forgot password?</a>
+        </div>
+
+        <div class="submit-wrap">
+          <button type="submit" class="btn-submit" id="submitBtn">
+            <div class="btn-spinner"><div class="spinner-ring"></div></div>
+            <span class="btn-text">Sign In to Nexora</span>
+            <div class="btn-arrow">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M2 5h6M5 2l3 3-3 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </button>
+        </div>
+      </form>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <span>or continue with</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <div class="social-btns">
+        <a href="#" class="social-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Google
+        </a>
+        <a href="#" class="social-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text)">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          GitHub
+        </a>
+      </div>
+
+      <p class="signup-row">Don't have an account?<a href="/">Create one free →</a></p>
+
+    </div>
+
+    <!-- SUCCESS OVERLAY -->
+    <div class="success-overlay" id="successOverlay">
+      <div class="success-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3D7A6E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h3>Welcome Back!</h3>
+      <p id="successMsg">Redirecting to your workspace…</p>
+      <div class="success-dots">
+        <div class="sdot"></div><div class="sdot"></div><div class="sdot"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const NEXORA_USER_KEY = 'nexora_user';
+const _api = (path) => (window.API_BASE || '') + path;
+
+/* ── If auth not configured, go straight to app ── */
+fetch(_api('/api/auth/verify')).then(r=>r.json()).then(d=>{
+  if(!d.configured) window.location.href='/app';
+}).catch(()=>{});
+
+/* ── CURSOR ── */
+const cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});
+(function anim(){rx+=(mx-rx)*.12;ry+=(my-ry)*.12;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(anim);})();
+
+/* ── BACKGROUND CANVAS ── */
+const canvas=document.getElementById('canvas-bg'),ctx=canvas.getContext('2d');
+let W,H,pts=[];
+function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+const COLS=['rgba(61,122,110,','rgba(58,111,168,','rgba(184,115,51,'];
+for(let i=0;i<40;i++){
+  pts.push({x:Math.random()*1920,y:Math.random()*1080,
+    vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18,
+    r:Math.random()*1.2+.4,c:COLS[Math.floor(Math.random()*COLS.length)]});
+}
+(function draw(){
+  ctx.clearRect(0,0,W,H);
+  pts.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=p.c+'0.4)';ctx.fill();
+  });
+  pts.forEach((a,i)=>pts.slice(i+1).forEach(b=>{
+    const dx=a.x-b.x,dy=a.y-b.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<90){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+      ctx.strokeStyle=`rgba(61,122,110,${.07*(1-d/90)})`;ctx.lineWidth=.5;ctx.stroke();}
+  }));
+  requestAnimationFrame(draw);
+})();
+
+/* ── FLOATING PARTICLES on right panel ── */
+const rp=document.getElementById('rightPanel');
+function spawnParticle(){
+  const p=document.createElement('div');
+  p.className='float-particle';
+  const size=Math.random()*5+3;
+  const colors=['rgba(61,122,110,.5)','rgba(58,111,168,.4)','rgba(184,115,51,.35)'];
+  p.style.cssText=`width:${size}px;height:${size}px;background:${colors[Math.floor(Math.random()*colors.length)]};
+    left:${Math.random()*100}%;bottom:-10px;
+    animation-duration:${Math.random()*5+5}s;animation-delay:${Math.random()*2}s;`;
+  rp.appendChild(p);
+  setTimeout(()=>p.remove(),8000);
+}
+setInterval(spawnParticle,600);
+
+/* ── COUNT UP ── */
+function countUp(el,target){
+  const dur=1200,start=performance.now();
+  (function tick(now){
+    const p=Math.min((now-start)/dur,1),ease=1-Math.pow(1-p,3);
+    el.textContent=Math.round(ease*target)+(target>=9?'+':'');
+    if(p<1)requestAnimationFrame(tick);
+  })(start);
+}
+setTimeout(()=>{
+  document.querySelectorAll('[data-count]').forEach(el=>countUp(el,+el.dataset.count));
+},600);
+
+/* ── WORKSPACE SELECT ── */
+const wsColors={qa:'#3D7A6E',hr:'#C0574E',ba:'#3A6FA8'};
+function selectWS(tab,ws){
+  document.querySelectorAll('.ws-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  document.documentElement.style.setProperty('--border-focus',wsColors[ws]);
+  document.documentElement.style.setProperty('--sage',wsColors[ws]);
+  const r=document.createElement('div');
+  r.style.cssText=`position:absolute;width:6px;height:6px;background:${wsColors[ws]};border-radius:50%;
+    pointer-events:none;transform:translate(-50%,-50%);animation:ripple-out .5s ease forwards;`;
+  tab.style.position='relative';tab.appendChild(r);
+  setTimeout(()=>r.remove(),500);
+}
+const st=document.createElement('style');
+st.textContent='@keyframes ripple-out{0%{width:6px;height:6px;opacity:.8}100%{width:80px;height:80px;opacity:0}}';
+document.head.appendChild(st);
+
+/* ── PW TOGGLE ── */
+function togglePW(){
+  const pw=document.getElementById('password');
+  const open=document.getElementById('eye-open');
+  const closed=document.getElementById('eye-closed');
+  if(pw.type==='password'){pw.type='text';open.style.display='none';closed.style.display='block';}
+  else{pw.type='password';open.style.display='block';closed.style.display='none';}
+}
+
+/* ── SUBMIT (real API) ── */
+async function handleSubmit(e){
+  e.preventDefault();
+  const btn=document.getElementById('submitBtn');
+  const errEl=document.getElementById('loginError');
+  errEl.classList.remove('visible');
+  errEl.textContent='';
+  btn.classList.add('loading');
+  btn.disabled=true;
+
+  const email=document.getElementById('email').value.trim().toLowerCase();
+  const password=document.getElementById('password').value;
+  const workspace=document.querySelector('.ws-tab.active').dataset.ws;
+  const wsMsgs={qa:'QA Workspace',hr:'HR Workspace',ba:'BA Workspace'};
+
+  try {
+    const res=await fetch(_api('/api/auth/login'),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,password,workspace})
+    });
+    const data=await res.json();
+
+    if(data.success&&data.user){
+      sessionStorage.setItem(NEXORA_USER_KEY,JSON.stringify(data.user));
+      document.getElementById('successMsg').textContent=`Redirecting to your ${wsMsgs[workspace]}…`;
+      document.getElementById('successOverlay').classList.add('show');
+      setTimeout(()=>{window.location.href='/app';},1200);
+    }else{
+      btn.classList.remove('loading');
+      btn.disabled=false;
+      errEl.textContent=data.error||'Invalid email or password.';
+      errEl.classList.add('visible');
+    }
+  }catch(err){
+    btn.classList.remove('loading');
+    btn.disabled=false;
+    errEl.textContent='Login failed. Please try again.';
+    errEl.classList.add('visible');
+  }
+}
+
+/* ── INPUT SHAKE on empty submit ── */
+document.getElementById('loginForm').addEventListener('invalid',e=>{
+  e.preventDefault();
+  e.target.closest('.field').style.animation='shake .35s ease';
+  setTimeout(()=>e.target.closest('.field').style.animation='',400);
+},true);
+const shk=document.createElement('style');
+shk.textContent='@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}';
+document.head.appendChild(shk);
+</script>
+</body>
+</html>
