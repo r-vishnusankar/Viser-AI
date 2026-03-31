@@ -3,9 +3,9 @@ env:
   contexts:
   - name: Default Context
     urls:
-    - https://practicetestautomation.com/practice-test-login//
+    - https://dazzling-puppy-900bdb.netlify.app//
     includePaths:
-    - https://practicetestautomation.com/practice-test-login//.*
+    - https://dazzling-puppy-900bdb.netlify.app//.*
 
 jobs:
 - type: spider
@@ -26,11 +26,11 @@ jobs:
 - type: report
   parameters:
     template: traditional-json
-    reportDir: C:/Users/Vishnu/Desktop/AI_Product_Lab/03_Research/BuildShield 360/zap_scanner
+    reportDir: C:/Users/Vishnu/Desktop/AI_Product_Lab/01_Active_Products/Nexora.ai/BuildShield 360/zap_scanner
     reportFile: zap_report.json
 
 - type: report
   parameters:
     template: traditional-html
-    reportDir: C:/Users/Vishnu/Desktop/AI_Product_Lab/03_Research/BuildShield 360/zap_scanner
+    reportDir: C:/Users/Vishnu/Desktop/AI_Product_Lab/01_Active_Products/Nexora.ai/BuildShield 360/zap_scanner
     reportFile: zap_report.html
