@@ -12,7 +12,7 @@ if sys.platform == "win32":
     except (AttributeError, OSError):
         pass
 
-from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
 from flask_cors import CORS
 from werkzeug.routing import PathConverter, BaseConverter
 import os
@@ -27,11 +27,14 @@ if _env_path.exists():
     load_dotenv(_env_path)
 else:
     load_dotenv()  # fallback to cwd
+import html
+import re
 import uuid
 import time
 import requests
 import traceback
 from werkzeug.utils import secure_filename
+import shutil
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -911,12 +914,83 @@ def detect_email_command(message):
     
     return {'is_email_command': False}
 
-def create_simple_email_body(message_content, session_id=None):
-    """Create plain email body for quick messages (no template)"""
-    return f"<p>{message_content}</p>"
+def _escape_with_optional_markdown_bold(s: str) -> str:
+    """HTML-escape plain text; wrap **segments** in <strong> (single-line segments only)."""
+    if not s:
+        return ""
+    parts = re.split(r"\*\*([^*]+)\*\*", s)
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2 == 0:
+            out.append(html.escape(part))
+        else:
+            out.append(f"<strong>{html.escape(part)}</strong>")
+    return "".join(out)
 
-def send_email(to_email, subject, body, attachment_path=None, attachment_name=None):
-    """Send email with optional attachment"""
+
+def _plain_text_to_professional_html(text: str, footer_html: str = "") -> str:
+    """Convert plain text (paragraphs, line breaks, simple bullet lines) into safe HTML for clients."""
+    raw = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    list_line = re.compile(r"^\s*([\-•])\s+(.*)$")
+
+    blocks = re.split(r"\n{2,}", raw) if raw else []
+    parts = []
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split("\n")
+        if lines and all(not ln.strip() or list_line.match(ln) for ln in lines):
+            items = []
+            for ln in lines:
+                m = list_line.match(ln)
+                if m:
+                    items.append(
+                        f'<li style="margin:0 0 6px 0;">{_escape_with_optional_markdown_bold(m.group(2).strip())}</li>'
+                    )
+            parts.append(
+                f'<ul style="margin:0 0 16px 0;padding-left:22px;color:#1a1a1a;">{"".join(items)}</ul>'
+            )
+        else:
+            escaped_lines = [_escape_with_optional_markdown_bold(ln) for ln in lines]
+            inner = "<br>\n".join(escaped_lines)
+            parts.append(f'<p style="margin:0 0 16px 0;">{inner}</p>')
+
+    inner_html = "\n".join(parts)
+    if footer_html:
+        inner_html = (inner_html + "\n" + footer_html).strip()
+
+    if not inner_html:
+        inner_html = '<p style="margin:0;">&nbsp;</p>'
+
+    return (
+        '<div style="font-family:Georgia,\'Segoe UI\',system-ui,-apple-system,sans-serif;'
+        'font-size:15px;line-height:1.6;color:#1a1a1a;max-width:640px;">\n'
+        f"{inner_html}\n"
+        "</div>"
+    )
+
+
+def create_simple_email_body(message_content, session_id=None):
+    """Readable HTML for chat/quick sends (paragraphs, lists, **bold**)."""
+    foot = ""
+    if session_id:
+        foot = (
+            f'<p style="margin:20px 0 0 0;font-size:12px;color:#64748b;">'
+            f"Session: {html.escape(str(session_id))}</p>"
+        )
+    return _plain_text_to_professional_html(message_content or "", footer_html=foot)
+
+
+def send_email(
+    to_email,
+    subject,
+    body,
+    attachment_path=None,
+    attachment_name=None,
+    body_is_plain_text=False,
+):
+    """Send email with optional attachment. Set body_is_plain_text=True when body is dashboard/LLM plain text."""
     if not CONFIG.get('EMAIL_ENABLED', False):
         print("📧 Email sending disabled in configuration")
         return False, "Email sending is disabled. Set EMAIL_ENABLED=True in .env"
@@ -939,6 +1013,9 @@ def send_email(to_email, subject, body, attachment_path=None, attachment_name=No
     to_email = str(to_email).strip()
 
     try:
+        if body_is_plain_text:
+            body = _plain_text_to_professional_html(body or "")
+
         # Create message
         msg = MIMEMultipart()
         msg['From'] = sender
@@ -946,7 +1023,7 @@ def send_email(to_email, subject, body, attachment_path=None, attachment_name=No
         msg['Subject'] = subject
 
         # Add body
-        msg.attach(MIMEText(body, 'html'))
+        msg.attach(MIMEText(body, 'html', 'utf-8'))
 
         # Add attachment if provided
         if attachment_path and os.path.exists(attachment_path):
@@ -1305,7 +1382,7 @@ _DB_PATH = os.path.join(os.path.dirname(__file__), "data", "chat_history.db")
 
 def _get_db():
     os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(_DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(_DB_PATH, check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("""
@@ -2233,6 +2310,12 @@ def serve_index():
         return response
     except FileNotFoundError:
         return "HTML file not found", 404
+
+@app.route('/favicon.ico')
+def serve_favicon_ico():
+    """Browsers request /favicon.ico by default; redirect to SVG asset."""
+    return redirect('/assets/favicon.svg', code=302)
+
 
 @app.route('/assets/<path:subpath>')
 def serve_assets(subpath):
@@ -3683,10 +3766,1284 @@ def hr_send_mail():
         # Always append Valoriz signature if not already present
         if "teamhr@valoriz.com" not in body:
             body = body.rstrip() + VALORIZ_SIGNATURE
-        success, msg = send_email(recipient, subject, body)
+        success, msg = send_email(recipient, subject, body, body_is_plain_text=True)
         if success:
             return jsonify({"success": True, "message": f"Email sent to {recipient}"})
         return jsonify({"success": False, "error": msg}), 500
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ─── HR Automation Workbench (Simulation MVP) ───────────────────────────────
+
+_HR_INBOX_DIR = _PROJECT_ROOT / "uploads" / "hr" / "inbox"
+
+def _ensure_hr_automation_tables(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS hr_automation_runs (
+            id              TEXT PRIMARY KEY,
+            user_id         TEXT NOT NULL,
+            job_role        TEXT NOT NULL DEFAULT 'Candidate',
+            job_description TEXT NOT NULL,
+            autonomous      INTEGER NOT NULL DEFAULT 0,
+            status          TEXT NOT NULL DEFAULT 'ACTIVE',
+            created_at      REAL NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS hr_automation_candidates (
+            id                      TEXT PRIMARY KEY,
+            run_id                  TEXT NOT NULL,
+            resume_filename        TEXT,
+            resume_path            TEXT NOT NULL,
+            extracted_profile_json TEXT,
+            screening_json        TEXT,
+            invite_draft_json     TEXT,
+            chosen_slot_json      TEXT,
+            interview_json        TEXT,
+            final_email_draft_json TEXT,
+            stage                  TEXT NOT NULL DEFAULT 'PROFILE_WAIT_REVIEW',
+            needs_review           INTEGER NOT NULL DEFAULT 1,
+            final_sent             INTEGER NOT NULL DEFAULT 0,
+            created_at             REAL NOT NULL,
+            updated_at             REAL NOT NULL,
+            FOREIGN KEY(run_id) REFERENCES hr_automation_runs(id)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_hr_auto_candidates_run_stage ON hr_automation_candidates(run_id, stage)")
+    conn.commit()
+    _hr_migrate_hr_automation_columns(conn)
+
+
+def _hr_migrate_hr_automation_columns(conn):
+    """Add optional columns to existing SQLite tables (idempotent)."""
+    cur = conn.execute("PRAGMA table_info(hr_automation_candidates)")
+    cand_cols = {row[1] for row in cur.fetchall()}
+    if "jd_pass" not in cand_cols:
+        conn.execute("ALTER TABLE hr_automation_candidates ADD COLUMN jd_pass INTEGER")
+    if "match_percent" not in cand_cols:
+        conn.execute("ALTER TABLE hr_automation_candidates ADD COLUMN match_percent INTEGER")
+    if "shortlisted" not in cand_cols:
+        conn.execute("ALTER TABLE hr_automation_candidates ADD COLUMN shortlisted INTEGER DEFAULT 0")
+    conn.commit()
+
+
+def _hr_inbox_resume_files(max_candidates=None):
+    """List resume files in inbox (newest first). If max_candidates is None, return all."""
+    _HR_INBOX_DIR.mkdir(parents=True, exist_ok=True)
+    files = []
+    for name in os.listdir(_HR_INBOX_DIR):
+        p = _HR_INBOX_DIR / name
+        if not p.is_file():
+            continue
+        ext = (p.suffix or "").lower()
+        if ext in (".pdf", ".docx", ".txt"):
+            files.append(p)
+    files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    if max_candidates is None:
+        return files
+    return files[: max_candidates]
+
+
+def _hr_screen_single_profile(job_role: str, job_description: str, profile: dict) -> dict:
+    """Run JD screening for one candidate profile; returns full screening JSON."""
+    candidates = [profile]
+    esc = job_role.replace('"', '\\"')
+    prompt = f"""You are an HR screening expert. Given the job description and candidate profiles, rank each candidate.
+For each candidate, also provide "skill_match": array of {{"skill": "skill name", "matched": true/false}} for key JD skills.
+
+Return ONLY valid JSON (no markdown):
+{{
+  "job_role": "{esc}",
+  "keywords": ["key skill 1", "key skill 2", "..."],
+  "ranked": [
+    {{
+      "index": 1,
+      "name": "string",
+      "email": "string",
+      "match_percent": 85,
+      "skill_match": [{{"skill":"Python","matched":true}}],
+      "strengths": ["strength1"],
+      "gaps": ["gap1"],
+      "recommendation": "Shortlist" or "Maybe" or "Reject"
+    }}
+  ]
+}}
+
+Job Description:
+{job_description[:4000]}
+
+Candidates:
+{json.dumps(candidates[:1], ensure_ascii=False)[:8000]}
+"""
+    out = _hr_llm_completion(prompt, max_tokens=3500).strip()
+    if out.startswith("```"):
+        out = out.split("\n", 1)[1] if "\n" in out else out[3:]
+    if out.endswith("```"):
+        out = out.rsplit("```", 1)[0].strip()
+    return json.loads(out)
+
+
+def _hr_jd_pass_from_ranked_row(r0: dict, threshold: int) -> tuple:
+    """Returns (jd_pass: bool, match_percent: int)."""
+    pct = int(r0.get("match_percent") or 0)
+    rec = (r0.get("recommendation") or "").lower()
+    passed = pct >= threshold or "shortlist" in rec or "maybe" in rec
+    return passed, pct
+
+
+def _hr_stage_order(step: str) -> int:
+    """Lower = earlier in pipeline. DONE/EXCLUDED are terminal."""
+    order_map = {
+        "PROFILE_WAIT_REVIEW": 1,
+        "STEP1_AWAIT_SELECTION": 1,
+        "SCREENING_WAIT_REVIEW": 2,
+        "SLOT_WAIT_REVIEW": 2,
+        "INTERVIEW_WAIT_REVIEW": 3,
+        "REPORT_WAIT_REVIEW": 4,
+        "FINAL_WAIT_REVIEW": 5,
+        "DONE": 99,
+        "STEP1_EXCLUDED": 99,
+    }
+    return order_map.get(step, 1)
+
+
+def _hr_pipeline_dominant_step(stages: list) -> int:
+    """Earliest incomplete step among all candidates (supports mixed progress)."""
+    if not stages:
+        return 1
+    if all(x in ("DONE", "STEP1_EXCLUDED") for x in stages):
+        return 6
+    active_orders = [_hr_stage_order(s) for s in stages if s not in ("DONE", "STEP1_EXCLUDED")]
+    if not active_orders:
+        return 6
+    m = min(active_orders)
+    if m >= 99:
+        return 6
+    return min(5, m)
+
+
+def _hr_pipeline_summary_for_json(candidates_payload: list, stages: list) -> dict:
+    """Build pipeline object returned by /status."""
+    dom = _hr_pipeline_dominant_step(stages)
+    total = len(candidates_payload)
+    analyzed = sum(1 for c in candidates_payload if c.get("stage") not in ("PROFILE_WAIT_REVIEW",))
+    jd_pass_n = sum(1 for c in candidates_payload if c.get("jd_pass") is True)
+    jd_fail_n = sum(1 for c in candidates_payload if c.get("jd_pass") is False)
+    selected = sum(1 for c in candidates_payload if c.get("shortlisted"))
+    step1_done = all(
+        c.get("stage") not in ("PROFILE_WAIT_REVIEW", "STEP1_AWAIT_SELECTION")
+        for c in candidates_payload
+    ) if candidates_payload else False
+    pct = 100 if dom >= 6 else min(100, max(0, int((dom - 1) / 5 * 100)))
+    return {
+        "dominant_step": dom,
+        "progress_percent": pct,
+        "counts": {
+            "total": total,
+            "analyzed": analyzed,
+            "jd_pass": jd_pass_n,
+            "jd_fail": jd_fail_n,
+            "shortlisted_active": sum(
+                1 for c in candidates_payload
+                if c.get("stage") not in ("STEP1_EXCLUDED", "DONE") and c.get("shortlisted")
+            ),
+        },
+        "step1_collapsed_summary": (
+            f"{analyzed} résumé(s) analyzed · JD pass: {jd_pass_n} · fail: {jd_fail_n} · selected for pipeline: {selected}"
+            if step1_done or dom > 1
+            else None
+        ),
+    }
+
+
+def _hr_generate_slots(days: int = 5, start_hour: int = 12, end_hour: int = 15, slot_minutes: int = 30):
+    """
+    Generate available slots for simulation.
+    Window is the next `days` days, from start_hour to end_hour (end is exclusive).
+    """
+    today = datetime.now().date()
+    slots = []
+    for d in range(days):
+        day = today + timedelta(days=d)
+        start_dt = datetime.combine(day, datetime.min.time()).replace(hour=start_hour, minute=0, second=0, microsecond=0)
+        end_dt = datetime.combine(day, datetime.min.time()).replace(hour=end_hour, minute=0, second=0, microsecond=0)
+        t = start_dt
+        while t < end_dt:
+            t_end = t + timedelta(minutes=slot_minutes)
+            slots.append(
+                {
+                    "slot_iso": t.isoformat(),
+                    "label": f"{day.strftime('%Y-%m-%d')} {t.strftime('%H:%M')} - {t_end.strftime('%H:%M')}",
+                    "start": t.isoformat(),
+                    "end": t_end.isoformat(),
+                }
+            )
+            t = t_end
+    return slots
+
+
+def _hr_generate_interview_questions(job_role: str, job_description: str, profile: dict):
+    prompt = f"""
+You are an interview designer.
+Generate interview questions for the following HR screening role.
+Return ONLY valid JSON (no markdown):
+{{
+  "job_role": "{job_role}",
+  "questions": [
+    {{
+      "id": "Q1",
+      "type": "behavioral|technical|scenario",
+      "question": "string",
+      "focus_skills": ["skill1", "skill2"]
+    }}
+  ]
+}}
+
+RULE (fixed template):
+- Total 8 questions
+- Exactly 3 behavioral, 3 technical, 2 scenario
+- Tailor the content to the candidate profile and JD.
+
+Job Description:
+{job_description[:6000]}
+
+Candidate profile:
+{json.dumps(profile or {}, ensure_ascii=False)[:6000]}
+"""
+    out = _hr_llm_completion(prompt, max_tokens=2000)
+    out = out.strip()
+    if out.startswith("```"):
+        out = out.split("\n", 1)[1] if "\n" in out else out[3:]
+    if out.endswith("```"):
+        out = out.rsplit("```", 1)[0].strip()
+    return json.loads(out).get("questions", [])
+
+
+def _hr_simulate_candidate_answers(questions: list, profile: dict):
+    prompt = f"""
+You are simulating a job candidate.
+Return ONLY valid JSON (no markdown) with this exact shape:
+{{
+  "answers": [
+    {{
+      "id": "Q1",
+      "answer": "3-6 sentences answer",
+      "evidence": ["short evidence phrases from resume"]
+    }}
+  ]
+}}
+
+Candidate profile:
+{json.dumps(profile or {}, ensure_ascii=False)[:6000]}
+
+Questions:
+{json.dumps(questions or [], ensure_ascii=False)[:6000]}
+"""
+    out = _hr_llm_completion(prompt, max_tokens=2500)
+    out = out.strip()
+    if out.startswith("```"):
+        out = out.split("\n", 1)[1] if "\n" in out else out[3:]
+    if out.endswith("```"):
+        out = out.rsplit("```", 1)[0].strip()
+    return json.loads(out).get("answers", [])
+
+
+def _hr_evaluate_interview(job_role: str, job_description: str, profile: dict, questions: list, answers: list):
+    prompt = f"""
+You are evaluating an interview for HR screening.
+Return ONLY valid JSON (no markdown):
+{{
+  "overall_score": 0-100,
+  "recommendation": "Offer|Reject",
+  "strengths": ["..."],
+  "gaps": ["..."],
+  "summary": "2-4 sentences",
+  "per_question": [
+    {{
+      "id": "Q1",
+      "verdict": "Good|Average|Weak",
+      "notes": "short notes"
+    }}
+  ]
+}}
+
+Job Role: {job_role}
+Job Description:
+{job_description[:6000]}
+Candidate Profile:
+{json.dumps(profile or {}, ensure_ascii=False)[:6000]}
+Questions:
+{json.dumps(questions or [], ensure_ascii=False)[:6000]}
+Answers:
+{json.dumps(answers or [], ensure_ascii=False)[:6000]}
+"""
+    out = _hr_llm_completion(prompt, max_tokens=2500)
+    out = out.strip()
+    if out.startswith("```"):
+        out = out.split("\n", 1)[1] if "\n" in out else out[3:]
+    if out.endswith("```"):
+        out = out.rsplit("```", 1)[0].strip()
+    return json.loads(out)
+
+
+def _hr_generate_email(template: str, variables: dict, max_tokens: int = 900):
+    template = (template or "interview_invite").strip()
+    templates = {
+        "interview_invite": "Draft a professional interview invitation email. Include: greeting, role, date, time, location/meeting link, what to bring, contact for questions.",
+        "rejection": "Draft a polite rejection email after interview. Be respectful and wish them well.",
+        "follow_up": "Draft a follow-up email to a candidate after interview, asking for any updates or next steps.",
+        "offer": "Draft a job offer email. Include: position, start date, compensation if provided, next steps.",
+    }
+    instruction = templates.get(template, templates["interview_invite"])
+    vars_str = "\n".join([f"- {k}: {v}" for k, v in (variables or {}).items()])
+    prompt = f"""Generate an HR email. {instruction}
+
+Variables provided:
+{vars_str or '(none)'}
+
+Return ONLY the email body (no subject line, no extra text). Use the variables where relevant.
+Professional tone. Do NOT add any signature, sign-off, "Best regards", "Sincerely", "[Your Name]", or closing — we add it automatically."""
+    body = _hr_llm_completion(prompt, max_tokens=max_tokens)
+    body = (body or "").strip()
+    # Remove common sign-offs the model might add.
+    body_lower = body.lower()
+    for s in ["\n[your name]", "\nbest regards,\n[your name]", "\nbest regards,\n\n[your name]",
+              "\nregards,\n[your name]", "\nsincerely,\n[your name]"]:
+        if body_lower.endswith(s):
+            body = body[: len(body) - len(s)].rstrip()
+            body_lower = body.lower()
+    # Append Valoriz signature.
+    if "teamhr@valoriz.com" not in body:
+        body = body + VALORIZ_SIGNATURE
+    subject_prompts = {
+        "interview_invite": "Subject line for interview invitation",
+        "rejection": "Subject line for rejection email",
+        "follow_up": "Subject line for follow-up",
+        "offer": "Subject line for job offer",
+    }
+    sub_prompt = f"Generate a short subject line for: {subject_prompts.get(template, 'HR email')}. Variables: {variables}. Reply with ONLY the subject, no quotes."
+    subject = _hr_llm_completion(sub_prompt, max_tokens=60).strip()
+    return {"subject": subject, "body": body}
+
+
+def _hr_request_json() -> dict:
+    """Parse JSON body for HR automation APIs.
+
+    Use force=True so a valid JSON body is still parsed if Flask does not set
+    request.is_json (e.g. unusual Content-Type) — otherwise data becomes {} and
+    ingest incorrectly returns job_description is required.
+    """
+    return request.get_json(silent=True, force=True) or {}
+
+
+@app.route('/api/hr/automation/start', methods=['POST', 'OPTIONS'])
+def hr_automation_start():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = _hr_request_json()
+        if _hr_truthy_flag(data.get("analyze_step1_only")):
+            payload, code = _hr_automation_step1_analyze_exec(data)
+            return jsonify(payload), code
+        if _hr_truthy_flag(data.get("step1_select_only")):
+            payload, code = _hr_automation_step1_select_exec(data)
+            return jsonify(payload), code
+        user_id = get_request_user_id() or "guest_user"
+        autonomous = 1 if str(data.get("autonomous", False)).lower() in ("1", "true", "yes", "on") else 0
+        job_role = (data.get("job_role") or "Candidate").strip()
+        job_description = (data.get("job_description") or data.get("jobDescription") or "").strip()
+        if not job_description:
+            # Stale server: newer UI sends these flags but code above didn't short-circuit.
+            if data.get("run_id") and _hr_truthy_flag(data.get("analyze_step1_only")):
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "Server ignored analyze_step1_only (outdated flask_server.py). Restart or deploy latest Nexora backend.",
+                    }
+                ), 400
+            if data.get("run_id") and _hr_truthy_flag(data.get("step1_select_only")):
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "Server ignored step1_select_only (outdated flask_server.py). Restart or deploy latest Nexora backend.",
+                    }
+                ), 400
+            return jsonify({"success": False, "error": "job_description is required"}), 400
+        max_candidates = int(data.get("max_candidates") or 30)
+        max_candidates = max(1, min(50, max_candidates))
+
+        # Inbox first (avoid creating a run then failing — and use 400 not 404 so DevTools ≠ "route missing").
+        files = _hr_inbox_resume_files(max_candidates=max_candidates)
+        if not files:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": (
+                        "No resumes in uploads/hr/inbox/. This pipeline only ingests from that folder — "
+                        "files uploaded on the Resume Analyzer page are separate. "
+                        "Copy PDF/DOCX/TXT into uploads/hr/inbox/, then click Ingest Inbox & Create Run again."
+                    ),
+                }
+            ), 400
+
+        conn = _get_db()
+        _ensure_hr_automation_tables(conn)
+
+        run_id = str(uuid.uuid4())
+        created_at = time.time()
+        conn.execute(
+            "INSERT INTO hr_automation_runs(id,user_id,job_role,job_description,autonomous,status,created_at) VALUES (?,?,?,?,?,?,?)",
+            (run_id, user_id, job_role, job_description, autonomous, "ACTIVE", created_at),
+        )
+
+        # Ingest inbox resumes (move to processed folder)
+        processed_root = _HR_INBOX_DIR / "processed" / run_id
+        processed_root.mkdir(parents=True, exist_ok=True)
+
+        for p in files:
+            cand_id = str(uuid.uuid4())
+            dest = processed_root / p.name
+            shutil.move(str(p), str(dest))
+            conn.execute(
+                """
+                INSERT INTO hr_automation_candidates
+                (id, run_id, resume_filename, resume_path, stage, needs_review, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'PROFILE_WAIT_REVIEW', 1, ?, ?)
+                """,
+                (cand_id, run_id, p.name, str(dest), created_at, created_at),
+            )
+
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "run_id": run_id})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _hr_internal_step1_analyze_all(conn, run, run_id: str, threshold: int) -> list:
+    """Analyze every PROFILE_WAIT_REVIEW candidate: extract profile + JD screen. Returns error dicts."""
+    job_role = run["job_role"]
+    job_description = run["job_description"]
+    rows = conn.execute(
+        "SELECT * FROM hr_automation_candidates WHERE run_id=? AND stage='PROFILE_WAIT_REVIEW'",
+        (run_id,),
+    ).fetchall()
+    errors = []
+    now = time.time()
+    for row in rows:
+        cid = row["id"]
+        try:
+            resume_path = row["resume_path"]
+            ext = (os.path.splitext(resume_path)[1] or "").lower()
+            file_ext = ext if ext in (".pdf", ".docx", ".txt") else ".txt"
+            extracted = _analyze_single_resume(None, resume_path, file_ext)
+            if not extracted:
+                errors.append({"id": cid, "filename": row["resume_filename"], "error": "Could not extract resume text"})
+                continue
+            screening = _hr_screen_single_profile(job_role, job_description, extracted)
+            ranked = screening.get("ranked") or []
+            r0 = ranked[0] if ranked else {}
+            passed, pct = _hr_jd_pass_from_ranked_row(r0, threshold)
+            conn.execute(
+                """
+                UPDATE hr_automation_candidates
+                SET extracted_profile_json=?, screening_json=?, jd_pass=?, match_percent=?,
+                    stage='STEP1_AWAIT_SELECTION', needs_review=1, updated_at=?
+                WHERE id=? AND run_id=?
+                """,
+                (
+                    json.dumps(extracted, ensure_ascii=False),
+                    json.dumps(screening, ensure_ascii=False),
+                    1 if passed else 0,
+                    pct,
+                    now,
+                    cid,
+                    run_id,
+                ),
+            )
+        except Exception as e:
+            errors.append({"id": cid, "filename": row["resume_filename"], "error": str(e)})
+    return errors
+
+
+def _hr_truthy_flag(val) -> bool:
+    return str(val or "").lower() in ("1", "true", "yes", "on")
+
+
+def _hr_automation_step1_analyze_exec(data: dict):
+    """Shared Step 1 JD analysis; returns (dict, http_status)."""
+    run_id = (data.get("run_id") or "").strip()
+    user_id = get_request_user_id() or "guest_user"
+    threshold = int(data.get("pass_threshold") or 70)
+    threshold = max(0, min(100, threshold))
+    if not run_id:
+        return {"success": False, "error": "run_id is required"}, 400
+
+    conn = _get_db()
+    try:
+        _ensure_hr_automation_tables(conn)
+        run = _hr_load_run(conn, run_id, user_id)
+        if not run:
+            return {"success": False, "error": "Run not found"}, 404
+
+        errors = _hr_internal_step1_analyze_all(conn, run, run_id, threshold)
+        conn.commit()
+        return {"success": True, "errors": errors, "error_count": len(errors)}, 200
+    finally:
+        conn.close()
+
+
+def _hr_automation_step1_select_exec(data: dict):
+    """Shared Step 1 selection; returns (dict, http_status)."""
+    run_id = (data.get("run_id") or "").strip()
+    user_id = get_request_user_id() or "guest_user"
+    selected = data.get("selected_candidate_ids") or []
+    if not run_id:
+        return {"success": False, "error": "run_id is required"}, 400
+    if not selected or not isinstance(selected, list):
+        return {"success": False, "error": "selected_candidate_ids must be a non-empty list"}, 400
+
+    conn = _get_db()
+    try:
+        _ensure_hr_automation_tables(conn)
+        run = _hr_load_run(conn, run_id, user_id)
+        if not run:
+            return {"success": False, "error": "Run not found"}, 404
+
+        rows = conn.execute(
+            "SELECT id FROM hr_automation_candidates WHERE run_id=? AND stage='STEP1_AWAIT_SELECTION'",
+            (run_id,),
+        ).fetchall()
+        allowed = {r["id"] for r in rows}
+        selected_set = {str(x).strip() for x in selected if str(x).strip()}
+        if not selected_set.issubset(allowed):
+            return {"success": False, "error": "Invalid or stale candidate id in selection"}, 400
+
+        now = time.time()
+        for r in rows:
+            cid = r["id"]
+            if cid in selected_set:
+                conn.execute(
+                    """
+                    UPDATE hr_automation_candidates
+                    SET shortlisted=1, stage='SLOT_WAIT_REVIEW', needs_review=1, updated_at=?
+                    WHERE id=? AND run_id=?
+                    """,
+                    (now, cid, run_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE hr_automation_candidates
+                    SET shortlisted=0, stage='STEP1_EXCLUDED', needs_review=0, updated_at=?
+                    WHERE id=? AND run_id=?
+                    """,
+                    (now, cid, run_id),
+                )
+        conn.commit()
+        return {"success": True, "selected_count": len(selected_set)}, 200
+    finally:
+        conn.close()
+
+
+@app.route('/api/hr/automation/ping', methods=['GET', 'OPTIONS'])
+def hr_automation_ping():
+    """Health check: proves this server process has HR automation routes loaded."""
+    if request.method == 'OPTIONS':
+        return '', 204
+    return jsonify(
+        {
+            "success": True,
+            "service": "hr-automation",
+            "hint": "If other HR calls return HTML 404, restart THIS python flask_server.py (only one instance; cwd = Nexora repo).",
+            "post_endpoints": [
+                "/api/hr/automation/start",
+                "/api/hr/automation/step1_analyze",
+                "/api/hr/automation/step1_select",
+            ],
+            "start_body_fallbacks": {
+                "analyze_step1_only": "Same as POST /api/hr/automation/step1_analyze (use if that path 404s on old deploys).",
+                "step1_select_only": "Same as POST /api/hr/automation/step1_select.",
+            },
+        }
+    )
+
+
+@app.route('/api/hr/automation/step1-analyze', methods=['POST', 'OPTIONS'])
+@app.route('/api/hr/automation/step1_analyze', methods=['POST', 'OPTIONS'])
+def hr_automation_step1_analyze():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = _hr_request_json()
+        payload, code = _hr_automation_step1_analyze_exec(data)
+        return jsonify(payload), code
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/automation/step1-select', methods=['POST', 'OPTIONS'])
+@app.route('/api/hr/automation/step1_select', methods=['POST', 'OPTIONS'])
+def hr_automation_step1_select():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = _hr_request_json()
+        payload, code = _hr_automation_step1_select_exec(data)
+        return jsonify(payload), code
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/automation/status', methods=['GET', 'OPTIONS'])
+def hr_automation_status():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        run_id = (request.args.get("run_id") or "").strip()
+        if not run_id:
+            return jsonify({"success": False, "error": "run_id is required"}), 400
+        user_id = get_request_user_id() or "guest_user"
+
+        conn = _get_db()
+        _ensure_hr_automation_tables(conn)
+
+        run = conn.execute("SELECT * FROM hr_automation_runs WHERE id=? AND user_id=?", (run_id, user_id)).fetchone()
+        if not run:
+            conn.close()
+            return jsonify({"success": False, "error": "Run not found"}), 404
+
+        candidates_rows = conn.execute(
+            """
+            SELECT id, stage, needs_review, final_sent, extracted_profile_json, screening_json,
+                   chosen_slot_json, interview_json, jd_pass, match_percent, shortlisted, resume_filename
+            FROM hr_automation_candidates
+            WHERE run_id=?
+            ORDER BY created_at ASC
+            """,
+            (run_id,)
+        ).fetchall()
+        slots = _hr_generate_slots()
+
+        def _safe_json(v):
+            try:
+                return json.loads(v) if v else None
+            except Exception:
+                return None
+
+        candidates = []
+        for r in candidates_rows:
+            profile = _safe_json(r["extracted_profile_json"]) or {}
+            screening = _safe_json(r["screening_json"]) or {}
+            chosen_slot = _safe_json(r["chosen_slot_json"]) or {}
+            interview = _safe_json(r["interview_json"]) or {}
+            ranked0 = (screening.get("ranked", [{}]) or [{}])[0] if isinstance(screening, dict) else {}
+            jd_raw = r["jd_pass"]
+            jd_pass_out = None if jd_raw is None else bool(jd_raw)
+            candidates.append(
+                {
+                    "id": r["id"],
+                    "stage": r["stage"],
+                    "needs_review": r["needs_review"],
+                    "final_sent": r["final_sent"],
+                    "resume_filename": r["resume_filename"] or "",
+                    "candidate_name": profile.get("name") or "",
+                    "candidate_email": profile.get("email") or "",
+                    "jd_pass": jd_pass_out,
+                    "match_percent": r["match_percent"],
+                    "shortlisted": bool(r["shortlisted"] or 0),
+                    "screening_recommendation": ranked0.get("recommendation") if isinstance(ranked0, dict) else None,
+                    "chosen_slot": chosen_slot,
+                    "interview_summary": interview.get("report", {}).get("summary") if isinstance(interview, dict) else None,
+                    "interview_score": interview.get("report", {}).get("overall_score") if isinstance(interview, dict) else None,
+                }
+            )
+
+        stages = [c["stage"] for c in candidates]
+        pipeline = _hr_pipeline_summary_for_json(candidates, stages)
+
+        conn.close()
+        return jsonify(
+            {
+                "success": True,
+                "run": {
+                    "id": run["id"],
+                    "job_role": run["job_role"],
+                    "autonomous": bool(run["autonomous"]),
+                    "status": run["status"],
+                },
+                "pipeline": pipeline,
+                "slots": slots,
+                "candidates": candidates,
+            }
+        )
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _hr_load_run(conn, run_id: str, user_id: str):
+    return conn.execute("SELECT * FROM hr_automation_runs WHERE id=? AND user_id=?", (run_id, user_id)).fetchone()
+
+
+def _hr_load_candidate(conn, candidate_id: str, run_id: str):
+    return conn.execute(
+        "SELECT * FROM hr_automation_candidates WHERE id=? AND run_id=?",
+        (candidate_id, run_id),
+    ).fetchone()
+
+
+@app.route('/api/hr/automation/progress', methods=['POST', 'OPTIONS'])
+def hr_automation_progress():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = _hr_request_json()
+        run_id = (data.get("run_id") or "").strip()
+        candidate_id = (data.get("candidate_id") or "").strip()
+        if not run_id or not candidate_id:
+            return jsonify({"success": False, "error": "run_id and candidate_id are required"}), 400
+        user_id = get_request_user_id() or "guest_user"
+
+        conn = _get_db()
+        _ensure_hr_automation_tables(conn)
+        run = _hr_load_run(conn, run_id, user_id)
+        if not run:
+            conn.close()
+            return jsonify({"success": False, "error": "Run not found"}), 404
+        cand = _hr_load_candidate(conn, candidate_id, run_id)
+        if not cand:
+            conn.close()
+            return jsonify({"success": False, "error": "Candidate not found"}), 404
+
+        stage = cand["stage"]
+        now = time.time()
+
+        def _safe_json(v):
+            try:
+                return json.loads(v) if v else {}
+            except Exception:
+                return {}
+
+        profile = _safe_json(cand["extracted_profile_json"]) if cand["extracted_profile_json"] else {}
+        screening = _safe_json(cand["screening_json"]) if cand["screening_json"] else {}
+        chosen_slot = _safe_json(cand["chosen_slot_json"]) if cand["chosen_slot_json"] else {}
+
+        if stage == "STEP1_AWAIT_SELECTION":
+            conn.close()
+            return jsonify({"success": False, "error": "Use Step 1: select candidates (step1-select) to continue"}), 409
+
+        if stage == "STEP1_EXCLUDED":
+            conn.close()
+            return jsonify({"success": False, "error": "This candidate was not selected for the pipeline"}), 409
+
+        if stage == "PROFILE_WAIT_REVIEW":
+            resume_path = cand["resume_path"]
+            ext = (os.path.splitext(resume_path)[1] or "").lower()
+            file_ext = ext if ext in (".pdf", ".docx", ".txt") else ".txt"
+            extracted = _analyze_single_resume(None, resume_path, file_ext)
+            if not extracted:
+                conn.close()
+                return jsonify({"success": False, "error": "Resume analysis failed"}), 500
+            conn.execute(
+                "UPDATE hr_automation_candidates SET extracted_profile_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                (json.dumps(extracted, ensure_ascii=False), "SCREENING_WAIT_REVIEW", 1, now, candidate_id, run_id),
+            )
+            conn.commit()
+            conn.close()
+            return jsonify({"success": True})
+
+        if stage == "SCREENING_WAIT_REVIEW":
+            job_description = run["job_description"]
+            job_role = run["job_role"]
+            candidates = [profile]
+            # Reuse hr_screen prompt structure, but generate directly here to avoid round-trips.
+            prompt = f"""You are an HR screening expert. Given the job description and candidate profiles, rank each candidate.
+For each candidate, also provide "skill_match": array of {{"skill": "skill name", "matched": true/false}} for key JD skills.
+
+Return ONLY valid JSON (no markdown):
+{{
+  "job_role": "{job_role}",
+  "keywords": ["key skill 1", "key skill 2", "..."],
+  "ranked": [
+    {{
+      "index": 1,
+      "name": "{profile.get('name','')}",
+      "email": "{profile.get('email','')}",
+      "match_percent": 85,
+      "skill_match": [{{"skill":"Python","matched":true}}],
+      "strengths": ["strength1"],
+      "gaps": ["gap1"],
+      "recommendation": "Shortlist" or "Maybe" or "Reject"
+    }}
+  ]
+}}
+
+Job Description:
+{job_description[:4000]}
+
+Candidates:
+{json.dumps(candidates[:1], ensure_ascii=False)[:8000]}
+"""
+            out = _hr_llm_completion(prompt, max_tokens=3500).strip()
+            if out.startswith("```"):
+                out = out.split("\n", 1)[1] if "\n" in out else out[3:]
+            if out.endswith("```"):
+                out = out.rsplit("```", 1)[0].strip()
+            screening_json = json.loads(out)
+            conn.execute(
+                "UPDATE hr_automation_candidates SET screening_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                (json.dumps(screening_json, ensure_ascii=False), "SLOT_WAIT_REVIEW", 1, now, candidate_id, run_id),
+            )
+            conn.commit()
+            conn.close()
+            return jsonify({"success": True})
+
+        if stage == "INTERVIEW_WAIT_REVIEW":
+            job_description = run["job_description"]
+            job_role = run["job_role"]
+            questions = _hr_generate_interview_questions(job_role, job_description, profile)
+            answers = _hr_simulate_candidate_answers(questions, profile)
+            report = _hr_evaluate_interview(job_role, job_description, profile, questions, answers)
+            interview = {"questions": questions, "answers": answers, "report": report}
+            conn.execute(
+                "UPDATE hr_automation_candidates SET interview_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                (json.dumps(interview, ensure_ascii=False), "REPORT_WAIT_REVIEW", 1, now, candidate_id, run_id),
+            )
+            conn.commit()
+            conn.close()
+            return jsonify({"success": True})
+
+        if stage == "REPORT_WAIT_REVIEW":
+            interview = _safe_json(cand["interview_json"]) or {}
+            report = interview.get("report") or {}
+            recommendation = str(report.get("recommendation") or "")
+            profile_name = (profile.get("name") or "").strip()
+            profile_email = (profile.get("email") or "").strip()
+            if not profile_email:
+                conn.close()
+                return jsonify({"success": False, "error": "Candidate email not found in resume"}), 400
+
+            template = "offer" if recommendation.lower().startswith("offer") else "rejection"
+            variables = {
+                "name": profile_name,
+                "role": run["job_role"],
+                "designation": run["job_role"],
+                "start_date": (datetime.now().date() + timedelta(days=14)).strftime("%Y-%m-%d"),
+                "time": "",
+                "date": "",
+                "location": (chosen_slot.get("meeting_link") or chosen_slot.get("label") or "Teams link"),
+                "meeting_link": (chosen_slot.get("meeting_link") or ""),
+            }
+            final_draft = _hr_generate_email(template, variables)
+            conn.execute(
+                "UPDATE hr_automation_candidates SET final_email_draft_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                (json.dumps(final_draft, ensure_ascii=False), "FINAL_WAIT_REVIEW", 1, now, candidate_id, run_id),
+            )
+            conn.commit()
+            conn.close()
+            return jsonify({"success": True})
+
+        if stage == "FINAL_WAIT_REVIEW":
+            # Send the email (human approval is represented by calling this endpoint)
+            final_draft = _safe_json(cand["final_email_draft_json"]) or {}
+            subject = (final_draft.get("subject") or "").strip()
+            body = (final_draft.get("body") or "").strip()
+            if not subject or not body:
+                conn.close()
+                return jsonify({"success": False, "error": "Final email draft missing"}), 400
+            profile_email = (profile.get("email") or "").strip()
+            if not profile_email:
+                conn.close()
+                return jsonify({"success": False, "error": "Candidate email missing"}), 400
+            success, msg = send_email(profile_email, subject, body, body_is_plain_text=True)
+            if not success:
+                conn.close()
+                return jsonify({"success": False, "error": msg}), 500
+            conn.execute(
+                "UPDATE hr_automation_candidates SET final_sent=1, stage='DONE', needs_review=0, updated_at=? WHERE id=? AND run_id=?",
+                (now, candidate_id, run_id),
+            )
+            conn.commit()
+            conn.close()
+            return jsonify({"success": True})
+
+        # SLOT_WAIT_REVIEW is handled by select-slot endpoint.
+        if stage == "SLOT_WAIT_REVIEW":
+            conn.close()
+            return jsonify({"success": False, "error": "Choose a slot first via select-slot endpoint"}), 409
+
+        conn.close()
+        return jsonify({"success": False, "error": f"Unknown stage: {stage}"}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/automation/select-slot', methods=['POST', 'OPTIONS'])
+def hr_automation_select_slot():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = _hr_request_json()
+        run_id = (data.get("run_id") or "").strip()
+        candidate_id = (data.get("candidate_id") or "").strip()
+        slot_iso = (data.get("slot_iso") or "").strip()
+        if not run_id or not candidate_id or not slot_iso:
+            return jsonify({"success": False, "error": "run_id, candidate_id, slot_iso are required"}), 400
+        user_id = get_request_user_id() or "guest_user"
+        conn = _get_db()
+        _ensure_hr_automation_tables(conn)
+        run = _hr_load_run(conn, run_id, user_id)
+        if not run:
+            conn.close()
+            return jsonify({"success": False, "error": "Run not found"}), 404
+        cand = _hr_load_candidate(conn, candidate_id, run_id)
+        if not cand:
+            conn.close()
+            return jsonify({"success": False, "error": "Candidate not found"}), 404
+        if cand["stage"] != "SLOT_WAIT_REVIEW":
+            conn.close()
+            return jsonify({"success": False, "error": "Candidate is not in SLOT_WAIT_REVIEW"}), 409
+
+        slots = _hr_generate_slots()
+        slot = next((s for s in slots if s["slot_iso"] == slot_iso), None)
+        if not slot:
+            conn.close()
+            return jsonify({"success": False, "error": "Invalid slot_iso"}), 400
+
+        profile = json.loads(cand["extracted_profile_json"] or "{}")
+        profile_name = (profile.get("name") or "").strip()
+        profile_email = (profile.get("email") or "").strip()
+        if not profile_email:
+            conn.close()
+            return jsonify({"success": False, "error": "Candidate email not found in resume"}), 400
+
+        # Simulated Teams join link (replace later with real Teams automation)
+        meeting_token = str(uuid.uuid4())
+        meeting_link = f"https://teams.microsoft.com/l/meetup-join/{meeting_token}"
+
+        chosen_slot = {
+            "slot_iso": slot_iso,
+            "label": slot.get("label"),
+            "meeting_link": meeting_link,
+        }
+
+        variables = {
+            "name": profile_name,
+            "role": run["job_role"],
+            "designation": run["job_role"],
+            "date": (slot.get("slot_iso") or "")[:10],
+            "time": (slot.get("slot_iso") or "")[11:16],
+            "location": meeting_link,
+            "meeting_link": meeting_link,
+        }
+        invite_draft = _hr_generate_email("interview_invite", variables)
+        # HR confirmed the slot, so send the interview invite immediately (manual + autonomous).
+        success, msg = send_email(
+            profile_email, invite_draft["subject"], invite_draft["body"], body_is_plain_text=True
+        )
+        if not success:
+            conn.close()
+            return jsonify({"success": False, "error": msg}), 500
+
+        now = time.time()
+        conn.execute(
+            "UPDATE hr_automation_candidates SET chosen_slot_json=?, invite_draft_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+            (json.dumps(chosen_slot, ensure_ascii=False), json.dumps(invite_draft, ensure_ascii=False), "INTERVIEW_WAIT_REVIEW", 1, now, candidate_id, run_id),
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/hr/automation/run-autonomous', methods=['POST', 'OPTIONS'])
+def hr_automation_run_autonomous():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        data = _hr_request_json()
+        run_id = (data.get("run_id") or "").strip()
+        user_id = get_request_user_id() or "guest_user"
+        if not run_id:
+            return jsonify({"success": False, "error": "run_id is required"}), 400
+
+        conn = _get_db()
+        _ensure_hr_automation_tables(conn)
+        run = _hr_load_run(conn, run_id, user_id)
+        if not run:
+            conn.close()
+            return jsonify({"success": False, "error": "Run not found"}), 404
+
+        if int(run["autonomous"]) != 1:
+            conn.close()
+            return jsonify({"success": False, "error": "Run is not set to autonomous"}), 409
+
+        # Step 1: bulk JD analysis + auto-select all JD-pass candidates (or first if none pass).
+        pending_prof = conn.execute(
+            "SELECT COUNT(*) AS c FROM hr_automation_candidates WHERE run_id=? AND stage='PROFILE_WAIT_REVIEW'",
+            (run_id,),
+        ).fetchone()["c"]
+        if pending_prof:
+            _hr_internal_step1_analyze_all(conn, run, run_id, 70)
+            conn.commit()
+
+        await_n = conn.execute(
+            "SELECT COUNT(*) AS c FROM hr_automation_candidates WHERE run_id=? AND stage='STEP1_AWAIT_SELECTION'",
+            (run_id,),
+        ).fetchone()["c"]
+        if await_n:
+            rows_sel = conn.execute(
+                "SELECT id, jd_pass FROM hr_automation_candidates WHERE run_id=? AND stage='STEP1_AWAIT_SELECTION'",
+                (run_id,),
+            ).fetchall()
+            to_sel = [r["id"] for r in rows_sel if r["jd_pass"]]
+            if not to_sel and rows_sel:
+                to_sel = [rows_sel[0]["id"]]
+            now_sel = time.time()
+            selected_set = set(to_sel)
+            for r in rows_sel:
+                cid = r["id"]
+                if cid in selected_set:
+                    conn.execute(
+                        """
+                        UPDATE hr_automation_candidates
+                        SET shortlisted=1, stage='SLOT_WAIT_REVIEW', needs_review=0, updated_at=?
+                        WHERE id=? AND run_id=?
+                        """,
+                        (now_sel, cid, run_id),
+                    )
+                else:
+                    conn.execute(
+                        """
+                        UPDATE hr_automation_candidates
+                        SET shortlisted=0, stage='STEP1_EXCLUDED', needs_review=0, updated_at=?
+                        WHERE id=? AND run_id=?
+                        """,
+                        (now_sel, cid, run_id),
+                    )
+            conn.commit()
+
+        cand = conn.execute(
+            """
+            SELECT * FROM hr_automation_candidates
+            WHERE run_id=? AND stage NOT IN ('STEP1_EXCLUDED', 'STEP1_AWAIT_SELECTION', 'PROFILE_WAIT_REVIEW')
+            ORDER BY created_at ASC LIMIT 1
+            """,
+            (run_id,),
+        ).fetchone()
+        if not cand:
+            conn.close()
+            return jsonify({"success": True, "message": "No active pipeline candidates (all excluded or done)"})
+
+        candidate_id = cand["id"]
+
+        def _safe_json(v):
+            try:
+                return json.loads(v) if v else {}
+            except Exception:
+                return {}
+
+        while True:
+            cand = _hr_load_candidate(conn, candidate_id, run_id)
+            if not cand:
+                conn.close()
+                return jsonify({"success": False, "error": "Candidate not found"}), 404
+
+            stage = cand["stage"]
+            now = time.time()
+
+            profile = _safe_json(cand["extracted_profile_json"])
+
+            if stage == "PROFILE_WAIT_REVIEW":
+                resume_path = cand["resume_path"]
+                ext = (os.path.splitext(resume_path)[1] or "").lower()
+                file_ext = ext if ext in (".pdf", ".docx", ".txt") else ".txt"
+                extracted = _analyze_single_resume(None, resume_path, file_ext)
+                if not extracted:
+                    conn.close()
+                    return jsonify({"success": False, "error": "Resume analysis failed"}), 500
+                conn.execute(
+                    "UPDATE hr_automation_candidates SET extracted_profile_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                    (json.dumps(extracted, ensure_ascii=False), "SCREENING_WAIT_REVIEW", 0, now, candidate_id, run_id),
+                )
+                conn.commit()
+                continue
+
+            if stage == "SCREENING_WAIT_REVIEW":
+                job_description = run["job_description"]
+                job_role = run["job_role"]
+                candidates = [profile]
+                prompt = f"""You are an HR screening expert. Given the job description and candidate profiles, rank each candidate.
+For each candidate, also provide "skill_match": array of {{"skill": "skill name", "matched": true/false}} for key JD skills.
+
+Return ONLY valid JSON (no markdown):
+{{
+  "job_role": "{job_role}",
+  "keywords": ["key skill 1", "key skill 2", "..."],
+  "ranked": [
+    {{
+      "index": 1,
+      "name": "{profile.get('name','')}",
+      "email": "{profile.get('email','')}",
+      "match_percent": 85,
+      "skill_match": [{{"skill":"Python","matched":true}}],
+      "strengths": ["strength1"],
+      "gaps": ["gap1"],
+      "recommendation": "Shortlist" or "Maybe" or "Reject"
+    }}
+  ]
+}}
+
+Job Description:
+{job_description[:4000]}
+
+Candidates:
+{json.dumps(candidates[:1], ensure_ascii=False)[:8000]}
+"""
+                out = _hr_llm_completion(prompt, max_tokens=3500).strip()
+                if out.startswith("```"):
+                    out = out.split("\n", 1)[1] if "\n" in out else out[3:]
+                if out.endswith("```"):
+                    out = out.rsplit("```", 1)[0].strip()
+                screening_json = json.loads(out)
+                conn.execute(
+                    "UPDATE hr_automation_candidates SET screening_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                    (json.dumps(screening_json, ensure_ascii=False), "SLOT_WAIT_REVIEW", 0, now, candidate_id, run_id),
+                )
+                conn.commit()
+                continue
+
+            if stage == "SLOT_WAIT_REVIEW":
+                slots = _hr_generate_slots()
+                if not slots:
+                    conn.close()
+                    return jsonify({"success": False, "error": "No slots generated"}), 500
+                slot = slots[0]
+                slot_iso = slot["slot_iso"]
+
+                profile_name = (profile.get("name") or "").strip()
+                profile_email = (profile.get("email") or "").strip()
+                if not profile_email:
+                    conn.close()
+                    return jsonify({"success": False, "error": "Candidate email not found in resume"}), 400
+
+                meeting_token = str(uuid.uuid4())
+                meeting_link = f"https://teams.microsoft.com/l/meetup-join/{meeting_token}"
+
+                chosen_slot = {
+                    "slot_iso": slot_iso,
+                    "label": slot.get("label"),
+                    "meeting_link": meeting_link,
+                }
+                variables = {
+                    "name": profile_name,
+                    "role": run["job_role"],
+                    "designation": run["job_role"],
+                    "date": (slot.get("slot_iso") or "")[:10],
+                    "time": (slot.get("slot_iso") or "")[11:16],
+                    "location": meeting_link,
+                    "meeting_link": meeting_link,
+                }
+                invite_draft = _hr_generate_email("interview_invite", variables)
+                success, msg = send_email(
+                    profile_email, invite_draft["subject"], invite_draft["body"], body_is_plain_text=True
+                )
+                if not success:
+                    conn.close()
+                    return jsonify({"success": False, "error": msg}), 500
+
+                conn.execute(
+                    "UPDATE hr_automation_candidates SET chosen_slot_json=?, invite_draft_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                    (json.dumps(chosen_slot, ensure_ascii=False), json.dumps(invite_draft, ensure_ascii=False), "INTERVIEW_WAIT_REVIEW", 0, now, candidate_id, run_id),
+                )
+                conn.commit()
+                continue
+
+            if stage == "INTERVIEW_WAIT_REVIEW":
+                job_description = run["job_description"]
+                job_role = run["job_role"]
+                questions = _hr_generate_interview_questions(job_role, job_description, profile)
+                answers = _hr_simulate_candidate_answers(questions, profile)
+                report = _hr_evaluate_interview(job_role, job_description, profile, questions, answers)
+                interview = {"questions": questions, "answers": answers, "report": report}
+                conn.execute(
+                    "UPDATE hr_automation_candidates SET interview_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                    (json.dumps(interview, ensure_ascii=False), "REPORT_WAIT_REVIEW", 0, now, candidate_id, run_id),
+                )
+                conn.commit()
+                continue
+
+            if stage == "REPORT_WAIT_REVIEW":
+                interview = _safe_json(cand["interview_json"])
+                report = interview.get("report") or {}
+                recommendation = str(report.get("recommendation") or "")
+
+                chosen_slot = _safe_json(cand["chosen_slot_json"]) or {}
+                profile_name = (profile.get("name") or "").strip()
+                profile_email = (profile.get("email") or "").strip()
+                if not profile_email:
+                    conn.close()
+                    return jsonify({"success": False, "error": "Candidate email missing"}), 400
+
+                template = "offer" if recommendation.lower().startswith("offer") else "rejection"
+                variables = {
+                    "name": profile_name,
+                    "role": run["job_role"],
+                    "designation": run["job_role"],
+                    "start_date": (datetime.now().date() + timedelta(days=14)).strftime("%Y-%m-%d"),
+                    "time": "",
+                    "date": "",
+                    "location": (chosen_slot.get("meeting_link") or chosen_slot.get("label") or "Teams link"),
+                    "meeting_link": (chosen_slot.get("meeting_link") or ""),
+                }
+                final_draft = _hr_generate_email(template, variables)
+                conn.execute(
+                    "UPDATE hr_automation_candidates SET final_email_draft_json=?, stage=?, needs_review=?, updated_at=? WHERE id=? AND run_id=?",
+                    (json.dumps(final_draft, ensure_ascii=False), "FINAL_WAIT_REVIEW", 0, now, candidate_id, run_id),
+                )
+                conn.commit()
+                continue
+
+            if stage == "FINAL_WAIT_REVIEW":
+                final_draft = _safe_json(cand["final_email_draft_json"]) or {}
+                subject = (final_draft.get("subject") or "").strip()
+                body = (final_draft.get("body") or "").strip()
+                if not subject or not body:
+                    conn.close()
+                    return jsonify({"success": False, "error": "Final email draft missing"}), 400
+                profile_email = (profile.get("email") or "").strip()
+                success, msg = send_email(profile_email, subject, body, body_is_plain_text=True)
+                if not success:
+                    conn.close()
+                    return jsonify({"success": False, "error": msg}), 500
+                conn.execute(
+                    "UPDATE hr_automation_candidates SET final_sent=1, stage='DONE', needs_review=0, updated_at=? WHERE id=? AND run_id=?",
+                    (now, candidate_id, run_id),
+                )
+                conn.commit()
+                conn.close()
+                return jsonify({"success": True, "candidate_id": candidate_id, "stage": "DONE"})
+
+            # Done or unknown
+            if stage == "DONE":
+                conn.close()
+                return jsonify({"success": True, "candidate_id": candidate_id, "stage": "DONE"})
+
+            conn.close()
+            return jsonify({"success": False, "error": f"Unknown stage during autonomous run: {stage}"}), 400
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500

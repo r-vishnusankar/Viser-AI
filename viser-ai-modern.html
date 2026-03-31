@@ -8,6 +8,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Nexora - AI Assistant</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -4445,6 +4446,77 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ═══ HR AUTOMATION WORKBENCH VIEW ═══════════════════════════════════ -->
+            <div id="hr-automationView" class="view-container" style="display: none;flex-direction:column;">
+                <div class="chat-header">
+                    <div style="display:flex;align-items:center;">
+                        <h1 class="chat-title">HR Automation Workbench</h1>
+                        <span style="margin-left:10px;background:#f0fff4;color:#276749;border:1px solid #9ae6b4;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.04em;">SIMULATION</span>
+                        <span class="page-info-icon" data-page-id="hr-automation" title="Page info"><i class="fas fa-info-circle"></i></span>
+                    </div>
+                </div>
+                <div class="hr-module-content" style="flex:1;padding:24px;overflow:auto;background:var(--main-bg);">
+                    <div style="max-width:980px;">
+                        <div style="background:linear-gradient(135deg,#1a202c 0%,#2d3748 55%,#276749 100%);border-radius:16px;padding:28px 32px;margin-bottom:22px;color:#fff;display:flex;align-items:center;gap:24px;">
+                            <div style="width:56px;height:56px;background:rgba(255,255,255,.1);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="fas fa-user-gear" style="font-size:26px;color:#9ae6b4;"></i>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;">HR Intelligence Automation</h2>
+                                <p style="margin:0;font-size:13px;opacity:.85;max-width:640px;">Stage-by-stage pipeline: inbox ingest (simulated), resume extraction, JD screening, slot selection, AI interview (simulated Q/A), and email drafts for human review.</p>
+                            </div>
+                        </div>
+
+                        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin-bottom:18px;">
+                            <div style="display:flex;flex-direction:column;gap:18px;">
+                                <div style="width:100%;">
+                                    <label for="hrAutoJobRole" style="display:block;font-weight:700;color:#718096;margin-bottom:6px;">Role required</label>
+                                    <select id="hrAutoJobRole" style="width:100%;max-width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;background:#fff;line-height:1.4;">
+                                        <option value="" selected>Select a role…</option>
+                                        <option value="Full stack developer">Full stack developer</option>
+                                        <option value="Senior QA Engineer">Senior QA Engineer</option>
+                                        <option value="Business Analyst">Business Analyst</option>
+                                        <option value="HR Assistant">HR Assistant</option>
+                                    </select>
+                                    <p style="margin:8px 0 0;font-size:11px;color:#718096;line-height:1.45;">Choosing a role loads a starter JD below (you can edit it). Changing the role replaces the JD with that template.</p>
+                                </div>
+                                <div style="width:100%;">
+                                    <label for="hrAutoJobDescription" style="display:block;font-weight:700;color:#718096;margin-bottom:6px;">Default JD / Job Description</label>
+                                    <textarea id="hrAutoJobDescription" rows="8" placeholder="Select a role above to prepopulate, or paste your own job description. Used for screening and interview question generation." style="width:100%;max-width:100%;box-sizing:border-box;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;line-height:1.5;resize:vertical;min-height:160px;"></textarea>
+                                </div>
+                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px;align-items:start;">
+                                    <div style="min-width:0;">
+                                        <label for="hrAutoPassThreshold" style="display:block;font-weight:700;color:#718096;margin-bottom:6px;">JD pass threshold (%)</label>
+                                        <input id="hrAutoPassThreshold" type="number" value="70" min="0" max="100" style="width:100%;max-width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;" title="Match % ≥ this, or AI recommendation Shortlist/Maybe, counts as JD pass">
+                                    </div>
+                                    <div style="min-width:0;padding-top:0;">
+                                        <span style="display:block;font-weight:700;color:#718096;margin-bottom:6px;">Run mode</span>
+                                        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">
+                                            <input id="hrAutoAutonomous" type="checkbox" style="width:18px;height:18px;margin-top:2px;flex-shrink:0;">
+                                            <span style="font-size:14px;color:#2d3748;line-height:1.45;"><strong style="color:#718096;">Autonomous mode</strong><span style="display:block;margin-top:6px;font-size:12px;color:#718096;font-weight:400;">OFF = HR clicks each stage. ON = full auto-advance (simulated interview + Teams link).</span></span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding-top:2px;">
+                                    <button type="button" class="btn btn-primary" id="hrAutoStartBtn"><i class="fas fa-download"></i> Ingest Inbox & Create Run</button>
+                                    <button type="button" class="btn btn-secondary" id="hrAutoRunAutonomousBtn" style="display:none;"><i class="fas fa-bolt"></i> Run Autonomous Full Flow</button>
+                                </div>
+                            </div>
+
+                            <div id="hrAutoStatusBar" style="margin-top:14px;display:none;background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:12px 14px;color:#92400e;font-size:13px;"></div>
+                            <p style="margin-top:8px;font-size:11px;color:#a0aec0;">Open <code>http://127.0.0.1:8000/app</code> (same Flask as API). Ping <code>/api/hr/automation/ping</code> for JSON.</p>
+                            <div style="margin-top:10px;padding:10px 12px;background:#edf2f7;border-radius:8px;font-size:12px;color:#2d3748;line-height:1.5;">
+                                <strong>Ingest folder:</strong> <code>uploads/hr/inbox/</code> — put résumés <strong>here</strong> (PDF/DOCX/TXT).<br>
+                                <strong>Not</strong> the same as <em>Resume Analyzer</em> uploads; those do <strong>not</strong> fill this inbox. After Ingest, files move to <code>uploads/hr/inbox/processed/&lt;run_id&gt;/</code>.
+                            </div>
+                        </div>
+
+                        <div id="hrAutoPipelineBar" style="display:none;margin-bottom:16px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;"></div>
+                        <div id="hrAutoCandidatesWrap"></div>
+                    </div>
+                </div>
+            </div>
             <div id="employee-documentsView" class="view-container" style="display: none;">
                 <div class="chat-header"><div style="display:flex;align-items:center;"><h1 class="chat-title">Employee Documents</h1><span class="page-info-icon" data-page-id="employee-documents" title="Page info"><i class="fas fa-info-circle"></i></span></div></div>
                 <div class="placeholder-view-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;background:var(--main-bg);">
@@ -4610,6 +4682,7 @@
             'resume-analyzer': { title: 'Resume Analyzer', desc: 'Upload multiple resumes (PDF, DOCX, TXT). AI extracts name, email, skills, experience, education, and strengths. Use /resume in chat with an attached file for same analysis.' },
             'candidate-screening': { title: 'Candidate Screening', desc: 'Paste job description, upload resumes or paste profiles. AI ranks candidates with match %, skill color coding (green=has, red=missing). Select candidates and use Bulk Accept/Reject for emails. Use /screen in chat to open.' },
             'mail-automation': { title: 'Mail Automation', desc: 'Generate HR emails from templates (Interview Invite, Rejection, Follow-up, Offer). Fill in name, role, date, time. Use /mail in chat to open.' },
+            'hr-automation': { title: 'HR Automation Workbench', desc: 'Run a staged HR automation pipeline (simulation now) with manual approvals or autonomous mode. Inbox resumes come from uploads/hr/inbox/.' },
             'employee-documents': { title: 'Employee Documents', desc: 'Manage employee documents. (On hold)' },
             'requirement-analyzer': { title: 'Requirement Analyzer', desc: 'Analyze requirements documents. Paste text or upload a file to extract summary, features, acceptance criteria, dependencies, risks, and stakeholders.' },
             'user-story-generator': { title: 'User Story Generator', desc: 'Generate user stories from requirements. (Coming soon)' },
@@ -4641,7 +4714,7 @@
                     { cmd: '/files', desc: 'Load all uploaded files into AI context' },
                     { cmd: '/email', desc: 'Write and send an email' }
                 ],
-                pages: ['chat', 'resume-analyzer', 'candidate-screening', 'mail-automation', 'employee-documents', 'documents', 'history', 'help', 'settings']
+                pages: ['chat', 'resume-analyzer', 'candidate-screening', 'mail-automation', 'hr-automation', 'employee-documents', 'documents', 'history', 'help', 'settings']
             },
             ba: {
                 commands: [
@@ -4658,21 +4731,48 @@
             }
         };
 
-        // When on Netlify, point API/Socket.IO to your Render backend
-        // When on localhost but different port (e.g. Live Server 5500), point to Flask on 8000
-        // Override: ?api=http://localhost:8000 or localStorage.nexora_api_base
+        // When on Netlify, point API to your deployed backend.
+        // Live Server / other port on localhost → Flask on 8000.
+        // IMPORTANT: If you open Nexora from THIS Flask app (port 8000, any host), API must be same-origin.
+        // Otherwise localStorage.nexora_api_base (e.g. old Render URL) causes HTML 404 on new routes like HR Step 1.
+        // Override: ?api=https://your-backend or localStorage.nexora_api_base (only when not on :8000 UI)
+        /** Backend origin only — never include /app (UI path) or API requests become .../app/api/... → 404. */
+        function normalizeBackendApiBase(raw) {
+            if (raw == null || raw === '') return '';
+            let s = String(raw).trim();
+            if (!s) return '';
+            s = s.replace(/\/+$/, '');
+            const lower = s.toLowerCase();
+            if (lower.endsWith('/app')) {
+                s = s.slice(0, -4).replace(/\/+$/, '');
+            }
+            return s;
+        }
         const host = window.location.hostname;
         const port = parseInt(window.location.port || '80', 10);
         const urlApi = new URLSearchParams(window.location.search).get('api');
         const storedApi = typeof localStorage !== 'undefined' ? localStorage.getItem('nexora_api_base') : null;
-        window.API_BASE = urlApi || storedApi || (
-            (host.includes('netlify.app') || host.includes('netlify.com'))
-                ? 'https://viser-ai.onrender.com'
-                : ((host === 'localhost' || host === '127.0.0.1') && port !== 8000)
-                    ? 'http://localhost:8000'
-                    : ''
-        );
-        const _api = (path) => (window.API_BASE || '') + path;
+        let apiBase = '';
+        if (urlApi) {
+            apiBase = normalizeBackendApiBase(urlApi);
+        } else if (port === 8000) {
+            // UI served by flask_server.py → always call this process (ignore stale localStorage)
+            apiBase = '';
+        } else if (host.includes('netlify.app') || host.includes('netlify.com')) {
+            apiBase = normalizeBackendApiBase(storedApi || 'https://viser-ai.onrender.com');
+        } else if ((host === 'localhost' || host === '127.0.0.1') && port !== 8000) {
+            apiBase = normalizeBackendApiBase(storedApi || 'http://localhost:8000');
+        } else {
+            apiBase = normalizeBackendApiBase(storedApi || '');
+        }
+        window.API_BASE = apiBase;
+        const _api = (path) => {
+            let p = (path || '').trim();
+            if (!p.startsWith('/')) p = '/' + p;
+            const base = (window.API_BASE || '').trim();
+            if (!base) return p;
+            return normalizeBackendApiBase(base) + p;
+        };
         function _apiHeaders(extra = {}) {
             const h = { ...extra };
             try {
@@ -4681,6 +4781,90 @@
             } catch (e) {}
             return h;
         }
+
+        /** Starter JDs for HR Automation workbench (keys must match #hrAutoJobRole option values). */
+        const HR_AUTO_ROLE_JD = {
+            'Full stack developer': `Position: Full Stack Developer
+
+We are looking for a Full Stack Developer to design, build, and maintain web applications end-to-end.
+
+Responsibilities:
+- Develop responsive front-end interfaces and robust back-end APIs and services
+- Collaborate with product, design, and QA on features, estimates, and releases
+- Write clean, testable code; participate in code reviews
+- Troubleshoot production issues and improve performance and reliability
+
+Requirements:
+- 3+ years of professional software development experience
+- Strong proficiency in modern JavaScript/TypeScript and at least one major framework (e.g. React, Vue, or Angular)
+- Solid back-end experience (e.g. Node.js, Python, or Java) with RESTful APIs and databases (SQL or NoSQL)
+- Familiarity with Git, CI/CD basics, and cloud deployment concepts
+
+Nice to have:
+- Experience with containers, microservices, or serverless
+- Understanding of security, accessibility, and performance best practices`,
+
+            'Senior QA Engineer': `Position: Senior QA Engineer
+
+We are seeking a Senior QA Engineer to own test strategy and quality for our products.
+
+Responsibilities:
+- Design and execute test plans, cases, and automation across functional, regression, and integration testing
+- Partner with developers and product owners early in the lifecycle (requirements, design, acceptance criteria)
+- Identify, document, and track defects; drive root cause analysis and prevention
+- Improve test coverage, tooling, and CI/CD quality gates
+
+Requirements:
+- 5+ years of QA experience in software or web applications
+- Strong knowledge of test methodologies, defect lifecycle, and risk-based testing
+- Hands-on experience with test automation frameworks and API testing
+- Excellent analytical, communication, and documentation skills
+
+Nice to have:
+- ISTQB or similar certification
+- Performance, security, or accessibility testing experience
+- Experience with Agile/Scrum and test management tools`,
+
+            'Business Analyst': `Position: Business Analyst
+
+We are hiring a Business Analyst to bridge business needs and technology delivery.
+
+Responsibilities:
+- Elicit, analyze, and document business requirements, user stories, and process flows
+- Facilitate workshops with stakeholders; manage prioritization and scope with product and engineering
+- Support UAT, define acceptance criteria, and track benefits and KPIs where applicable
+- Maintain clear artifacts: BRDs, FRDs, process maps, and traceability to delivery
+
+Requirements:
+- 3+ years of business analysis experience in IT or digital products
+- Strong analytical, facilitation, and written communication skills
+- Experience with requirements lifecycle, prioritization techniques, and stakeholder management
+- Familiarity with Agile artifacts (user stories, backlog refinement) and basic SQL or reporting a plus
+
+Nice to have:
+- Certification (e.g. CBAP, PMI-PBA) or domain experience in HR, finance, or operations
+- Experience with process modeling tools and collaboration platforms`,
+
+            'HR Assistant': `Position: HR Assistant
+
+We are looking for an HR Assistant to support day-to-day people operations and a positive employee experience.
+
+Responsibilities:
+- Assist with recruitment coordination: scheduling interviews, tracking candidates, and maintaining ATS or spreadsheets
+- Support onboarding and offboarding paperwork, orientation logistics, and employee records (accurate and confidential)
+- Respond to routine HR inquiries and escalate issues appropriately
+- Help organize HR programs, events, and compliance-related documentation
+
+Requirements:
+- 1–3 years of experience in HR coordination, administration, or similar role
+- Strong organizational skills, attention to detail, and discretion with sensitive information
+- Proficiency with Microsoft Office/Google Workspace; comfortable learning HRIS or ATS tools
+- Professional written and verbal communication
+
+Nice to have:
+- Degree or coursework in Human Resources, Business, or related field
+- Familiarity with labor regulations basics and HR best practices in your region`
+        };
 
         class ViseAIChat {
             constructor() {
@@ -4792,6 +4976,7 @@
                 this.hrAnalyzedProfiles = [];
                 this.hrScreeningData = null;
                 this.mailRecipientsFromScreening = [];  // [{name, email}] for bulk reject confirmation
+                this.hrAutomation = { runId: null, autonomous: false, slots: [], candidates: [] };
                 const resumeUploadBtn = document.getElementById('resumeUploadBtn');
                 const resumeFileInput = document.getElementById('resumeFileInput');
                 const resumeUploadZone = document.getElementById('resumeUploadZone');
@@ -4815,6 +5000,23 @@
                 if (mailDraftBtn) mailDraftBtn.onclick = () => this._draftHRMail();
                 const mailSendBtn = document.getElementById('mailSendBtn');
                 if (mailSendBtn) mailSendBtn.onclick = () => this._sendHRMail();
+
+                // HR Automation Workbench
+                const hrAutoStartBtn = document.getElementById('hrAutoStartBtn');
+                const hrAutoRunAutonomousBtn = document.getElementById('hrAutoRunAutonomousBtn');
+                const hrAutoAutonomous = document.getElementById('hrAutoAutonomous');
+                if (hrAutoAutonomous && hrAutoRunAutonomousBtn) {
+                    hrAutoRunAutonomousBtn.style.display = hrAutoAutonomous.checked ? 'inline-flex' : 'none';
+                    hrAutoAutonomous.onchange = () => {
+                        hrAutoRunAutonomousBtn.style.display = hrAutoAutonomous.checked ? 'inline-flex' : 'none';
+                    };
+                }
+                const hrAutoJobRole = document.getElementById('hrAutoJobRole');
+                if (hrAutoJobRole) {
+                    hrAutoJobRole.addEventListener('change', () => this._syncHrAutoJdFromRole());
+                }
+                if (hrAutoStartBtn) hrAutoStartBtn.onclick = () => this._hrAutoStart();
+                if (hrAutoRunAutonomousBtn) hrAutoRunAutonomousBtn.onclick = () => this._hrAutoRunAutonomous();
             }
 
             setupBAModules() {
@@ -7247,6 +7449,509 @@
                     alert('Error: ' + e.message);
                 }
                 if (btn) btn.disabled = false;
+            }
+
+            // ── HR Automation Workbench (Simulation + Manual Gates) ─────────────
+            async _parseApiResponse(resp, fallbackLabel = 'Request failed') {
+                const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+                if (contentType.includes('application/json')) {
+                    const json = await resp.json();
+                    if (!resp.ok) {
+                        throw new Error(json.error || `${fallbackLabel} (HTTP ${resp.status})`);
+                    }
+                    return json;
+                }
+                const text = await resp.text();
+                const cleaned = (text || '').replace(/\s+/g, ' ').trim();
+                const preview = cleaned.slice(0, 220) || 'Empty response';
+                throw new Error(`${fallbackLabel}: server returned non-JSON (HTTP ${resp.status}). ${preview}`);
+            }
+
+            /** POST to primary HR path; on HTML 404 only, retry via /api/hr/automation/start (old deploys). Never on JSON 404 (e.g. Run not found) — that wrongly caused job_description errors. */
+            async _hrAutoPostWithStart404Fallback(primaryPath, startFallbackFlag, jsonBody) {
+                const opts = {
+                    method: 'POST',
+                    headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(jsonBody)
+                };
+                let r = await fetch(_api(primaryPath), opts);
+                if (r.status === 404) {
+                    const ct = (r.headers.get('content-type') || '').toLowerCase();
+                    if (ct.includes('application/json')) {
+                        return r;
+                    }
+                    const fb = { ...jsonBody, [startFallbackFlag]: true };
+                    r = await fetch(_api('/api/hr/automation/start'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify(fb)
+                    });
+                }
+                return r;
+            }
+
+            _syncHrAutoJdFromRole() {
+                const jdEl = document.querySelector('#hr-automationView #hrAutoJobDescription') || document.getElementById('hrAutoJobDescription');
+                const roleEl = document.querySelector('#hr-automationView #hrAutoJobRole') || document.getElementById('hrAutoJobRole');
+                if (!jdEl || !roleEl) return;
+                const v = (roleEl.value || '').trim();
+                if (!v) {
+                    jdEl.value = '';
+                    return;
+                }
+                const tpl = HR_AUTO_ROLE_JD[v];
+                if (tpl !== undefined) jdEl.value = tpl;
+            }
+
+            async _hrAutoStart() {
+                const jdEl = document.querySelector('#hr-automationView #hrAutoJobDescription') || document.getElementById('hrAutoJobDescription');
+                const roleEl = document.querySelector('#hr-automationView #hrAutoJobRole') || document.getElementById('hrAutoJobRole');
+                const autoEl = document.querySelector('#hr-automationView #hrAutoAutonomous') || document.getElementById('hrAutoAutonomous');
+                const statusBar = document.getElementById('hrAutoStatusBar');
+
+                const jd = (jdEl?.value || '').trim();
+                const job_role = (roleEl?.value || '').trim();
+                const autonomous = !!autoEl?.checked;
+                if (!job_role) { alert('Please select a role from the list first.'); return; }
+                if (!jd) { alert('Please add a job description (select a role to load a template, or paste your own).'); return; }
+
+                const btn = document.getElementById('hrAutoStartBtn');
+                if (btn) btn.disabled = true;
+                if (statusBar) {
+                    statusBar.style.display = 'block';
+                    statusBar.textContent = 'Creating run and ingesting uploads/hr/inbox/...';
+                }
+
+                try {
+                    const r = await fetch(_api('/api/hr/automation/start'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            job_role,
+                            job_description: jd,
+                            autonomous: autonomous,
+                            max_candidates: 30
+                        })
+                    });
+                    const data = await this._parseApiResponse(r, 'HR automation start failed');
+                    if (!data.success) throw new Error(data.error || 'Start failed');
+                    this.hrAutomation.runId = data.run_id;
+                    await this._hrAutoFetchStatus();
+                    if (statusBar) statusBar.textContent = 'Run created. Awaiting stage approvals.';
+                    if (autonomous) {
+                        const runAutoBtn = document.getElementById('hrAutoRunAutonomousBtn');
+                        if (runAutoBtn) runAutoBtn.style.display = 'inline-flex';
+                    }
+                } catch (e) {
+                    if (statusBar) {
+                        statusBar.style.display = 'block';
+                        statusBar.textContent = String(e.message || e);
+                    }
+                } finally {
+                    if (btn) btn.disabled = false;
+                }
+            }
+
+            async _hrAutoRunAutonomous() {
+                if (!this.hrAutomation?.runId) { alert('Start a run first.'); return; }
+                const btn = document.getElementById('hrAutoRunAutonomousBtn');
+                if (btn) btn.disabled = true;
+                const statusBar = document.getElementById('hrAutoStatusBar');
+                if (statusBar) {
+                    statusBar.style.display = 'block';
+                    statusBar.textContent = 'Autonomous run in progress (simulated)…';
+                }
+                try {
+                    const r = await fetch(_api('/api/hr/automation/run-autonomous'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ run_id: this.hrAutomation.runId })
+                    });
+                    const data = await this._parseApiResponse(r, 'Autonomous run failed');
+                    if (!data.success) throw new Error(data.error || 'Autonomous run failed');
+                    await this._hrAutoFetchStatus();
+                } catch (e) {
+                    if (statusBar) {
+                        statusBar.style.display = 'block';
+                        statusBar.textContent = String(e.message || e);
+                    }
+                } finally {
+                    if (btn) btn.disabled = false;
+                }
+            }
+
+            async _hrAutoFetchStatus() {
+                if (!this.hrAutomation?.runId) return;
+                try {
+                    const r = await fetch(_api(`/api/hr/automation/status?run_id=${encodeURIComponent(this.hrAutomation.runId)}`), {
+                        method: 'GET',
+                        headers: { ..._apiHeaders() }
+                    });
+                    const data = await this._parseApiResponse(r, 'Status fetch failed');
+                    if (!data.success) throw new Error(data.error || 'Status failed');
+                    this.hrAutomation.slots = data.slots || [];
+                    this._hrAutoRenderPipeline(data);
+                } catch (e) {
+                    console.error(e);
+                    const wrap = document.getElementById('hrAutoCandidatesWrap');
+                    if (wrap) wrap.innerHTML = '<div style="color:#c53030;background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:18px;">' + String(e.message || e) + '</div>';
+                }
+            }
+
+            _hrAutoCardBodyForStage(c, slots) {
+                const stage = c.stage;
+                if (stage === 'SCREENING_WAIT_REVIEW') {
+                    return `<button type="button" class="btn btn-primary" onclick="viseAI._hrAutoProgress('${c.id}')"><i class="fas fa-check"></i> Approve Screening & Continue</button>`;
+                }
+                if (stage === 'SLOT_WAIT_REVIEW') {
+                    const selected = c.chosen_slot?.slot_iso || '';
+                    const opts = (slots || []).map(s => `<option value="${s.slot_iso}" ${selected === s.slot_iso ? 'selected' : ''}>${this.escapeHtml(s.label)}</option>`).join('');
+                    return `
+                        <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+                            <div style="flex:1;min-width:260px;">
+                                <label style="display:block;font-weight:700;color:#718096;margin-bottom:6px;">Slot (next 5 days, 12:00–15:00)</label>
+                                <select id="hrAutoSlotSelect_${c.id}" style="width:100%;padding:10px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:13px;">${opts}</select>
+                            </div>
+                            <div style="min-width:220px;">
+                                <button type="button" class="btn btn-primary" style="width:100%;" onclick="viseAI._hrAutoSelectSlot('${c.id}')"><i class="fas fa-calendar-check"></i> Confirm slot & send invite</button>
+                            </div>
+                        </div>`;
+                }
+                if (stage === 'INTERVIEW_WAIT_REVIEW') {
+                    return `<button type="button" class="btn btn-primary" onclick="viseAI._hrAutoProgress('${c.id}')"><i class="fas fa-microphone"></i> Generate AI interview report</button>`;
+                }
+                if (stage === 'REPORT_WAIT_REVIEW') {
+                    return `<button type="button" class="btn btn-primary" onclick="viseAI._hrAutoProgress('${c.id}')"><i class="fas fa-file-alt"></i> Approve report & draft final email</button>`;
+                }
+                if (stage === 'FINAL_WAIT_REVIEW') {
+                    return `<button type="button" class="btn btn-primary" onclick="viseAI._hrAutoProgress('${c.id}')"><i class="fas fa-paper-plane"></i> Send final email</button>`;
+                }
+                if (stage === 'DONE') {
+                    return `<div style="background:#f0fff4;border:1px solid #9ae6b4;color:#276749;border-radius:10px;padding:14px;font-weight:800;"><i class="fas fa-check-circle"></i> Completed</div>`;
+                }
+                return `<div style="color:#718096;">${this.escapeHtml(stage)}</div>`;
+            }
+
+            _hrAutoRenderPipeline(status) {
+                const wrap = document.getElementById('hrAutoCandidatesWrap');
+                const barEl = document.getElementById('hrAutoPipelineBar');
+                const candidates = status.candidates || [];
+                const slots = status.slots || [];
+                const pipeline = status.pipeline || {};
+                const dom = pipeline.dominant_step || 1;
+                const pct = dom >= 6 ? 100 : Math.min(100, Math.max(0, pipeline.progress_percent != null ? pipeline.progress_percent : 0));
+
+                if (barEl) {
+                    if (this.hrAutomation?.runId) {
+                        barEl.style.display = 'block';
+                        const labels = ['JD & résumés', 'Schedule', 'Interview', 'Report', 'Final email', 'Done'];
+                        const stepRow = labels.map((lab, i) => {
+                            const n = i + 1;
+                            let cls = '';
+                            if (dom >= 6 || n < dom) cls = 'background:#276749;color:#fff;';
+                            else if (n === dom) cls = 'background:var(--accent);color:#fff;box-shadow:0 0 0 2px rgba(107,76,113,0.35);';
+                            else cls = 'background:#e2e8f0;color:#718096;';
+                            return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;">
+                                <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:12px;font-weight:800;${cls}">${n}</span>
+                                <span style="font-size:10px;color:#4a5568;line-height:1.2;font-weight:600;">${this.escapeHtml(lab)}</span>
+                            </div>`;
+                        }).join('');
+                        const cts = pipeline.counts || {};
+                        const cntLine = [cts.total != null && `Total ${cts.total}`, cts.analyzed != null && `Analyzed ${cts.analyzed}`, cts.jd_pass != null && `Pass ${cts.jd_fail != null ? `${cts.jd_pass} / fail ${cts.jd_fail}` : cts.jd_pass}`].filter(Boolean).join(' · ');
+                        barEl.innerHTML = `
+                            <div style="font-size:12px;font-weight:800;color:#2d3748;margin-bottom:10px;">Pipeline progress</div>
+                            <div style="height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:12px;">
+                                <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),#8b5cf6);transition:width .45s ease;"></div>
+                            </div>
+                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">${stepRow}</div>
+                            ${cntLine ? `<div style="margin-top:10px;font-size:12px;color:#718096;">${this.escapeHtml(cntLine)}</div>` : ''}`;
+                    } else {
+                        barEl.style.display = 'none';
+                        barEl.innerHTML = '';
+                    }
+                }
+
+                if (!wrap) return;
+
+                if (!candidates.length) {
+                    wrap.innerHTML = '<div style="color:#718096;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;text-align:center;">No candidates in this run yet.</div>';
+                    return;
+                }
+
+                const step1Profiles = candidates.filter(c => c.stage === 'PROFILE_WAIT_REVIEW');
+                const step1Await = candidates.filter(c => c.stage === 'STEP1_AWAIT_SELECTION');
+                const inPipeline = (c) => c.stage !== 'STEP1_EXCLUDED' && c.stage !== 'STEP1_AWAIT_SELECTION' && c.stage !== 'PROFILE_WAIT_REVIEW';
+                const pipelineActive = candidates.filter(inPipeline);
+
+                const renderCandCard = (c) => {
+                    const st = c.stage;
+                    const chosenLabel = c.chosen_slot?.label ? this.escapeHtml(c.chosen_slot.label) : '';
+                    const interviewScore = c.interview_score != null ? c.interview_score : '';
+                    const bodyHtml = this._hrAutoCardBodyForStage(c, slots);
+                    return `
+                        <div style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;margin-bottom:12px;">
+                            <div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;flex-wrap:wrap;">
+                                <div>
+                                    <div style="font-weight:900;color:#2d3748;font-size:14px;margin-bottom:6px;">${this.escapeHtml(c.candidate_name || 'Unknown')}</div>
+                                    <div style="font-size:12px;color:#718096;margin-bottom:2px;"><strong>Email:</strong> ${this.escapeHtml(c.candidate_email || '-')}</div>
+                                    <div style="font-size:12px;color:#718096;margin-bottom:2px;"><strong>Stage:</strong> ${this.escapeHtml(st)}</div>
+                                    ${chosenLabel ? `<div style="font-size:12px;color:#718096;margin-top:6px;"><strong>Slot:</strong> ${chosenLabel}</div>` : ''}
+                                    ${interviewScore !== '' ? `<div style="font-size:12px;color:#718096;margin-top:2px;"><strong>Interview score:</strong> ${interviewScore}</div>` : ''}
+                                </div>
+                                <div style="min-width:220px;"><div style="display:flex;flex-direction:column;gap:8px;">${bodyHtml}</div></div>
+                            </div>
+                        </div>`;
+                };
+
+                const renderStepShell = (stepNum, title, innerHtml) => {
+                    const isFuture = dom < stepNum;
+                    const isActive = dom === stepNum;
+                    const isPast = dom > stepNum;
+                    const headerBg = isActive ? '#faf5ff' : '#f7fafc';
+                    const border = isActive ? '2px solid rgba(107,76,113,0.35)' : '1px solid #e2e8f0';
+                    const bodyDisplay = isActive ? 'block' : 'none';
+                    let chip = '';
+                    if (isFuture) chip = '<span style="font-size:11px;color:#a0aec0;font-weight:700;">Locked</span>';
+                    else if (isPast) chip = '<span style="font-size:11px;color:#276749;font-weight:700;"><i class="fas fa-check"></i></span>';
+                    else chip = '<span style="font-size:11px;color:var(--accent);font-weight:800;">Active</span>';
+                    let summary = '';
+                    if (stepNum === 1 && isPast && pipeline.step1_collapsed_summary) {
+                        summary = `<span style="margin-left:8px;font-size:12px;color:#718096;font-weight:600;">${this.escapeHtml(pipeline.step1_collapsed_summary)}</span>`;
+                    }
+                    const hdrCursor = isPast ? 'pointer' : 'default';
+                    return `
+                        <div class="hr-auto-step" data-hr-step="${stepNum}" style="margin-bottom:12px;background:#fff;border-radius:14px;border:${border};overflow:hidden;">
+                            <div class="hr-auto-step-hdr" style="padding:${isActive ? '14px 16px' : '10px 16px'};background:${headerBg};cursor:${hdrCursor};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;"
+                                 onclick="${isPast ? `viseAI._hrAutoToggleStep(${stepNum})` : ''}">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                    <span style="font-weight:900;color:var(--accent);font-size:13px;">Step ${stepNum}</span>
+                                    <span style="font-weight:800;color:#2d3748;font-size:14px;">${this.escapeHtml(title)}</span>
+                                    ${summary}
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    ${isPast ? '<span style="font-size:11px;color:#718096;">Expand</span><i class="fas fa-chevron-down" style="font-size:11px;color:#718096;"></i>' : ''}
+                                    ${chip}
+                                </div>
+                            </div>
+                            <div class="hr-auto-step-body" style="display:${bodyDisplay};padding:16px;border-top:1px solid #edf2f7;">
+                                ${innerHtml}
+                            </div>
+                        </div>`;
+                };
+
+                let step1Inner = '';
+                if (dom === 1) {
+                    if (step1Profiles.length) {
+                        step1Inner = `<p style="color:#4a5568;font-size:14px;margin:0 0 12px;">${step1Profiles.length} file(s) ingested. Run JD screening on all résumés (may take a minute).</p>
+                            <button type="button" class="btn btn-primary" id="hrAutoStep1AnalyzeBtn"><i class="fas fa-brain"></i> Analyze all résumés with JD</button>`;
+                    } else if (step1Await.length) {
+                        const filterBar = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                            <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="viseAI._hrAutoFilterStep1('all')">All</button>
+                            <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="viseAI._hrAutoFilterStep1('pass')">JD pass</button>
+                            <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="viseAI._hrAutoFilterStep1('fail')">JD fail</button>
+                        </div>`;
+                        const rows = step1Await.map(c => {
+                            const pass = c.jd_pass === true;
+                            const chk = pass ? 'checked' : '';
+                            const rowCls = pass ? 'hr-auto-s1-pass' : 'hr-auto-s1-fail';
+                            return `<tr class="hr-auto-s1-row ${rowCls}" data-pass="${pass ? '1' : '0'}" style="border-bottom:1px solid #edf2f7;">
+                                <td style="padding:10px 8px;"><input type="checkbox" class="hrAutoPickCb" value="${c.id}" ${chk}></td>
+                                <td style="padding:10px 8px;font-size:13px;font-weight:700;color:#2d3748;">${this.escapeHtml(c.candidate_name || c.resume_filename || 'Unknown')}</td>
+                                <td style="padding:10px 8px;font-size:12px;color:#718096;">${this.escapeHtml(c.candidate_email || '—')}</td>
+                                <td style="padding:10px 8px;font-size:13px;font-weight:800;color:${pass ? '#276749' : '#c53030'};">${pass ? 'PASS' : 'FAIL'}</td>
+                                <td style="padding:10px 8px;font-size:13px;">${c.match_percent != null ? c.match_percent + '%' : '—'}</td>
+                                <td style="padding:10px 8px;font-size:12px;">${this.escapeHtml(c.screening_recommendation || '—')}</td>
+                            </tr>`;
+                        }).join('');
+                        step1Inner = `${filterBar}
+                            <p style="font-size:13px;color:#4a5568;margin-bottom:8px;">Select who continues in the pipeline (defaults: all JD-pass). Others will be marked excluded.</p>
+                            <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;">
+                            <table style="width:100%;border-collapse:collapse;background:#fff;">
+                                <thead><tr style="background:#f7fafc;font-size:11px;text-transform:uppercase;color:#718096;">
+                                    <th style="padding:8px;text-align:left;"><input type="checkbox" id="hrAutoPickAllPassed" title="Toggle JD-pass"></th>
+                                    <th style="padding:8px;text-align:left;">Candidate</th>
+                                    <th style="padding:8px;text-align:left;">Email</th>
+                                    <th style="padding:8px;text-align:left;">JD</th>
+                                    <th style="padding:8px;text-align:left;">Match</th>
+                                    <th style="padding:8px;text-align:left;">AI rec.</th>
+                                </tr></thead>
+                                <tbody>${rows}</tbody>
+                            </table></div>
+                            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                                <button type="button" class="btn btn-primary" id="hrAutoStep1ProceedBtn"><i class="fas fa-arrow-right"></i> Continue with selected</button>
+                                <label style="font-size:12px;color:#718096;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="hrAutoSelectAllPassedCb"> Select all JD-pass</label>
+                            </div>`;
+                    } else {
+                        step1Inner = '<p style="color:#718096;">Nothing to do in Step 1 for this run.</p>';
+                    }
+                } else {
+                    step1Inner = `<p style="margin:0;font-size:13px;color:#4a5568;">${this.escapeHtml(pipeline.step1_collapsed_summary || 'Step 1 completed.')}</p>`;
+                }
+
+                const step2List = pipelineActive.filter(c => c.stage === 'SLOT_WAIT_REVIEW' || c.stage === 'SCREENING_WAIT_REVIEW');
+                const step3List = pipelineActive.filter(c => c.stage === 'INTERVIEW_WAIT_REVIEW');
+                const step4List = pipelineActive.filter(c => c.stage === 'REPORT_WAIT_REVIEW');
+                const step5List = pipelineActive.filter(c => c.stage === 'FINAL_WAIT_REVIEW');
+
+                const step2Inner = dom === 2
+                    ? (step2List.length ? step2List.map(renderCandCard).join('') : '<p style="color:#718096;">No candidates waiting on scheduling.</p>')
+                    : (step2List.length ? `<p style="font-size:13px;color:#718096;">${step2List.length} candidate(s) in scheduling.</p>` : '<p style="color:#718096;">—</p>');
+                const step3Inner = dom === 3
+                    ? (step3List.length ? step3List.map(renderCandCard).join('') : '<p style="color:#718096;">No interview step pending.</p>')
+                    : (step3List.length ? `<p style="font-size:13px;color:#718096;">${step3List.length} in interview.</p>` : '<p style="color:#718096;">—</p>');
+                const step4Inner = dom === 4
+                    ? (step4List.length ? step4List.map(renderCandCard).join('') : '<p style="color:#718096;">No report review pending.</p>')
+                    : (step4List.length ? `<p style="font-size:13px;color:#718096;">${step4List.length} in report review.</p>` : '<p style="color:#718096;">—</p>');
+                const step5Inner = dom === 5
+                    ? (step5List.length ? step5List.map(renderCandCard).join('') : '<p style="color:#718096;">No final email pending.</p>')
+                    : (step5List.length ? `<p style="font-size:13px;color:#718096;">${step5List.length} awaiting final email.</p>` : '<p style="color:#718096;">—</p>');
+
+                let step6Inner = '';
+                if (dom >= 6 && candidates.every(c => c.stage === 'DONE' || c.stage === 'STEP1_EXCLUDED')) {
+                    step6Inner = '<p style="color:#276749;font-weight:800;"><i class="fas fa-check-circle"></i> All pipeline actions complete for this run.</p>';
+                } else if (dom >= 6) {
+                    step6Inner = '<p style="color:#718096;">All active stages completed. Excluded candidates are preserved in data only.</p>';
+                } else {
+                    const doneN = candidates.filter(c => c.stage === 'DONE').length;
+                    step6Inner = doneN ? `<p style="color:#718096;font-size:13px;">${doneN} candidate(s) fully done. Finish earlier steps to close the run.</p>` : '<p style="color:#718096;">—</p>';
+                }
+
+                wrap.innerHTML = `
+                    <div style="margin:4px 0 14px;font-weight:900;color:#2d3748;font-size:15px;">Run <code style="font-size:12px;background:#edf2f7;padding:2px 8px;border-radius:6px;">${this.escapeHtml(status.run?.id || '')}</code></div>
+                    ${renderStepShell(1, 'Résumés & JD screening', step1Inner)}
+                    ${renderStepShell(2, 'Schedule & invite', step2Inner)}
+                    ${renderStepShell(3, 'AI interview (simulated)', step3Inner)}
+                    ${renderStepShell(4, 'Interview report review', step4Inner)}
+                    ${renderStepShell(5, 'Final email', step5Inner)}
+                    ${renderStepShell(6, 'Complete', step6Inner)}
+                `;
+
+                this._hrAutoWireStep1Ui();
+            }
+
+            _hrAutoToggleStep(stepNum) {
+                const el = document.querySelector(`.hr-auto-step[data-hr-step="${stepNum}"] .hr-auto-step-body`);
+                const hdr = document.querySelector(`.hr-auto-step[data-hr-step="${stepNum}"] .hr-auto-step-hdr`);
+                if (!el) return;
+                el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                if (hdr) hdr.querySelector('.fa-chevron-down')?.classList.toggle('fa-chevron-up');
+            }
+
+            _hrAutoFilterStep1(which) {
+                document.querySelectorAll('.hr-auto-s1-row').forEach(tr => {
+                    const p = tr.getAttribute('data-pass');
+                    let show = true;
+                    if (which === 'pass') show = p === '1';
+                    if (which === 'fail') show = p === '0';
+                    tr.style.display = show ? '' : 'none';
+                });
+            }
+
+            _hrAutoWireStep1Ui() {
+                const analyzeBtn = document.getElementById('hrAutoStep1AnalyzeBtn');
+                if (analyzeBtn) analyzeBtn.onclick = () => this._hrAutoStep1Analyze();
+                const proceedBtn = document.getElementById('hrAutoStep1ProceedBtn');
+                if (proceedBtn) proceedBtn.onclick = () => this._hrAutoStep1Proceed();
+                const selAll = document.getElementById('hrAutoSelectAllPassedCb');
+                if (selAll) selAll.onchange = () => {
+                    document.querySelectorAll('.hr-auto-s1-row[data-pass="1"] .hrAutoPickCb').forEach(cb => { cb.checked = selAll.checked; });
+                };
+                const pickAllPassed = document.getElementById('hrAutoPickAllPassed');
+                if (pickAllPassed) pickAllPassed.onchange = () => {
+                    document.querySelectorAll('.hrAutoPickCb').forEach(cb => {
+                        const tr = cb.closest('tr');
+                        const isPass = tr && tr.getAttribute('data-pass') === '1';
+                        if (isPass) cb.checked = pickAllPassed.checked;
+                    });
+                };
+            }
+
+            async _hrAutoStep1Analyze() {
+                if (!this.hrAutomation?.runId) return;
+                const thEl = document.getElementById('hrAutoPassThreshold');
+                const threshold = Math.max(0, Math.min(100, parseInt(thEl?.value || '70', 10) || 70));
+                const statusBar = document.getElementById('hrAutoStatusBar');
+                const btn = document.getElementById('hrAutoStep1AnalyzeBtn');
+                if (btn) btn.disabled = true;
+                if (statusBar) { statusBar.style.display = 'block'; statusBar.textContent = 'Analyzing all résumés against JD (LLM)…'; }
+                try {
+                    const r = await this._hrAutoPostWithStart404Fallback('/api/hr/automation/step1_analyze', 'analyze_step1_only', {
+                        run_id: this.hrAutomation.runId,
+                        pass_threshold: threshold
+                    });
+                    const data = await this._parseApiResponse(r, 'Step 1 analyze failed');
+                    if (!data.success) throw new Error(data.error || 'Analyze failed');
+                    if (data.errors && data.errors.length) console.warn('Step1 partial errors', data.errors);
+                    await this._hrAutoFetchStatus();
+                    if (statusBar) statusBar.textContent = data.errors?.length ? `Done with ${data.errors.length} error(s). Check console.` : 'JD screening complete. Select candidates to continue.';
+                } catch (e) {
+                    if (statusBar) {
+                        statusBar.style.display = 'block';
+                        let msg = String(e.message || e);
+                        if (/404|Not Found/i.test(msg)) {
+                            msg += ' — If this tab is on port 8000, hard-refresh (Ctrl+Shift+R). Open ' + (window.location.origin || '') + '/api/hr/automation/ping (must be JSON). If UI is on Netlify, deploy latest flask_server.py to your backend or open the app at http://127.0.0.1:8000/app';
+                        }
+                        statusBar.textContent = msg;
+                    }
+                } finally {
+                    if (btn) btn.disabled = false;
+                }
+            }
+
+            async _hrAutoStep1Proceed() {
+                const boxes = Array.from(document.querySelectorAll('.hrAutoPickCb:checked'));
+                const ids = boxes.map(cb => cb.value).filter(Boolean);
+                if (!ids.length) { alert('Select at least one candidate to continue.'); return; }
+                if (!this.hrAutomation?.runId) return;
+                try {
+                    const r = await this._hrAutoPostWithStart404Fallback('/api/hr/automation/step1_select', 'step1_select_only', {
+                        run_id: this.hrAutomation.runId,
+                        selected_candidate_ids: ids
+                    });
+                    const data = await this._parseApiResponse(r, 'Step 1 selection failed');
+                    if (!data.success) throw new Error(data.error || 'Selection failed');
+                    await this._hrAutoFetchStatus();
+                    const statusBar = document.getElementById('hrAutoStatusBar');
+                    if (statusBar) { statusBar.style.display = 'block'; statusBar.textContent = 'Shortlist saved. Continue with schedule & invite.'; }
+                } catch (e) {
+                    alert(String(e.message || e));
+                }
+            }
+
+            async _hrAutoProgress(candidateId) {
+                if (!this.hrAutomation?.runId) return;
+                try {
+                    const r = await fetch(_api('/api/hr/automation/progress'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ run_id: this.hrAutomation.runId, candidate_id: candidateId })
+                    });
+                    const data = await this._parseApiResponse(r, 'Progress failed');
+                    if (!data.success) throw new Error(data.error || 'Progress failed');
+                    await this._hrAutoFetchStatus();
+                } catch (e) {
+                    alert('Progress failed: ' + (e.message || e));
+                }
+            }
+
+            async _hrAutoSelectSlot(candidateId) {
+                const slotSelect = document.getElementById('hrAutoSlotSelect_' + candidateId);
+                if (!slotSelect) { alert('Slot select missing'); return; }
+                const slot_iso = (slotSelect.value || '').trim();
+                if (!slot_iso) { alert('Pick a slot first'); return; }
+                if (!this.hrAutomation?.runId) return;
+                try {
+                    const r = await fetch(_api('/api/hr/automation/select-slot'), {
+                        method: 'POST',
+                        headers: { ..._apiHeaders(), 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ run_id: this.hrAutomation.runId, candidate_id: candidateId, slot_iso })
+                    });
+                    const data = await this._parseApiResponse(r, 'Select slot failed');
+                    if (!data.success) throw new Error(data.error || 'Select slot failed');
+                    await this._hrAutoFetchStatus();
+                } catch (e) {
+                    alert(String(e.message || e));
+                }
             }
 
             renderChatHistory() {
@@ -10631,6 +11336,7 @@ ${config.email_enabled && config.smtp_configured ? 'Email functionality is ready
                 { view: 'resume-analyzer', label: 'Resume Analyzer', icon: 'fa-file-alt' },
                 { view: 'candidate-screening', label: 'Candidate Screening', icon: 'fa-user-check' },
                 { view: 'mail-automation', label: 'Mail Automation', icon: 'fa-envelope' },
+                { view: 'hr-automation', label: 'HR Automation', icon: 'fa-user-gear' },
                 { view: 'employee-documents', label: 'Employee Documents', icon: 'fa-users' },
                 { view: 'documents', label: 'Documents', icon: 'fa-file-alt' },
                 { view: 'history', label: 'History', icon: 'fa-history' },
